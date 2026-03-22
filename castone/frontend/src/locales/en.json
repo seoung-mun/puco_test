@@ -187,15 +187,20 @@
     "title": "Game history",
     "empty": "No actions recorded yet.",
     "actions": {
-      "new_game":             "New game: {{players}} ({{num_players}} players)",
-      "select_role":          "{{player}} chose: {{role}}",
-      "settle_plantation":    "{{player}} settled a {{plantation}} plantation",
-      "build":                "{{player}} built {{building}} (cost: {{cost}})",
-      "craftsman_privilege":  "{{player}} chose {{good}} as craftsman privilege",
-      "sell":                 "{{player}} sold {{good}} for {{price}} doubloons",
-      "load_ship":            "{{player}} loaded {{quantity}} {{good}} onto a ship (+{{vp}} VP)",
-      "discard":              "{{player}} discarded excess goods",
-      "round_end":            "End of round {{round}}"
+      "new_game":              "New game: {{players}} ({{num_players}} players)",
+      "select_role":           "{{player}} selected role: {{role}}",
+      "settle_plantation":     "{{player}} placed {{plantation}}",
+      "build":                 "{{player}} built {{building}}",
+      "craftsman_privilege":   "{{player}} took craftsman bonus: {{good}}",
+      "sell":                  "{{player}} sold {{good}}",
+      "load_ship":             "{{player}} loaded {{quantity}}x {{good}} onto {{ship_capacity}}-slot ship",
+      "discard_goods":         "{{player}} discarded remaining goods",
+      "captain_pass":          "{{player}} passed captain phase",
+      "pass":                  "{{player}} passed",
+      "use_hacienda":          "{{player}} used hacienda",
+      "mayor_finish_placement":"{{player}} finished colonist placement",
+      "discard_goods":         "{{player}} discarded remaining goods",
+      "round_end":             "End of round {{round}}"
     }
   },
 

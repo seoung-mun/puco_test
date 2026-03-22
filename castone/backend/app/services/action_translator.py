@@ -59,11 +59,18 @@ BUILDING_MAP = {
 }
 
 TILE_MAP = {
+    # long names (legacy)
     "coffee_plantation": TileType.COFFEE_PLANTATION,
     "tobacco_plantation": TileType.TOBACCO_PLANTATION,
     "corn_plantation": TileType.CORN_PLANTATION,
     "sugar_plantation": TileType.SUGAR_PLANTATION,
     "indigo_plantation": TileType.INDIGO_PLANTATION,
+    # short names (sent by frontend)
+    "coffee": TileType.COFFEE_PLANTATION,
+    "tobacco": TileType.TOBACCO_PLANTATION,
+    "corn": TileType.CORN_PLANTATION,
+    "sugar": TileType.SUGAR_PLANTATION,
+    "indigo": TileType.INDIGO_PLANTATION,
     "quarry": TileType.QUARRY,
 }
 
@@ -134,10 +141,16 @@ def craftsman_privilege(good: str) -> int:
 
 
 def mayor_toggle(target_type: str, target_index: int) -> int:
-    """Works for both place and pickup (same toggle mechanic)."""
-    if target_type == "island":
+    """Works for both place and pickup (same toggle mechanic).
+    Accepts 'island'/'plantation' for island slots and 'city'/'building' for city slots.
+    """
+    if target_type in ("island", "plantation"):
+        if not (0 <= target_index <= 11):
+            raise ValueError(f"Island target_index {target_index} out of range (0-11)")
         return 69 + target_index   # 69-80
-    if target_type == "city":
+    if target_type in ("city", "building"):
+        if not (0 <= target_index <= 11):
+            raise ValueError(f"City target_index {target_index} out of range (0-11)")
         return 81 + target_index   # 81-92
     raise ValueError(f"Unknown target_type: {target_type!r}")
 

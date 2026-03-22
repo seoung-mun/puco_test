@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+import os
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.dependencies import get_db
 from app.db.models import User
@@ -9,7 +10,10 @@ router = APIRouter()
 
 @router.post("/mock-login")
 async def mock_login(db: Session = Depends(get_db)):
-    # Create or get a test user
+    """Development-only endpoint. Disabled in production via DEBUG env var."""
+    if os.getenv("DEBUG", "false").lower() != "true":
+        raise HTTPException(status_code=404, detail="Not found")
+
     user = db.query(User).filter(User.google_id == "mock_google_id").first()
     if not user:
         user = User(
@@ -20,6 +24,6 @@ async def mock_login(db: Session = Depends(get_db)):
         db.add(user)
         db.commit()
         db.refresh(user)
-    
+
     access_token = create_access_token(subject=str(user.id))
     return {"access_token": access_token, "token_type": "bearer", "user": user}

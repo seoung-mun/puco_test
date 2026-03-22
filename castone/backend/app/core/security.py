@@ -3,8 +3,17 @@ from typing import Any, Union, Optional
 from jose import jwt
 import os
 
-# Secret key for JWT signing - in a real app, this should be in an environment variable
-SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-for-puco-battle-platform")
+# Secret key for JWT signing.
+# In production, set SECRET_KEY env var. In local dev, a fallback is used.
+_secret_key = os.getenv("SECRET_KEY")
+if not _secret_key:
+    import warnings
+    _secret_key = "dev-only-insecure-key-set-SECRET_KEY-in-production"
+    warnings.warn(
+        "SECRET_KEY env var not set. Using insecure default — DO NOT use in production.",
+        stacklevel=2,
+    )
+SECRET_KEY = _secret_key
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 

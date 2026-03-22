@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
+interface BotAgent { type: string; name: string; }
+
 interface Props {
   gameExists: boolean;
   onContinue: () => void;
@@ -12,40 +14,39 @@ interface Props {
 
 type View = 'main' | 'offline_choose' | 'offline_setup' | 'multiplayer';
 
-const BOT_NAMES = [
-  // Star Wars
-  'Vader', 'Yoda', 'Obi-Wan', 'Palpatine', 'Han Solo', 'Mace Windu',
-  // Signore degli Anelli
-  'Gandalf', 'Saruman', 'Aragorn', 'Legolas', 'Gimli', 'Gollum',
-  // Matrix
-  'Morpheus', 'Agent Smith', 'Oracle', 'Trinity',
-  // Alien
-  'Ripley', 'Ash', 'Bishop',
-];
-
-let namePool = [...BOT_NAMES];
-function pickBotName(): string {
-  if (namePool.length === 0) namePool = [...BOT_NAMES];
-  const idx = Math.floor(Math.random() * namePool.length);
-  return namePool.splice(idx, 1)[0];
-}
-
 export default function HomeScreen({ gameExists, onContinue, onStartOffline, onMultiplayer, error }: Props) {
   const { t } = useTranslation();
   const [view, setView] = useState<View>('main');
   const [hostName, setHostName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [botAgents, setBotAgents] = useState<BotAgent[]>([]);
 
   // Offline setup state
   const [numPlayers, setNumPlayers] = useState(3);
   const [names, setNames] = useState(['', '', '', '', '']);
-  const [botTypes, setBotTypes] = useState(['', 'scoring', 'scoring', 'scoring', 'scoring']);
+  const [botTypes, setBotTypes] = useState(['', 'random', 'random', 'random', 'random']);
 
-  // Auto-fill bot names on mount
+  // Fetch available bot types from backend
   useEffect(() => {
-    const initial = ['', '', '', '', ''];
-    for (let i = 1; i < 5; i++) initial[i] = pickBotName();
-    setNames(initial);
+    fetch('/api/bot-types')
+      .then(r => r.json())
+      .then((data: BotAgent[]) => {
+        setBotAgents(data);
+        const defaultType = data[0]?.type ?? 'random';
+        setBotTypes(prev => prev.map((bt, i) => i === 0 ? '' : (bt || defaultType)));
+        // Auto-fill bot names from agent config
+        setNames(prev => {
+          const updated = [...prev];
+          for (let i = 1; i < 5; i++) {
+            if (!updated[i].trim()) {
+              const agent = data.find(a => a.type === (botTypes[i] || defaultType));
+              updated[i] = agent?.name ?? defaultType;
+            }
+          }
+          return updated;
+        });
+      })
+      .catch(() => {});
   }, []);
 
   const cardStyle: React.CSSProperties = {
@@ -174,7 +175,8 @@ export default function HomeScreen({ gameExists, onContinue, onStartOffline, onM
                   const updatedNames = [...names];
                   for (let i = 0; i < n; i++) {
                     if (botTypes[i] && !updatedNames[i].trim()) {
-                      updatedNames[i] = pickBotName();
+                      const agent = botAgents.find(a => a.type === botTypes[i]);
+                      updatedNames[i] = agent?.name ?? botTypes[i];
                     }
                   }
                   setNames(updatedNames);
@@ -186,32 +188,41 @@ export default function HomeScreen({ gameExists, onContinue, onStartOffline, onM
             </div>
 
             {/* Player rows */}
-            {Array.from({ length: numPlayers }, (_, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, width: '100%' }}>
-                <input
-                  placeholder={t('newGame.playerName', { n: i + 1 })}
-                  value={names[i]}
-                  onChange={e => { const n = [...names]; n[i] = e.target.value; setNames(n); }}
-                  style={{ ...inputStyle, flex: 2 }}
-                />
-                <select
-                  value={botTypes[i]}
-                  onChange={e => {
-                    const b = [...botTypes]; b[i] = e.target.value; setBotTypes(b);
-                    // Auto-fill a name when switching to bot (if field is still empty or default)
-                    if (e.target.value && !names[i].trim()) {
-                      const n = [...names]; n[i] = pickBotName(); setNames(n);
-                    }
-                  }}
-                  style={{ ...selectStyle, flex: 1 }}
-                >
-                  <option value="">{t('newGame.human')}</option>
-                  <option value="random">🎲 {t('newGame.botRandom')}</option>
-                  <option value="scoring">⚙️ {t('newGame.botSmart')}</option>
-                  <option value="gemini">🤖 {t('newGame.botGemini')}</option>
-                </select>
-              </div>
-            ))}
+            {Array.from({ length: numPlayers }, (_, i) => {
+              const isBot = !!botTypes[i];
+              return (
+                <div key={i} style={{ display: 'flex', gap: 8, width: '100%' }}>
+                  <input
+                    placeholder={t('newGame.playerName', { n: i + 1 })}
+                    value={names[i]}
+                    readOnly={isBot}
+                    onChange={e => { if (!isBot) { const n = [...names]; n[i] = e.target.value; setNames(n); } }}
+                    style={{ ...inputStyle, flex: 2, ...(isBot ? { opacity: 0.6, cursor: 'default' } : {}) }}
+                  />
+                  <select
+                    value={botTypes[i]}
+                    onChange={e => {
+                      const b = [...botTypes]; b[i] = e.target.value; setBotTypes(b);
+                      // Auto-set name from agent config when switching to bot
+                      const n = [...names];
+                      if (e.target.value) {
+                        const agent = botAgents.find(a => a.type === e.target.value);
+                        n[i] = agent?.name ?? e.target.value;
+                      } else {
+                        n[i] = '';
+                      }
+                      setNames(n);
+                    }}
+                    style={{ ...selectStyle, flex: 1 }}
+                  >
+                    <option value="">{t('newGame.human')}</option>
+                    {botAgents.map(a => (
+                      <option key={a.type} value={a.type}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
 
             <p style={{ color: '#668', margin: 0, fontSize: 12 }}>{t('newGame.govNote')}</p>
 

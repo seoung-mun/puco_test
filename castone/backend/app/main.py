@@ -1,3 +1,4 @@
+import os
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from fastapi import FastAPI
@@ -17,9 +18,17 @@ app = FastAPI(
 )
 
 # CORS Setting
+# Set ALLOWED_ORIGINS env var to a comma-separated list for production.
+# e.g. ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+_allowed_origins: list[str] = (
+    [o.strip() for o in _raw_origins.split(",") if o.strip()]
+    if _raw_origins
+    else ["http://localhost:3000", "http://localhost:5173"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

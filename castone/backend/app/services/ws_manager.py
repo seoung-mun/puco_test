@@ -1,9 +1,12 @@
+import logging
 from fastapi import WebSocket
 from typing import Dict, Set
 import asyncio
 import json
 import redis.asyncio as async_redis
 import os
+
+logger = logging.getLogger(__name__)
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -14,7 +17,7 @@ class ConnectionManager:
 
     async def connect(self, game_id: str, websocket: WebSocket):
         await websocket.accept()
-        print(f"WS Connected: {game_id}")
+        logger.info("WS connected: %s", game_id)
         if game_id not in self.active_connections:
             self.active_connections[game_id] = set()
             # Start pub/sub listener for this game if this is the first connection
@@ -22,7 +25,7 @@ class ConnectionManager:
         self.active_connections[game_id].add(websocket)
 
     def disconnect(self, game_id: str, websocket: WebSocket):
-        print(f"WS Disconnected: {game_id}")
+        logger.info("WS disconnected: %s", game_id)
         if game_id in self.active_connections:
             self.active_connections[game_id].remove(websocket)
             if not self.active_connections[game_id]:
@@ -39,10 +42,10 @@ class ConnectionManager:
                 if game_id not in self.active_connections:
                     break
         except Exception as e:
-            print(f"Redis Listener Error for {game_id}: {e}")
+            logger.error("Redis listener error for %s: %s", game_id, e)
         finally:
             await pubsub.unsubscribe(f"game:{game_id}:events")
-            print(f"Redis Listener Stopped: {game_id}")
+            logger.debug("Redis listener stopped: %s", game_id)
 
     async def broadcast_to_game(self, game_id: str, message: dict):
         """Directly broadcast a message without Redis (Fallback)"""

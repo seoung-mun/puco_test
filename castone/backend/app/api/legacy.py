@@ -3,16 +3,30 @@ Legacy API — endpoints at /api/* that match the frontend's expected interface.
 All game state is managed by the SessionManager singleton.
 """
 import random
+import os, sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../PuCo_RL")))
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.session_manager import session
-from app.services.state_serializer import serialize_game_state, compute_score_breakdown
+from app.services.state_serializer import serialize_game_state, compute_score_breakdown, TILE_TO_STR
 import app.services.action_translator as tr
+from configs.constants import Role, Good, BuildingType
 
 router = APIRouter()
+
+# ------------------------------------------------------------------ #
+#  Bot agent catalogue (defined in code; UI only selects from this)   #
+# ------------------------------------------------------------------ #
+
+BOT_AGENTS = [
+    {"type": "random", "name": "Random Bot"},
+    {"type": "ppo",    "name": "PPO Bot"},
+]
+
+_VALID_BOT_TYPES: set = {b["type"] for b in BOT_AGENTS}
 
 
 # ------------------------------------------------------------------ #
@@ -22,6 +36,12 @@ router = APIRouter()
 def _require_game():
     if not session.game_exists or session.game is None:
         raise HTTPException(status_code=400, detail="No active game")
+
+
+def _current_player_name() -> str:
+    """현재 턴 플레이어의 표시 이름을 반환한다."""
+    idx = session.game.env.game.current_player_idx
+    return session.player_names[idx] if idx < len(session.player_names) else f"player_{idx}"
 
 
 def _step(action: int) -> Dict[str, Any]:
@@ -34,6 +54,67 @@ def _step(action: int) -> Dict[str, Any]:
     if result["done"]:
         session.game_over = True
     return result
+
+
+def _action_to_history(action: int, game, sess) -> tuple:
+    """액션 인덱스를 히스토리 (action_name, params) 로 변환한다."""
+    player_idx = game.current_player_idx
+    player_name = sess.player_names[player_idx] if player_idx < len(sess.player_names) else f"player_{player_idx}"
+
+    if action <= 7:            # select_role
+        role_name = Role(action).name.lower()
+        return "select_role", {"player": player_name, "role": role_name}
+
+    elif action <= 13:         # settle_plantation (face-up index 0-5)
+        idx = action - 8
+        tile = game.face_up_plantations[idx]
+        plantation = TILE_TO_STR.get(tile, "unknown")
+        return "settle_plantation", {"player": player_name, "plantation": plantation}
+
+    elif action == 14:         # settle_quarry
+        return "settle_plantation", {"player": player_name, "plantation": "quarry"}
+
+    elif action == 15:         # pass
+        return "pass", {"player": player_name}
+
+    elif action <= 38:         # build
+        bt = BuildingType(action - 16)
+        return "build", {"player": player_name, "building": bt.name.lower()}
+
+    elif action <= 43:         # sell
+        good = Good(action - 39)
+        return "sell", {"player": player_name, "good": good.name.lower()}
+
+    elif action <= 58:         # load_ship (ship_idx * 5 + good_value)
+        offset = action - 44
+        ship_idx = offset // 5
+        good = Good(offset % 5)
+        ship = game.cargo_ships[ship_idx]
+        player = game.players[player_idx]
+        qty = min(player.goods.get(good, 0), ship.capacity - ship.current_load)
+        return "load_ship", {
+            "player": player_name,
+            "good": good.name.lower(),
+            "ship_capacity": str(ship.capacity),
+            "quantity": str(qty),
+        }
+
+    elif action <= 63:         # load_wharf
+        good = Good(action - 59)
+        player = game.players[player_idx]
+        qty = player.goods.get(good, 0)
+        return "load_ship", {
+            "player": player_name,
+            "good": good.name.lower(),
+            "ship_capacity": "wharf",
+            "quantity": str(qty),
+        }
+
+    elif action == 105:        # hacienda_draw
+        return "use_hacienda", {"player": player_name}
+
+    else:
+        return "pass", {"player": player_name}
 
 
 def _run_pending_bots():
@@ -53,7 +134,9 @@ def _run_pending_bots():
         if not valid:
             break
         action = random.choice(valid)
+        action_name, params = _action_to_history(action, game, session)
         result = session.game.step(action)
+        session.add_history(action_name, params)
         if result["done"]:
             session.game_over = True
             break
@@ -144,6 +227,11 @@ class BuildBody(BaseModel):
 #  Server / state endpoints                                            #
 # ------------------------------------------------------------------ #
 
+@router.get("/bot-types")
+def get_bot_types():
+    return BOT_AGENTS
+
+
 @router.get("/server-info")
 def get_server_info():
     return session.server_info
@@ -201,10 +289,15 @@ def new_game(body: NewGameBody):
 @router.post("/bot/set")
 def bot_set(body: BotSetBody):
     _require_game()
+    if body.bot_type not in _VALID_BOT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unknown bot type '{body.bot_type}'. Valid: {sorted(_VALID_BOT_TYPES)}")
     try:
         idx = int(body.player.split("_")[-1])
     except (ValueError, IndexError):
         raise HTTPException(status_code=400, detail="Invalid player identifier")
+    num_players = session.game.env.game.num_players
+    if idx < 0 or idx >= num_players:
+        raise HTTPException(status_code=400, detail=f"Player index {idx} out of range for {num_players}-player game")
     session.bot_players[idx] = body.bot_type
     return {"ok": True}
 
@@ -266,7 +359,10 @@ def lobby_start(body: LobbyStartBody):
 @router.post("/action/select-role")
 def action_select_role(body: SelectRoleBody):
     _require_game()
-    action = tr.select_role(body.role)
+    try:
+        action = tr.select_role(body.role)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     _step(action)
     session.add_history("select_role", {"player": body.player, "role": body.role})
     _run_pending_bots()
@@ -276,8 +372,10 @@ def action_select_role(body: SelectRoleBody):
 @router.post("/action/pass")
 def action_pass():
     _require_game()
+    game = session.game.env.game
+    player_name = session.player_names[game.current_player_idx] if game.current_player_idx < len(session.player_names) else f"player_{game.current_player_idx}"
     _step(tr.pass_action())
-    session.add_history("pass", {})
+    session.add_history("pass", {"player": player_name})
     _run_pending_bots()
     return serialize_game_state(session)
 
@@ -285,8 +383,9 @@ def action_pass():
 @router.post("/action/use-hacienda")
 def action_use_hacienda():
     _require_game()
+    player_name = _current_player_name()
     _step(tr.use_hacienda())
-    session.add_history("use_hacienda", {})
+    session.add_history("use_hacienda", {"player": player_name})
     _run_pending_bots()
     return serialize_game_state(session)
 
@@ -294,10 +393,14 @@ def action_use_hacienda():
 @router.post("/action/settle-plantation")
 def action_settle_plantation(body: SettlePlantationBody):
     _require_game()
+    player_name = _current_player_name()
     game = session.game.env.game
-    action = tr.settle_plantation(body.plantation, game.face_up_plantations)
+    try:
+        action = tr.settle_plantation(body.plantation, game.face_up_plantations)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     _step(action)
-    session.add_history("settle_plantation", {"player": body.player, "plantation": body.plantation})
+    session.add_history("settle_plantation", {"player": player_name, "plantation": body.plantation})
     _run_pending_bots()
     return serialize_game_state(session)
 
@@ -305,7 +408,10 @@ def action_settle_plantation(body: SettlePlantationBody):
 @router.post("/action/mayor-place-colonist")
 def action_mayor_place(body: MayorColonistBody):
     _require_game()
-    action = tr.mayor_toggle(body.target_type, body.target_index)
+    try:
+        action = tr.mayor_toggle(body.target_type, body.target_index)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     _step(action)
     session.add_history("mayor_place_colonist", {"player": body.player, "target": f"{body.target_type}_{body.target_index}"})
     return serialize_game_state(session)
@@ -314,7 +420,10 @@ def action_mayor_place(body: MayorColonistBody):
 @router.post("/action/mayor-pickup-colonist")
 def action_mayor_pickup(body: MayorColonistBody):
     _require_game()
-    action = tr.mayor_toggle(body.target_type, body.target_index)
+    try:
+        action = tr.mayor_toggle(body.target_type, body.target_index)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     _step(action)
     session.add_history("mayor_pickup_colonist", {"player": body.player, "target": f"{body.target_type}_{body.target_index}"})
     return serialize_game_state(session)
@@ -332,9 +441,14 @@ def action_mayor_finish(body: MayorFinishBody):
 @router.post("/action/sell")
 def action_sell(body: SellBody):
     _require_game()
-    action = tr.sell(body.good)
+    game = session.game.env.game
+    player_name = session.player_names[game.current_player_idx] if game.current_player_idx < len(session.player_names) else f"player_{game.current_player_idx}"
+    try:
+        action = tr.sell(body.good)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     _step(action)
-    session.add_history("sell", {"good": body.good})
+    session.add_history("sell", {"player": player_name, "good": body.good})
     _run_pending_bots()
     return serialize_game_state(session)
 
@@ -342,9 +456,13 @@ def action_sell(body: SellBody):
 @router.post("/action/craftsman-privilege")
 def action_craftsman_priv(body: CraftsmanPrivBody):
     _require_game()
-    action = tr.craftsman_privilege(body.good)
+    player_name = _current_player_name()
+    try:
+        action = tr.craftsman_privilege(body.good)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     _step(action)
-    session.add_history("craftsman_privilege", {"good": body.good})
+    session.add_history("craftsman_privilege", {"player": player_name, "good": body.good})
     _run_pending_bots()
     return serialize_game_state(session)
 
@@ -352,9 +470,27 @@ def action_craftsman_priv(body: CraftsmanPrivBody):
 @router.post("/action/load-ship")
 def action_load_ship(body: LoadShipBody):
     _require_game()
-    action = tr.load_ship(body.good, body.ship_index, body.use_wharf)
+    game = session.game.env.game
+    player = game.players[game.current_player_idx]
+    good_enum = tr.GOOD_MAP.get(body.good.lower())
+    if body.use_wharf:
+        qty = player.goods.get(good_enum, 0) if good_enum else 0
+        ship_cap = "wharf"
+    else:
+        ship = game.cargo_ships[body.ship_index]
+        qty = min(player.goods.get(good_enum, 0) if good_enum else 0, ship.capacity - ship.current_load)
+        ship_cap = str(ship.capacity)
+    try:
+        action = tr.load_ship(body.good, body.ship_index, body.use_wharf)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     _step(action)
-    session.add_history("load_ship", {"player": body.player, "good": body.good})
+    session.add_history("load_ship", {
+        "player": body.player,
+        "good": body.good,
+        "ship_capacity": ship_cap,
+        "quantity": str(qty),
+    })
     _run_pending_bots()
     return serialize_game_state(session)
 
@@ -387,8 +523,12 @@ def action_discard_goods(body: DiscardGoodsBody):
 @router.post("/action/build")
 def action_build(body: BuildBody):
     _require_game()
-    action = tr.build(body.building)
+    player_name = _current_player_name()
+    try:
+        action = tr.build(body.building)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     _step(action)
-    session.add_history("build", {"player": body.player, "building": body.building})
+    session.add_history("build", {"player": player_name, "building": body.building})
     _run_pending_bots()
     return serialize_game_state(session)

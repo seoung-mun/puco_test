@@ -189,12 +189,16 @@
     "actions": {
       "new_game":             "새 게임 시작: {{players}} ({{num_players}}인)",
       "select_role":          "{{player}}님이 역할을 선택함: {{role}}",
-      "settle_plantation":    "{{player}}님이 {{plantation}} 플랜테이션을 배치함",
-      "build":                "{{player}}님이 {{building}} 건물을 지음 (비용: {{cost}})",
-      "craftsman_privilege":  "{{player}}님이 생산자 특권으로 {{good}}을 선택함",
-      "sell":                 "{{player}}님이 {{good}}을 {{price}} 더블룬에 판매함",
-      "load_ship":            "{{player}}님이 {{quantity}}개의 {{good}}을 운송선에 실음 (+{{vp}} VP)",
-      "discard":              "{{player}}님이 남은 상품을 폐기함",
+      "settle_plantation":    "{{player}}님이 {{plantation}}을(를) 배치함",
+      "build":                "{{player}}님이 {{building}}을(를) 건설함",
+      "craftsman_privilege":  "{{player}}님이 생산자 특권으로 {{good}}을(를) 선택함",
+      "sell":                 "{{player}}님이 {{good}}을(를) 판매함",
+      "load_ship":            "{{player}}님이 {{ship_capacity}}칸 배에 {{good}} {{quantity}}개를 실음",
+      "discard_goods":        "{{player}}님이 남은 상품을 폐기함",
+      "captain_pass":         "{{player}}님이 선장 페이즈를 패스함",
+      "pass":                 "{{player}}님이 패스함",
+      "use_hacienda":         "{{player}}님이 하시엔다를 사용함",
+      "mayor_finish_placement":"{{player}}님이 이주민 배치를 완료함",
       "round_end":            "{{round}} 라운드 종료"
     }
   },

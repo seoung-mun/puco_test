@@ -1,13 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LobbyPlayer } from '../types/gameState';
 
-const BOT_NAMES = [
-  'Vader', 'Yoda', 'Obi-Wan', 'Palpatine', 'Han Solo', 'Mace Windu',
-  'Gandalf', 'Saruman', 'Aragorn', 'Legolas', 'Gimli', 'Gollum',
-  'Morpheus', 'Agent Smith', 'Oracle', 'Trinity',
-  'Ripley', 'Ash', 'Bishop',
-];
+interface BotAgent { type: string; name: string; }
 
 interface Props {
   players: LobbyPlayer[];
@@ -31,38 +26,36 @@ export default function LobbyScreen({ players, host, myName, sessionKey, onStart
   const hostConnected = hostPlayer?.connected ?? false;
 
   const [addingBot, setAddingBot] = useState(false);
-  const [newBotName, setNewBotName] = useState('');
-  const [newBotType, setNewBotType] = useState('scoring');
+  const [newBotType, setNewBotType] = useState('');
+  const [botAgents, setBotAgents] = useState<BotAgent[]>([]);
 
   const canAddBot = isHost && activePlayers.length < 5;
 
-  function suggestBotName() {
-    const usedNames = players.map(p => p.name);
-    const available = BOT_NAMES.filter(n => !usedNames.includes(n));
-    if (available.length > 0) {
-      return available[Math.floor(Math.random() * available.length)];
-    }
-    let n = 1;
-    while (usedNames.includes(`Bot ${n}`)) n++;
-    return `Bot ${n}`;
-  }
+  useEffect(() => {
+    fetch('/api/bot-types')
+      .then(r => r.json())
+      .then((data: BotAgent[]) => {
+        setBotAgents(data);
+        if (data.length > 0) setNewBotType(data[0].type);
+      })
+      .catch(() => {});
+  }, []);
 
-  function handleAddBotClick() {
-    setNewBotName(suggestBotName());
-    setAddingBot(true);
+  function autoName(type: string): string {
+    const agent = botAgents.find(a => a.type === type);
+    const baseName = agent?.name ?? type;
+    const usedNames = players.map(p => p.name);
+    if (!usedNames.includes(baseName)) return baseName;
+    let n = 2;
+    while (usedNames.includes(`${baseName} ${n}`)) n++;
+    return `${baseName} ${n}`;
   }
 
   function handleConfirmAddBot() {
-    if (onAddBot && newBotName.trim()) {
-      onAddBot(newBotName.trim(), newBotType);
+    if (onAddBot && newBotType) {
+      onAddBot(autoName(newBotType), newBotType);
       setAddingBot(false);
-      setNewBotName('');
     }
-  }
-
-  function handleCancelAddBot() {
-    setAddingBot(false);
-    setNewBotName('');
   }
 
   return (
@@ -106,7 +99,6 @@ export default function LobbyScreen({ players, host, myName, sessionKey, onStart
               <button
                 onClick={() => onRemoveBot(p.name)}
                 style={{ background: 'none', border: '1px solid #444', borderRadius: 4, color: '#888', cursor: 'pointer', fontSize: 13, padding: '1px 7px', lineHeight: 1.4 }}
-                title="Rimuovi bot"
               >×</button>
             )}
           </div>
@@ -120,36 +112,29 @@ export default function LobbyScreen({ players, host, myName, sessionKey, onStart
           <div style={{ marginTop: 12 }}>
             {addingBot ? (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <input
-                  value={newBotName}
-                  onChange={e => setNewBotName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleConfirmAddBot()}
-                  placeholder={t('lobby.botNamePlaceholder')}
-                  style={{ flex: 1, minWidth: 100, background: '#0a0f1e', border: '1px solid #2a2a5a', borderRadius: 4, color: '#dde', padding: '4px 8px', fontSize: 13 }}
-                  autoFocus
-                />
                 <select
                   value={newBotType}
                   onChange={e => setNewBotType(e.target.value)}
-                  style={{ background: '#0a0f1e', border: '1px solid #2a2a5a', borderRadius: 4, color: '#dde', padding: '4px 6px', fontSize: 13 }}
+                  style={{ flex: 1, background: '#0a0f1e', border: '1px solid #2a2a5a', borderRadius: 4, color: '#dde', padding: '4px 6px', fontSize: 13 }}
+                  autoFocus
                 >
-                  <option value="random">{t('newGame.botRandom')}</option>
-                  <option value="scoring">{t('newGame.botSmart')}</option>
-                  <option value="gemini">{t('newGame.botGemini')}</option>
+                  {botAgents.map(a => (
+                    <option key={a.type} value={a.type}>{a.name}</option>
+                  ))}
                 </select>
                 <button
                   onClick={handleConfirmAddBot}
-                  disabled={!newBotName.trim()}
+                  disabled={!newBotType}
                   style={{ background: '#1a4a20', border: '1px solid #3a7a40', borderRadius: 4, color: '#7f7', cursor: 'pointer', padding: '4px 10px', fontSize: 13 }}
                 >✓</button>
                 <button
-                  onClick={handleCancelAddBot}
+                  onClick={() => setAddingBot(false)}
                   style={{ background: 'none', border: '1px solid #444', borderRadius: 4, color: '#888', cursor: 'pointer', padding: '4px 10px', fontSize: 13 }}
                 >✗</button>
               </div>
             ) : (
               <button
-                onClick={handleAddBotClick}
+                onClick={() => setAddingBot(true)}
                 style={{ background: 'none', border: '1px dashed #2a4a6a', borderRadius: 6, color: '#6af', cursor: 'pointer', fontSize: 13, padding: '6px 12px', width: '100%' }}
               >
                 {t('lobby.addBot')}

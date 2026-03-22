@@ -78,7 +78,8 @@ export default function App() {
   const [buildConfirm, setBuildConfirm] = useState<{ name: string; cost: number; vp: number } | null>(null);
   const [newGamePlayers, setNewGamePlayers] = useState(3);
   const [newGameNames, setNewGameNames] = useState(['', '', '', '', '']);
-  const [newGameBotTypes, setNewGameBotTypes] = useState(['', 'scoring', 'scoring', 'scoring', 'scoring']);
+  const [newGameBotTypes, setNewGameBotTypes] = useState(['', 'random', 'random', 'random', 'random']);
+  const [botAgents, setBotAgents] = useState<{type: string; name: string}[]>([]);
   const [newGameLoading, setNewGameLoading] = useState(false);
   const [homeGameExists, setHomeGameExists] = useState(false);
   const [passing, setPassing] = useState(false);
@@ -107,6 +108,13 @@ export default function App() {
   const [lobbyPlayers, setLobbyPlayers] = useState<LobbyPlayer[]>([]);
   const [lobbyHost, setLobbyHost] = useState<string | null>(null);
   const [lobbyError, setLobbyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`${BACKEND}/api/bot-types`)
+      .then(r => r.json())
+      .then((data: {type: string; name: string}[]) => setBotAgents(data))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!state) return;
@@ -418,18 +426,16 @@ export default function App() {
       for (let i = 0; i < names.length; i++) {
         const botType = botTypes[i];
         if (botType) {
-          const playerId = Object.entries(data.players)
-            .find(([, p]) => p.display_name === names[i])?.[0];
-          if (playerId) {
-            const botRes = await fetch(`${BACKEND}/api/bot/set`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ player: playerId, bot_type: botType }),
-            });
-            if (!botRes.ok) {
-              setError(await botRes.text());
-              return;
-            }
+          // Use player_order index directly to avoid matching issues when multiple bots share a display name
+          const playerId = data.meta.player_order?.[i] ?? `player_${i}`;
+          const botRes = await fetch(`${BACKEND}/api/bot/set`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ player: playerId, bot_type: botType }),
+          });
+          if (!botRes.ok) {
+            setError(await botRes.text());
+            return;
           }
         }
       }
@@ -850,21 +856,18 @@ export default function App() {
         for (let i = 0; i < names.length; i++) {
           const botType = botTypes[i];
           if (botType) {
-            // Find the player_id that matches this display_name in the returned state
-            const playerId = Object.entries(data.players)
-              .find(([, p]) => p.display_name === names[i])?.[0];
-            if (playerId) {
-              const botRes = await fetch(`${BACKEND}/api/bot/set`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ player: playerId, bot_type: botType }),
-              });
-              if (!botRes.ok) {
-                const errText = await botRes.text();
-                setError(errText);
-                setNewGameLoading(false);
-                return;
-              }
+            // Use player_order index directly to avoid matching issues when multiple bots share a display name
+            const playerId = data.meta.player_order?.[i] ?? `player_${i}`;
+            const botRes = await fetch(`${BACKEND}/api/bot/set`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ player: playerId, bot_type: botType }),
+            });
+            if (!botRes.ok) {
+              const errText = await botRes.text();
+              setError(errText);
+              setNewGameLoading(false);
+              return;
             }
           }
         }
@@ -880,8 +883,11 @@ export default function App() {
   }
 
 
-  const isMyTurn = !isMultiplayer || (myPlayerId !== null && state?.decision?.player === myPlayerId);
-  const isBlocked = !!state?.meta.bot_thinking;
+  const isBotTurn = !!(state?.bot_players && state?.decision?.player && state.bot_players[state.decision.player] !== undefined);
+  const isMyTurn = !isMultiplayer
+    ? !isBotTurn
+    : (myPlayerId !== null && state?.decision?.player === myPlayerId);
+  const isBlocked = !!state?.meta.bot_thinking || (!isMultiplayer && isBotTurn);
 
   if (screen === 'loading') {
     return <div style={{ color: '#eee', padding: 40, textAlign: 'center' }}>Loading...</div>;
@@ -1050,7 +1056,7 @@ export default function App() {
           {t('game.geminiThinking')}
         </div>
       )}
-      {isMultiplayer && !isMyTurn && state && (
+      {!isMyTurn && state && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#1a1030', borderTop: '2px solid #2a2a5a', padding: '10px 20px', textAlign: 'center', color: '#aab', zIndex: 200, fontSize: 14 }}>
           {t('game.waitingTurn', { name: state.players[state.decision.player]?.display_name ?? state.decision.player })}
         </div>
@@ -1147,34 +1153,47 @@ export default function App() {
             </label>
 
             <div className="new-game-names">
-              {Array.from({ length: newGamePlayers }, (_, i) => (
-                <div key={i} className="new-game-player-row">
-                  <input
-                    type="text"
-                    placeholder={t('newGame.playerName', { n: i + 1 })}
-                    value={newGameNames[i]}
-                    onChange={e => {
-                      const updated = [...newGameNames];
-                      updated[i] = e.target.value;
-                      setNewGameNames(updated);
-                    }}
-                    onKeyDown={e => { if (e.key === 'Enter') startNewGame(); }}
-                  />
-                  <select
-                    value={newGameBotTypes[i]}
-                    onChange={e => {
-                      const updated = [...newGameBotTypes];
-                      updated[i] = e.target.value;
-                      setNewGameBotTypes(updated);
-                    }}
-                  >
-                    <option value="">{t('newGame.human')}</option>
-                    <option value="random">{t('newGame.botRandom')}</option>
-                    <option value="scoring">{t('newGame.botSmart')}</option>
-                    <option value="gemini">{t('newGame.botGemini')}</option>
-                  </select>
-                </div>
-              ))}
+              {Array.from({ length: newGamePlayers }, (_, i) => {
+                const isBot = !!newGameBotTypes[i];
+                return (
+                  <div key={i} className="new-game-player-row">
+                    <input
+                      type="text"
+                      placeholder={t('newGame.playerName', { n: i + 1 })}
+                      value={newGameNames[i]}
+                      readOnly={isBot}
+                      onChange={e => {
+                        if (isBot) return;
+                        const updated = [...newGameNames];
+                        updated[i] = e.target.value;
+                        setNewGameNames(updated);
+                      }}
+                      onKeyDown={e => { if (e.key === 'Enter') startNewGame(); }}
+                      style={isBot ? { opacity: 0.5, cursor: 'default' } : undefined}
+                    />
+                    <select
+                      value={newGameBotTypes[i]}
+                      onChange={e => {
+                        const updated = [...newGameBotTypes];
+                        updated[i] = e.target.value;
+                        setNewGameBotTypes(updated);
+                        // Auto-set name from agent config when switching to bot
+                        if (e.target.value) {
+                          const agent = botAgents.find(a => a.type === e.target.value);
+                          const updatedNames = [...newGameNames];
+                          updatedNames[i] = agent?.name ?? e.target.value;
+                          setNewGameNames(updatedNames);
+                        }
+                      }}
+                    >
+                      <option value="">{t('newGame.human')}</option>
+                      {botAgents.map(a => (
+                        <option key={a.type} value={a.type}>{a.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
             </div>
 
             <p className="new-game-hint">{t('newGame.govNote')}</p>

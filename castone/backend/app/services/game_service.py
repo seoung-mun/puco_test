@@ -1,9 +1,12 @@
 import json
+import logging
 from uuid import UUID, uuid4
 from typing import Dict, List
 import redis
 import os
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.engine_wrapper.wrapper import create_game_engine, EngineWrapper
 from app.db.models import GameSession, GameLog
@@ -156,7 +159,7 @@ class GameService:
             redis_client.set(f"game:{game_id}:state", json.dumps(state))
             redis_client.publish(f"game:{game_id}:events", json.dumps(data))
         except Exception as e:
-            print(f"Redis sync failed: {e}")
+            logger.warning("Redis sync failed: %s", e)
 
         # 2. Direct In-Memory Broadcast (Fallback for single-instance development)
         try:
@@ -164,7 +167,7 @@ class GameService:
             if loop.is_running():
                 loop.create_task(manager.broadcast_to_game(str(game_id), data))
         except Exception as e:
-            print(f"Direct broadcast failed: {e}")
+            logger.warning("Direct broadcast failed: %s", e)
 
     def get_room_list(self) -> List[GameSession]:
         return self.db.query(GameSession).all()

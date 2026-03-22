@@ -58,3 +58,6 @@ castone/data/logs/*
 !castone/data/logs/.gitkeep
 castone/PuCo_RL/.venv/
 castone/PuCo_RL/.pytest_cache/
+
+
+.env

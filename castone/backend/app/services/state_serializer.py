@@ -46,6 +46,14 @@ TILE_TO_STR = {
 }
 
 
+def compute_display_order(governor_idx: int, num_players: int) -> Dict[int, int]:
+    """Return {internal_player_idx: display_number} where Governor=1."""
+    return {
+        (governor_idx + offset) % num_players: offset + 1
+        for offset in range(num_players)
+    }
+
+
 def _building_name(bt: BuildingType) -> str:
     return bt.name.lower()
 
@@ -71,7 +79,7 @@ def _serialize_common_board(game: "PuertoRicoGame") -> Dict[str, Any]:
     for role in game.available_roles + list(game.roles_in_play if hasattr(game, "roles_in_play") else []):
         pass
 
-    all_roles = list(Role)
+    all_roles = list(game.available_roles) + list(game.roles_in_play)
     # Map role → player name (if taken this round)
     role_taken_by: Dict[Role, Optional[str]] = {r: None for r in all_roles}
     # roles_in_play are roles already picked; the player who picked them is not stored in game
@@ -182,6 +190,7 @@ def _serialize_player(
     game: "PuertoRicoGame",
     display_name: str,
     player_idx: int,
+    display_number: int = 0,
 ) -> Dict[str, Any]:
     # Island
     plantations = [
@@ -266,6 +275,7 @@ def _serialize_player(
 
     return {
         "display_name": display_name,
+        "display_number": display_number,
         "is_governor": player_idx == game.governor_idx,
         "doubloons": player.doubloons,
         "vp_chips": player.vp_chips,
@@ -356,10 +366,11 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
     player_order = [f"player_{i}" for i in range(game.num_players)]
 
     # Players dict
+    display_order = compute_display_order(game.governor_idx, game.num_players)
     players: Dict[str, Any] = {}
     for i, p in enumerate(game.players):
         name = session.player_names[i] if i < len(session.player_names) else f"Player {i}"
-        players[f"player_{i}"] = _serialize_player(p, game, name, i)
+        players[f"player_{i}"] = _serialize_player(p, game, name, i, display_order[i])
 
     meta = {
         "round": session.round,

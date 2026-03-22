@@ -39,10 +39,11 @@ export default function HistoryPanel({ history }: Props) {
       {history.map((e, i) => {
         const isRoundEnd = e.action === 'round_end';
         const params = { ...e.params };
-        if (params.role)        params.role        = t(`roles.${params.role}`,        { defaultValue: params.role });
-        if (params.good)        params.good        = t(`goods.${params.good}`,        { defaultValue: params.good });
-        if (params.plantation)  params.plantation  = t(`plantations.${params.plantation}`, { defaultValue: params.plantation });
-        if (params.building)    params.building    = t(`buildings.${params.building}`,  { defaultValue: params.building });
+        if (params.role)         params.role         = t(`roles.${params.role}`,         { defaultValue: params.role });
+        if (params.good)         params.good         = t(`goods.${params.good}`,         { defaultValue: params.good });
+        if (params.plantation)   params.plantation   = t(`plantations.${params.plantation}`, { defaultValue: params.plantation });
+        if (params.building)     params.building     = t(`buildings.${params.building}`,  { defaultValue: params.building });
+        if (params.ship_capacity === 'wharf') params.ship_capacity = t('buildings.wharf', { defaultValue: '개인부두' });
         const text = t(`history.actions.${e.action}`, { ...params, defaultValue: e.action });
         return (
           <div key={i} style={{

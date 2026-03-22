@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import sys
 import torch
@@ -8,15 +9,16 @@ from uuid import UUID
 
 from app.engine_wrapper.wrapper import EngineWrapper
 
+logger = logging.getLogger(__name__)
+
 # Ensure PuCo_RL is in path for model loading
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../PuCo_RL")))
 try:
     from agents.ppo_agent import Agent
     from utils.env_wrappers import flatten_dict_observation, get_flattened_obs_dim
     from env.pr_env import PuertoRicoEnv
-except ImportError as e:
-    import traceback
-    traceback.print_exc()
+except ImportError:
+    logger.exception("Failed to import PuCo_RL modules")
 
 class BotService:
     _agent_instance = None
@@ -46,11 +48,11 @@ class BotService:
                         agent.load_state_dict(checkpoint["model_state_dict"], strict=False)
                     else:
                         agent.load_state_dict(checkpoint, strict=False)
-                    print(f"[BotService] Successfully loaded PPO weights (strict=False) from {model_path}")
+                    logger.info("Loaded PPO weights (strict=False) from %s", model_path)
                 except Exception as e:
-                    print(f"[BotService] ERROR loading weights: {e}. Falling back to random init.")
+                    logger.error("Failed to load PPO weights: %s. Falling back to random init.", e)
             else:
-                print(f"[BotService] WARNING: Could not find weights at {model_path}. Using uninitialized PPO bot.")
+                logger.warning("PPO weights not found at %s. Using uninitialized bot.", model_path)
             
             agent.eval()
             cls._agent_instance = agent
@@ -69,7 +71,7 @@ class BotService:
         is_role_selection = any(mask[0:8]) and sum(mask[0:8]) > 0
         
         delay = 2.0 if is_role_selection else 1.0
-        print(f"[BotService] Waiting {delay}s for game {game_id} (actor {actor_id})")
+        logger.debug("Bot waiting %.1fs for game %s (actor %s)", delay, game_id, actor_id)
         await asyncio.sleep(delay)
 
         # 2. Universal Agent Interface Context
@@ -83,12 +85,10 @@ class BotService:
         # 3. Request Action
         try:
             action_int = BotService.get_action(game_context)
-            print(f"[BotService] Inference selected action: {action_int}")
+            logger.debug("Bot selected action %d for game %s", action_int, game_id)
         except Exception as e:
-            print(f"[BotService] Inference error: {e}")
-            import traceback
-            traceback.print_exc()
-            action_int = 15  # TDD D-2 Edge Case: Fallback to Pass to prevent freezing
+            logger.error("Bot inference error for game %s: %s", game_id, e, exc_info=True)
+            action_int = 15  # Fallback to Pass to prevent freezing
 
         # 4. Apply Action
         try:
@@ -97,7 +97,7 @@ class BotService:
             else:
                 process_action_callback(game_id, actor_id, action_int)
         except Exception as e:
-            print(f"[BotService] Action application failed for {game_id}: {e}")
+            logger.error("Bot action application failed for game %s: %s", game_id, e)
 
     @staticmethod
     def get_action(game_context: Dict[str, Any]) -> int:
