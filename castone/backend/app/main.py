@@ -3,6 +3,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from app.api.v1 import room, game, ws, auth
+from app.api.legacy import router as legacy_router
 from app.db.models import Base
 from app.dependencies import engine
 
@@ -31,6 +32,9 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+# Frontend-compatible API (no version prefix)
+app.include_router(legacy_router, prefix="/api", tags=["legacy"])
 
 # API Routes Inclusion
 app.include_router(room.router, prefix="/api/v1/rooms", tags=["rooms"])

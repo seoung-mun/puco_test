@@ -63,8 +63,7 @@ services:
       target: builder
     container_name: puco_frontend
     environment:
-      - VITE_API_URL=http://localhost:8000/api/v1
-      - VITE_WS_URL=ws://localhost:8000/api/v1/ws
+      - VITE_API_TARGET=http://backend:8000
     ports:
       - "3000:5173"
     volumes:
