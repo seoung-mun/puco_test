@@ -1,0 +1,345 @@
+{
+  "roles": {
+    "settler":     "개척자",
+    "mayor":       "시장",
+    "builder":     "건축가",
+    "craftsman":   "생산자",
+    "trader":      "상인",
+    "captain":     "선장",
+    "prospector":  "금광 채굴꾼",
+    "prospector_2":"금광 채굴꾼 2"
+  },
+
+  "goods": {
+    "corn":    "옥수수",
+    "indigo":  "인디고",
+    "sugar":   "설탕",
+    "tobacco": "담배",
+    "coffee":  "커피",
+    "total":   "합계"
+  },
+
+  "plantations": {
+    "corn":    "옥수수",
+    "indigo":  "인디고",
+    "sugar":   "설탕",
+    "tobacco": "담배",
+    "coffee":  "커피",
+    "quarry":  "채석장"
+  },
+
+  "buildings": {
+    "small_indigo_plant":  "소형 인디고 제작소",
+    "indigo_plant":        "인디고 제작소",
+    "small_sugar_mill":    "소형 설탕 정제소",
+    "sugar_mill":          "설탕 정제소",
+    "small_market":        "소형 시장",
+    "large_market":        "대형 시장",
+    "hacienda":            "하시엔다",
+    "construction_hut":    "건축 오두막",
+    "small_warehouse":     "소형 창고",
+    "large_warehouse":     "대형 창고",
+    "tobacco_storage":     "담배 건조소",
+    "coffee_roaster":      "커피 로스터리",
+    "hospice":             "수도원",
+    "office":              "상관",
+    "factory":             "팩토리",
+    "university":          "대학교",
+    "harbor":              "항구",
+    "wharf":               "개인 부두",
+    "guild_hall":          "동업 조합",
+    "residence":           "저택",
+    "fortress":            "요새",
+    "customs_house":       "세관",
+    "city_hall":           "시청"
+  },
+
+  "phases": {
+    "role_selection":     "역할 선택",
+    "settler_action":     "개척자 액션",
+    "mayor_distribution": "이주민 배치",
+    "mayor_action":       "시장 액션",
+    "builder_action":     "건축가 액션",
+    "craftsman_action":   "생산자 액션",
+    "trader_action":      "상인 액션",
+    "captain_action":     "선장 액션",
+    "captain_discard":    "상품 폐기"
+  },
+
+  "meta": {
+    "round":    "라운드",
+    "phase":    "페이즈",
+    "governor": "총독",
+    "active":   "활성",
+    "vpSupply": "남은 VP"
+  },
+
+  "board": {
+    "title":         "공용 보드",
+    "roles":         "역할",
+    "clickToSelect": "(클릭하여 선택)",
+    "colonists":     "이주민",
+    "tradingHouse":  "상점",
+    "goodsSupply":   "상품 공급처",
+    "cargoShips":    "운송선",
+    "plantations":   "공개된 플랜테이션",
+    "clickToPick":   "(클릭하여 선택)",
+    "roleCol":       "역할",
+    "doubloonsCol":  "더블룬",
+    "takenByCol":    "선택한 플레이어",
+    "ship":          "운송선",
+    "supply":        "공급처",
+    "full":          "가득 참",
+    "drawPile":      "더미"
+  },
+
+  "player": {
+    "governor":          "총독",
+    "active":            "활성",
+    "goods":             "상품",
+    "production":        "예상 생산량 (생산자 선택 시)",
+    "island":            "섬",
+    "city":              "도시",
+    "unplacedColonists": "{{n}}명의 배치되지 않은 이주민"
+  },
+
+  "island": {
+    "activeQuarries": "활성화된 채석장: {{n}}개"
+  },
+
+  "city": {
+    "discount": "할인: {{n}}"
+  },
+
+  "sanJuan": {
+    "title":     "산 후안 (건물 상점)",
+    "building":  "건물",
+    "cost":      "가격",
+    "vp":        "VP",
+    "colonists": "이주민",
+    "copies":    "잔여",
+    "quarryMax": "⛏ 최대 할인 {{n}}"
+  },
+
+  "rolePrivileges": {
+    "settler":   { "label": "개척자 특권",   "tip": "공개된 플랜테이션 대신 채석장을 가져올 수 있습니다." },
+    "mayor":     { "label": "시장 특권",     "tip": "일반적인 이주민 배치 외에 공급처에서 이주민 1명을 추가로 받습니다." },
+    "builder":   { "label": "건축가 특권",   "tip": "건물 건설 비용을 1 더블룬 할인받습니다." },
+    "craftsman": { "label": "생산자 특권",   "tip": "자신이 생산하는 상품 중 가장 많이 생산하는 종류를 1개 더 추가로 생산합니다." },
+    "trader":    { "label": "상인 특권",    "tip": "상점에서 상품을 판매할 때 1 더블룬을 추가로 받습니다." },
+    "captain":   { "label": "선장 특권",    "tip": "상품을 운송선에 실을 때 1 VP를 추가로 얻습니다." }
+  },
+
+  "buildingAdvantages": {
+    "small_indigo_plant": { "tip": "생산 — 라운드당 인디고 1개 생산 (이주민 1명 필요)" },
+    "indigo_plant":       { "tip": "생산 — 이주민 1명당 인디고 1개 생산 (최대 3개)" },
+    "small_sugar_mill":   { "tip": "생산 — 라운드당 설탕 1개 생산 (이주민 1명 필요)" },
+    "sugar_mill":         { "tip": "생산 — 이주민 1명당 설탕 1개 생산 (최대 3개)" },
+    "tobacco_storage":    { "tip": "생산 — 이주민 1명당 담배 1개 생산 (최대 3개)" },
+    "coffee_roaster":     { "tip": "생산 — 이주민 1명당 커피 1개 생산 (최대 2개)" },
+    "hacienda":           { "label": "하시엔다",       "tip": "개척자 — 플랜테이션을 선택하기 전, 비공개 더미에서 랜덤하게 1개를 뽑을 수 있습니다 (선택 사항)." },
+    "hospice":            { "label": "수도원",         "tip": "개척자 — 플랜테이션을 배치할 때, 공급처에서 이주민 1명을 즉시 받을 수 있습니다 (선택 사항)." },
+    "construction_hut":   { "label": "건축 오두막",      "tip": "개척자 — 플랜테이션 대신 채석장을 가져올 수 있습니다." },
+    "small_market":       { "label": "소형 시장",      "tip": "상인 — 상점에서 판매할 때 1 더블룬을 추가로 받습니다." },
+    "large_market":       { "label": "대형 시장",      "tip": "상인 — 상점에서 판매할 때 2 더블룬을 추가로 받습니다." },
+    "office":             { "label": "상관",          "tip": "상인 — 상점에 이미 있는 종류의 상품이라도 판매할 수 있습니다." },
+    "factory":            { "label": "팩토리",         "tip": "생산자 — 생산하는 상품 종류의 수에 따라 보너스 더블룬을 받습니다 (1종→0, 2종→1, 3종→2, 4종→3, 5종→5)." },
+    "small_warehouse":    { "label": "소형 창고",   "tip": "선장 — 버려야 할 상품 중 한 종류를 모두 보관할 수 있습니다." },
+    "large_warehouse":    { "label": "대형 창고",   "tip": "선장 — 버려야 할 상품 중 두 종류를 모두 보관할 수 있습니다." },
+    "harbor":             { "label": "항구",          "tip": "선장 — 상품을 운송선에 실을 때마다 1 VP를 얻습니다." },
+    "wharf":              { "label": "개인 부두",           "tip": "선장 — 자신의 개인 부두를 이용해 원하는 양의 상품을 싣습니다 (선장 페이즈 중 1회)." },
+    "university":         { "label": "대학교",      "tip": "건축가 — 건물을 지을 때, 공급처에서 이주민 1명을 즉시 받습니다." },
+    "guild_hall":         { "tip": "게임 종료 — 소형 생산 건물당 1 VP, 대형 생산 건물당 2 VP를 얻습니다." },
+    "residence":          { "tip": "게임 종료 — 섬에 배치된 타일 수에 따라 4~7 VP를 얻습니다. (9개→4, 10개→5, 11개→6, 12개→7)" },
+    "fortress":           { "tip": "게임 종료 — 보유한 이주민 3명당 1 VP를 얻습니다." },
+    "customs_house":      { "tip": "게임 종료 — 보유한 VP 칩 4개당 1 VP를 얻습니다." },
+    "city_hall":          { "tip": "게임 종료 — 자신의 도시에 있는 보라색 건물당 1 VP를 얻습니다 (시청 포함)." }
+  },
+
+  "newGame": {
+    "title":       "새 게임",
+    "numPlayers":  "플레이어 인원:",
+    "playerName":  "플레이어 {{n}}",
+    "human":       "사람",
+    "botRandom":   "랜덤 봇",
+    "botSmart":    "스마트 봇",
+    "botGemini":   "Gemini AI",
+    "govNote":     "첫 번째 총독은 무작위로 결정됩니다.",
+    "cancel":      "취소",
+    "confirm":     "✓ 확인",
+    "start":       "🚀 시작",
+    "starting":    "시작 중..."
+  },
+
+  "actions": {
+    "next":            "다음 → ({{phase}} 건너뛰기)",
+    "advancing":       "진행 중...",
+    "saving":          "저장 중...",
+    "finishMayor":     "배치 종료",
+    "finishMayorWait": "모든 이주민을 먼저 배치하세요",
+    "askAi":           "AI에게 질문 (비활성화됨)",
+    "useHacienda":     "하시엔다 사용",
+    "roundCompleted":  "{{n}} 라운드 종료!",
+    "decisionNeeded":  "결정 필요: {{note}}"
+  },
+
+  "history": {
+    "title": "게임 기록",
+    "empty": "기록된 액션이 없습니다.",
+    "actions": {
+      "new_game":             "새 게임 시작: {{players}} ({{num_players}}인)",
+      "select_role":          "{{player}}님이 역할을 선택함: {{role}}",
+      "settle_plantation":    "{{player}}님이 {{plantation}} 플랜테이션을 배치함",
+      "build":                "{{player}}님이 {{building}} 건물을 지음 (비용: {{cost}})",
+      "craftsman_privilege":  "{{player}}님이 생산자 특권으로 {{good}}을 선택함",
+      "sell":                 "{{player}}님이 {{good}}을 {{price}} 더블룬에 판매함",
+      "load_ship":            "{{player}}님이 {{quantity}}개의 {{good}}을 운송선에 실음 (+{{vp}} VP)",
+      "discard":              "{{player}}님이 남은 상품을 폐기함",
+      "round_end":            "{{round}} 라운드 종료"
+    }
+  },
+
+  "decision": {
+    "role_selection":      "{{player}} — 역할을 선택하세요",
+    "mayor_distribution":  "이주민 분배 중...",
+    "mayor_action":        "{{player}} — 이주민을 도시에 배치하세요",
+    "settler_action":      "{{player}} — 플랜테이션을 선택하세요",
+    "builder_action":      "{{player}} — 건설할 건물을 선택하세요",
+    "craftsman_privilege": "{{player}} — 보너스 상품을 선택하세요 (생산자 특권)",
+    "trader_action":       "{{player}} — 상점에 판매할 상품을 선택하세요",
+    "captain_action":      "{{player}} — 운송선에 실을 상품을 선택하세요",
+    "captain_discard":     "{{player}} — 버릴 상품을 선택하세요",
+    "action":              "{{player}} — 액션을 수행하세요"
+  },
+
+  "trader": {
+    "title":          "상인",
+    "privilegeBadge": "★ 특권 +1",
+    "smallMarket":    "🏪 소형 시장 +1",
+    "largeMarket":    "🏪 대형 시장 +2",
+    "office":         "🏢 상관",
+    "houseFull":      "상점이 가득 찼습니다",
+    "noGoods":        "판매할 수 있는 상품이 없습니다.",
+    "good":           "상품",
+    "qty":            "수량",
+    "base":           "기본",
+    "bonus":          "보너스",
+    "total":          "합계",
+    "sell":           "판매",
+    "pass":           "패스"
+  },
+
+  "captain": {
+    "title":          "선장",
+    "privilegeBadge": "★ 특권 +1 VP",
+    "harbor":         "⚓ 항구 +1 VP",
+    "noGoods":        "운송할 상품이 없습니다.",
+    "shipBtn":        "운송선 {{idx}} ({{filled}}/{{cap}}) → {{qty}}개 적재",
+    "noValidShip":    "유효한 운송선 없음",
+    "wharfBtn":       "개인 부두 → 모두 적재 ({{qty}}개)",
+    "mustLoad":       "반드시 적재해야 함",
+    "pass":           "패스"
+  },
+
+  "discard": {
+    "title":        "상품 폐기",
+    "warehouse":    "🏪 창고: {{n}}종류 보호됨",
+    "noWarehouse":  "창고 없음",
+    "noGoods":      "상품이 없습니다.",
+    "good":         "상품",
+    "qty":          "수량",
+    "warehouseCol": "창고 ({{used}}/{{max}})",
+    "extraCol":     "추가보관 (+1)",
+    "discardCol":   "폐기함",
+    "confirm":      "폐기 확정"
+  },
+
+  "hospiceDialog": {
+    "message": "<strong>{{plantation}}</strong>을(를) 선택하셨습니다.<br /><strong>수도원</strong>의 능력을 사용해 이주민을 즉시 배치하시겠습니까?",
+    "yes":     "예, 배치함",
+    "no":      "아니오"
+  },
+
+  "craftsmanDialog": {
+    "message": "현재 <strong>생산자</strong>입니다.<br />하나를 선택하여 추가로 생산하세요 (생산자 특권):",
+    "skip":    "기각"
+  },
+
+  "endGame": {
+    "title":       "🏁 게임 종료 — {{reason}}",
+    "vpChips":     "VP 칩",
+    "buildings":   "건물",
+    "guildHall":   "동업 조합",
+    "residence":   "저택",
+    "fortress":    "요세",
+    "customsHouse":"세관",
+    "cityHall":    "시청",
+    "total":       "최종 점수"
+  },
+
+  "admin": {
+    "title":    "⚙ 관리자",
+    "label":    "테스트 상태:",
+    "load":     "불러오기",
+    "loading":  "로딩 중...",
+    "loaded":   "로딩됨: {{name}}"
+  },
+
+  "nav": {
+    "roles":   "역할",
+    "cargo":   "운송",
+    "island":  "섬",
+    "city":    "도시",
+    "sanJuan": "산 후안",
+    "focus":   "집중"
+  },
+
+  "langToggle": "KO",
+
+  "home": {
+    "offline":           "오프라인 게임",
+    "onlineMultiplayer": "온라인 멀티플레이어",
+    "continueGame":      "이어하기",
+    "newGame":           "새 게임",
+    "enterHostName":     "세션을 생성하려면 이름을 입력하세요:",
+    "yourName":          "내 이름",
+    "startMultiplayer":  "세션 생성",
+    "back":              "← 뒤로"
+  },
+
+  "join": {
+    "enterKey":      "세션 키를 입력하세요:",
+    "next":          "다음 →",
+    "whoAreYou":     "누구신가요? (플레이어를 선택하세요)",
+    "enterName":     "이름이 무엇인가요?",
+    "namePlaceholder":"내 이름",
+    "as_player":     "플레이어로 참여",
+    "as_spectator":  "관전자로 참여",
+    "enter":         "입장",
+    "back":          "← 뒤로"
+  },
+
+  "lobby": {
+    "title":             "로비",
+    "shareKey":          "이 키를 친구에게 공유하세요:",
+    "shareUrl":          "서버 URL",
+    "players":           "플레이어",
+    "spectator":         "관전자",
+    "noPlayers":         "참여 중인 플레이어가 없습니다...",
+    "start":             "▶ 게임 시작",
+    "needMorePlayers":   "최소 {{n}}명의 플레이어가 더 필요합니다",
+    "waitingHost":       "방장이 게임을 시작하기를 기다리는 중...",
+    "hostDisconnected":  "방장 연결 끊김 — 재접속을 기다리는 중...",
+    "logout":            "나가기",
+    "addBot":            "+ 봇 추가",
+    "botNamePlaceholder": "봇 이름",
+    "botType":           "유형"
+  },
+
+  "game": {
+    "waitingTurn":   "{{name}}님의 차례를 기다리는 중...",
+    "geminiThinking": "Gemini AI가 생각 중입니다...",
+    "noGame":        "진행 중인 게임이 없습니다.",
+    "startNew":      "새 게임 시작"
+  }
+}

@@ -1,0 +1,345 @@
+{
+  "roles": {
+    "settler":     "Settler",
+    "mayor":       "Mayor",
+    "builder":     "Builder",
+    "craftsman":   "Craftsman",
+    "trader":      "Trader",
+    "captain":     "Captain",
+    "prospector":  "Prospector",
+    "prospector_2":"Prospector 2"
+  },
+
+  "goods": {
+    "corn":    "Corn",
+    "indigo":  "Indigo",
+    "sugar":   "Sugar",
+    "tobacco": "Tobacco",
+    "coffee":  "Coffee",
+    "total":   "Total"
+  },
+
+  "plantations": {
+    "corn":    "Corn",
+    "indigo":  "Indigo",
+    "sugar":   "Sugar",
+    "tobacco": "Tobacco",
+    "coffee":  "Coffee",
+    "quarry":  "Quarry"
+  },
+
+  "buildings": {
+    "small_indigo_plant":  "Small Indigo Plant",
+    "indigo_plant":        "Indigo Plant",
+    "small_sugar_mill":    "Small Sugar Mill",
+    "sugar_mill":          "Sugar Mill",
+    "small_market":        "Small Market",
+    "large_market":        "Large Market",
+    "hacienda":            "Hacienda",
+    "construction_hut":    "Construction Hut",
+    "small_warehouse":     "Small Warehouse",
+    "large_warehouse":     "Large Warehouse",
+    "tobacco_storage":     "Tobacco Storage",
+    "coffee_roaster":      "Coffee Roaster",
+    "hospice":             "Hospice",
+    "office":              "Office",
+    "factory":             "Factory",
+    "university":          "University",
+    "harbor":              "Harbor",
+    "wharf":               "Wharf",
+    "guild_hall":          "Guild Hall",
+    "residence":           "Residence",
+    "fortress":            "Fortress",
+    "customs_house":       "Customs House",
+    "city_hall":           "City Hall"
+  },
+
+  "phases": {
+    "role_selection":     "Role Selection",
+    "settler_action":     "Settler Action",
+    "mayor_distribution": "Colonist Distribution",
+    "mayor_action":       "Mayor Action",
+    "builder_action":     "Builder Action",
+    "craftsman_action":   "Craftsman Action",
+    "trader_action":      "Trader Action",
+    "captain_action":     "Captain Action",
+    "captain_discard":    "Goods Discard"
+  },
+
+  "meta": {
+    "round":    "Round",
+    "phase":    "Phase",
+    "governor": "Governor",
+    "active":   "Active",
+    "vpSupply": "VP remaining"
+  },
+
+  "board": {
+    "title":         "Common Board",
+    "roles":         "Roles",
+    "clickToSelect": "(click to select)",
+    "colonists":     "Colonists",
+    "tradingHouse":  "Trading House",
+    "goodsSupply":   "Goods supply",
+    "cargoShips":    "Cargo Ships",
+    "plantations":   "Plantations available",
+    "clickToPick":   "(click to pick)",
+    "roleCol":       "Role",
+    "doubloonsCol":  "Doubloons",
+    "takenByCol":    "Taken by",
+    "ship":          "ship",
+    "supply":        "supply",
+    "full":          "FULL",
+    "drawPile":      "Draw pile"
+  },
+
+  "player": {
+    "governor":          "Governor",
+    "active":            "active",
+    "goods":             "Goods",
+    "production":        "Production (if Craftsman now)",
+    "island":            "Island",
+    "city":              "City",
+    "unplacedColonists": "{{n}} unplaced colonist(s)"
+  },
+
+  "island": {
+    "activeQuarries": "{{n}} active quarr{{suffix}}"
+  },
+
+  "city": {
+    "discount": "discount: {{n}}"
+  },
+
+  "sanJuan": {
+    "title":     "San Juan (buildings for sale)",
+    "building":  "Building",
+    "cost":      "Cost",
+    "vp":        "VP",
+    "colonists": "Col.",
+    "copies":    "×",
+    "quarryMax": "⛏ max {{n}}"
+  },
+
+  "rolePrivileges": {
+    "settler":   { "label": "Settler Privilege",   "tip": "You can take a quarry instead of a face-up plantation" },
+    "mayor":     { "label": "Mayor Privilege",     "tip": "+1 colonist from supply, in addition to normal distribution" },
+    "builder":   { "label": "Builder Privilege",   "tip": "1 doubloon discount on building cost" },
+    "craftsman": { "label": "Craftsman Privilege", "tip": "Produce 1 extra unit of your most-produced good" },
+    "trader":    { "label": "Trader Privilege",    "tip": "+1 doubloon earned when selling at the Trading House" },
+    "captain":   { "label": "Captain Privilege",   "tip": "+1 VP when loading goods onto a ship" }
+  },
+
+  "buildingAdvantages": {
+    "small_indigo_plant": { "tip": "Production — Produces 1 indigo per round (requires 1 colonist)" },
+    "indigo_plant":       { "tip": "Production — Produces 1 indigo per colonist (max 3)" },
+    "small_sugar_mill":   { "tip": "Production — Produces 1 sugar per round (requires 1 colonist)" },
+    "sugar_mill":         { "tip": "Production — Produces 1 sugar per colonist (max 3)" },
+    "tobacco_storage":    { "tip": "Production — Produces 1 tobacco per colonist (max 3)" },
+    "coffee_roaster":     { "tip": "Production — Produces 1 coffee per colonist (max 2)" },
+    "hacienda":           { "label": "Hacienda",       "tip": "Settler — Before choosing a plantation, you may draw 1 random plantation from the face-down pile (optional)" },
+    "hospice":            { "label": "Hospice",         "tip": "Settler — When you place a plantation, you may receive 1 colonist from supply (optional)" },
+    "construction_hut":   { "label": "Const. Hut",      "tip": "Settler — You can take a quarry instead of a plantation" },
+    "small_market":       { "label": "Sm. Market",      "tip": "Trader — +1 doubloon when selling at the Trading House" },
+    "large_market":       { "label": "Lg. Market",      "tip": "Trader — +2 doubloons when selling at the Trading House" },
+    "office":             { "label": "Office",          "tip": "Trader — You can sell any good type, even if already present in the Trading House" },
+    "factory":            { "label": "Factory",         "tip": "Craftsman — Receive bonus doubloons based on different good types produced (1→0, 2→1, 3→2, 4→3, 5→5)" },
+    "small_warehouse":    { "label": "Sm. Warehouse",   "tip": "Captain — You can keep all units of 1 good type instead of discarding them" },
+    "large_warehouse":    { "label": "Lg. Warehouse",   "tip": "Captain — You can keep all units of 2 good types instead of discarding them" },
+    "harbor":             { "label": "Harbor",          "tip": "Captain — +1 VP each time you load goods onto a ship" },
+    "wharf":              { "label": "Wharf",           "tip": "Captain — Load any amount of goods onto your private wharf (once per Captain phase)" },
+    "university":         { "label": "University",      "tip": "Builder — When you build a building, receive +1 extra colonist from supply" },
+    "guild_hall":         { "tip": "End game — +1 VP per small production building, +2 VP per large production building you own" },
+    "residence":          { "tip": "End game — +4 VP if you have 9+ occupied island spaces; +5 if ≥10; +6 if ≥11; +7 if all 12 spaces occupied" },
+    "fortress":           { "tip": "End game — +1 VP per 3 colonists you own (city + island + unplaced)" },
+    "customs_house":      { "tip": "End game — +1 VP per 4 VP chips accumulated during the game" },
+    "city_hall":          { "tip": "End game — +1 VP per violet building in your city, including City Hall itself" }
+  },
+
+  "newGame": {
+    "title":       "New Game",
+    "numPlayers":  "Number of players:",
+    "playerName":  "Player {{n}}",
+    "human":       "Human",
+    "botRandom":   "Random Bot",
+    "botSmart":    "Smart Bot",
+    "botGemini":   "Gemini AI",
+    "govNote":     "The starting governor is drawn randomly.",
+    "cancel":      "Cancel",
+    "confirm":     "✓ Confirm",
+    "start":       "🚀 Start",
+    "starting":    "Starting..."
+  },
+
+  "actions": {
+    "next":            "Next → (skip {{phase}})",
+    "advancing":       "Advancing...",
+    "saving":          "Saving...",
+    "finishMayor":     "Finish placement",
+    "finishMayorWait": "Place all colonists first",
+    "askAi":           "Ask AI (disabled)",
+    "useHacienda":     "Use Hacienda",
+    "roundCompleted":  "Round {{n}} completed!",
+    "decisionNeeded":  "Decision: {{note}}"
+  },
+
+  "history": {
+    "title": "Game history",
+    "empty": "No actions recorded yet.",
+    "actions": {
+      "new_game":             "New game: {{players}} ({{num_players}} players)",
+      "select_role":          "{{player}} chose: {{role}}",
+      "settle_plantation":    "{{player}} settled a {{plantation}} plantation",
+      "build":                "{{player}} built {{building}} (cost: {{cost}})",
+      "craftsman_privilege":  "{{player}} chose {{good}} as craftsman privilege",
+      "sell":                 "{{player}} sold {{good}} for {{price}} doubloons",
+      "load_ship":            "{{player}} loaded {{quantity}} {{good}} onto a ship (+{{vp}} VP)",
+      "discard":              "{{player}} discarded excess goods",
+      "round_end":            "End of round {{round}}"
+    }
+  },
+
+  "decision": {
+    "role_selection":      "{{player}} chooses a role",
+    "mayor_distribution":  "Distributing colonists...",
+    "mayor_action":        "{{player}} — place colonists in your city",
+    "settler_action":      "{{player}} — choose a plantation to settle",
+    "builder_action":      "{{player}} — choose a building to construct",
+    "craftsman_privilege": "{{player}} — choose a bonus good (craftsman privilege)",
+    "trader_action":       "{{player}} — choose a good to sell at the market",
+    "captain_action":      "{{player}} — load goods onto a ship",
+    "captain_discard":     "{{player}} — discard excess goods",
+    "action":              "{{player}} — take an action"
+  },
+
+  "trader": {
+    "title":          "Trader",
+    "privilegeBadge": "★ Privilege +1",
+    "smallMarket":    "🏪 Small Market +1",
+    "largeMarket":    "🏪 Large Market +2",
+    "office":         "🏢 Office",
+    "houseFull":      "Trading House full",
+    "noGoods":        "No goods in hand.",
+    "good":           "Good",
+    "qty":            "Qty",
+    "base":           "Base",
+    "bonus":          "Bonus",
+    "total":          "Total",
+    "sell":           "Sell",
+    "pass":           "Pass"
+  },
+
+  "captain": {
+    "title":          "Captain",
+    "privilegeBadge": "★ Privilege +1VP",
+    "harbor":         "⚓ Harbor +1VP",
+    "noGoods":        "No goods to load.",
+    "shipBtn":        "Ship {{idx}} ({{filled}}/{{cap}}) → load {{qty}}",
+    "noValidShip":    "no valid ship",
+    "wharfBtn":       "Wharf → load all ({{qty}})",
+    "mustLoad":       "Must load",
+    "pass":           "Pass"
+  },
+
+  "discard": {
+    "title":        "Discard goods",
+    "warehouse":    "🏪 Warehouse: {{n}} type(s) protected",
+    "noWarehouse":  "No warehouse",
+    "noGoods":      "No goods.",
+    "good":         "Good",
+    "qty":          "Qty",
+    "warehouseCol": "Warehouse ({{used}}/{{max}})",
+    "extraCol":     "+1 extra",
+    "discardCol":   "Discarded",
+    "confirm":      "Confirm discard"
+  },
+
+  "hospiceDialog": {
+    "message": "You chose <strong>{{plantation}}</strong>.<br />Do you want to use the <strong>Hospice</strong> to colonize this plantation immediately?",
+    "yes":     "Yes, colonist",
+    "no":      "No"
+  },
+
+  "craftsmanDialog": {
+    "message": "You are the <strong>Craftsman</strong>.<br />Choose 1 extra good to produce as your privilege:",
+    "skip":    "Skip"
+  },
+
+  "endGame": {
+    "title":       "🏁 Game Over — {{reason}}",
+    "vpChips":     "VP chips",
+    "buildings":   "Buildings",
+    "guildHall":   "Guild Hall",
+    "residence":   "Residence",
+    "fortress":    "Fortress",
+    "customsHouse":"Customs House",
+    "cityHall":    "City Hall",
+    "total":       "TOTAL"
+  },
+
+  "admin": {
+    "title":    "⚙ Admin",
+    "label":    "Test state:",
+    "load":     "Load",
+    "loading":  "Loading...",
+    "loaded":   "Loaded: {{name}}"
+  },
+
+  "nav": {
+    "roles":   "Roles",
+    "cargo":   "Cargo",
+    "island":  "Island",
+    "city":    "City",
+    "sanJuan": "San Juan",
+    "focus":   "Focus"
+  },
+
+  "langToggle": "IT",
+
+  "home": {
+    "offline":           "Offline Game",
+    "onlineMultiplayer": "Online Multiplayer",
+    "continueGame":      "Continue Game",
+    "newGame":           "New Game",
+    "enterHostName":     "Enter your name to host the session:",
+    "yourName":          "Your name",
+    "startMultiplayer":  "Create Session",
+    "back":              "← Back"
+  },
+
+  "join": {
+    "enterKey":      "Enter the session key:",
+    "next":          "Next →",
+    "whoAreYou":     "Who are you? (select your player)",
+    "enterName":     "What is your name?",
+    "namePlaceholder":"Your name",
+    "as_player":     "Player",
+    "as_spectator":  "Spectator",
+    "enter":         "Enter",
+    "back":          "← Back"
+  },
+
+  "lobby": {
+    "title":             "Lobby",
+    "shareKey":          "Share this key with your friends:",
+    "shareUrl":          "Server URL",
+    "players":           "Players",
+    "spectator":         "spectator",
+    "noPlayers":         "No players yet...",
+    "start":             "▶ Start Game",
+    "needMorePlayers":   "Need {{n}} more player(s)",
+    "waitingHost":       "Waiting for the host to start the game...",
+    "hostDisconnected":  "Host disconnected — waiting for them to reconnect...",
+    "logout":            "Disconnect",
+    "addBot":            "+ Add Bot",
+    "botNamePlaceholder": "Bot name",
+    "botType":           "Type"
+  },
+
+  "game": {
+    "waitingTurn":   "Waiting for {{name}}'s turn...",
+    "geminiThinking": "Gemini AI is thinking...",
+    "noGame":        "No game in progress.",
+    "startNew":      "Start new game"
+  }
+}

@@ -1,0 +1,528 @@
+{
+  "meta": {
+    "round": 6,
+    "num_players": 3,
+    "player_order": [
+      "player_1",
+      "player_2",
+      "player_3"
+    ],
+    "governor": "player_2",
+    "phase": "role_selection",
+    "active_role": null,
+    "active_player": "player_2",
+    "players_acted_this_phase": [],
+    "end_game_triggered": false,
+    "end_game_reason": null,
+    "vp_supply_remaining": 52
+  },
+  "common_board": {
+    "roles": {
+      "settler": {
+        "doubloons_on_role": 0,
+        "taken_by": null
+      },
+      "mayor": {
+        "doubloons_on_role": 1,
+        "taken_by": null
+      },
+      "builder": {
+        "doubloons_on_role": 0,
+        "taken_by": null
+      },
+      "craftsman": {
+        "doubloons_on_role": 0,
+        "taken_by": null
+      },
+      "trader": {
+        "doubloons_on_role": 1,
+        "taken_by": null
+      },
+      "captain": {
+        "doubloons_on_role": 0,
+        "taken_by": null
+      }
+    },
+    "colonists": {
+      "ship": 3,
+      "supply": 14
+    },
+    "trading_house": {
+      "goods": [
+        "corn",
+        "indigo"
+      ],
+      "spaces_used": 2,
+      "spaces_remaining": 2,
+      "is_full": false
+    },
+    "cargo_ships": [
+      {
+        "capacity": 4,
+        "good": "corn",
+        "filled": 2,
+        "remaining_space": 2,
+        "is_full": false,
+        "is_empty": false
+      },
+      {
+        "capacity": 5,
+        "good": "indigo",
+        "filled": 3,
+        "remaining_space": 2,
+        "is_full": false,
+        "is_empty": false
+      },
+      {
+        "capacity": 6,
+        "good": null,
+        "filled": 0,
+        "remaining_space": 6,
+        "is_full": false,
+        "is_empty": true
+      }
+    ],
+    "available_plantations": {
+      "face_up": [
+        "sugar",
+        "tobacco",
+        "corn",
+        "indigo",
+        "quarry"
+      ],
+      "draw_pile": {
+        "corn": 7,
+        "indigo": 9,
+        "sugar": 8,
+        "tobacco": 6,
+        "coffee": 6
+      }
+    },
+    "available_buildings": {
+      "small_indigo_plant": {
+        "cost": 1,
+        "max_colonists": 1,
+        "vp": 1,
+        "copies_remaining": 1
+      },
+      "small_sugar_mill": {
+        "cost": 2,
+        "max_colonists": 1,
+        "vp": 1,
+        "copies_remaining": 2
+      },
+      "small_market": {
+        "cost": 1,
+        "max_colonists": 1,
+        "vp": 1,
+        "copies_remaining": 1
+      },
+      "hacienda": {
+        "cost": 2,
+        "max_colonists": 1,
+        "vp": 1,
+        "copies_remaining": 0
+      },
+      "construction_hut": {
+        "cost": 2,
+        "max_colonists": 1,
+        "vp": 1,
+        "copies_remaining": 1
+      },
+      "small_warehouse": {
+        "cost": 3,
+        "max_colonists": 1,
+        "vp": 1,
+        "copies_remaining": 1
+      },
+      "indigo_plant": {
+        "cost": 3,
+        "max_colonists": 3,
+        "vp": 2,
+        "copies_remaining": 2
+      },
+      "sugar_mill": {
+        "cost": 4,
+        "max_colonists": 3,
+        "vp": 2,
+        "copies_remaining": 2
+      },
+      "hospice": {
+        "cost": 4,
+        "max_colonists": 1,
+        "vp": 2,
+        "copies_remaining": 1
+      },
+      "office": {
+        "cost": 5,
+        "max_colonists": 1,
+        "vp": 2,
+        "copies_remaining": 1
+      },
+      "large_market": {
+        "cost": 5,
+        "max_colonists": 1,
+        "vp": 2,
+        "copies_remaining": 1
+      },
+      "large_warehouse": {
+        "cost": 6,
+        "max_colonists": 1,
+        "vp": 2,
+        "copies_remaining": 1
+      },
+      "tobacco_storage": {
+        "cost": 5,
+        "max_colonists": 3,
+        "vp": 3,
+        "copies_remaining": 1
+      },
+      "coffee_roaster": {
+        "cost": 6,
+        "max_colonists": 2,
+        "vp": 3,
+        "copies_remaining": 2
+      },
+      "factory": {
+        "cost": 7,
+        "max_colonists": 1,
+        "vp": 3,
+        "copies_remaining": 1
+      },
+      "university": {
+        "cost": 8,
+        "max_colonists": 1,
+        "vp": 3,
+        "copies_remaining": 1
+      },
+      "harbor": {
+        "cost": 8,
+        "max_colonists": 1,
+        "vp": 3,
+        "copies_remaining": 1
+      },
+      "wharf": {
+        "cost": 9,
+        "max_colonists": 1,
+        "vp": 3,
+        "copies_remaining": 1
+      },
+      "guild_hall": {
+        "cost": 10,
+        "max_colonists": 1,
+        "vp": 4,
+        "copies_remaining": 1
+      },
+      "residence": {
+        "cost": 10,
+        "max_colonists": 1,
+        "vp": 4,
+        "copies_remaining": 1
+      },
+      "fortress": {
+        "cost": 10,
+        "max_colonists": 1,
+        "vp": 4,
+        "copies_remaining": 1
+      },
+      "customs_house": {
+        "cost": 10,
+        "max_colonists": 1,
+        "vp": 4,
+        "copies_remaining": 1
+      },
+      "city_hall": {
+        "cost": 10,
+        "max_colonists": 1,
+        "vp": 4,
+        "copies_remaining": 1
+      }
+    }
+  },
+  "players": {
+    "player_1": {
+      "display_name": "Alice",
+      "is_governor": false,
+      "doubloons": 4,
+      "vp_chips": 8,
+      "goods": {
+        "corn": 1,
+        "indigo": 1,
+        "sugar": 0,
+        "tobacco": 0,
+        "coffee": 0,
+        "total": 2
+      },
+      "island": {
+        "total_spaces": 12,
+        "used_spaces": 4,
+        "empty_spaces": 8,
+        "active_quarries": 1,
+        "plantations": [
+          {
+            "type": "corn",
+            "colonized": true
+          },
+          {
+            "type": "indigo",
+            "colonized": true
+          },
+          {
+            "type": "quarry",
+            "colonized": true
+          },
+          {
+            "type": "sugar",
+            "colonized": false
+          }
+        ]
+      },
+      "city": {
+        "total_spaces": 12,
+        "used_spaces": 2,
+        "empty_spaces": 10,
+        "colonists_unplaced": 0,
+        "quarry_discount": 1,
+        "total_empty_colonist_slots": 2,
+        "buildings": [
+          {
+            "name": "small_indigo_plant",
+            "max_colonists": 1,
+            "current_colonists": 1,
+            "empty_slots": 0,
+            "is_active": true,
+            "vp": 1
+          },
+          {
+            "name": "small_market",
+            "max_colonists": 1,
+            "current_colonists": 0,
+            "empty_slots": 1,
+            "is_active": false,
+            "vp": 1
+          }
+        ]
+      },
+      "production": {
+        "corn": {
+          "can_produce": true,
+          "amount": 1
+        },
+        "indigo": {
+          "can_produce": true,
+          "amount": 1
+        },
+        "sugar": {
+          "can_produce": false,
+          "amount": 0
+        },
+        "tobacco": {
+          "can_produce": false,
+          "amount": 0
+        },
+        "coffee": {
+          "can_produce": false,
+          "amount": 0
+        },
+        "total": 2
+      },
+      "warehouse": {
+        "has_small_warehouse": false,
+        "has_large_warehouse": false,
+        "goods_storable": 0,
+        "protected_goods": []
+      }
+    },
+    "player_2": {
+      "display_name": "Bob",
+      "is_governor": true,
+      "doubloons": 3,
+      "vp_chips": 10,
+      "goods": {
+        "corn": 0,
+        "indigo": 1,
+        "sugar": 1,
+        "tobacco": 0,
+        "coffee": 0,
+        "total": 2
+      },
+      "island": {
+        "total_spaces": 12,
+        "used_spaces": 3,
+        "empty_spaces": 9,
+        "active_quarries": 0,
+        "plantations": [
+          {
+            "type": "indigo",
+            "colonized": true
+          },
+          {
+            "type": "sugar",
+            "colonized": true
+          },
+          {
+            "type": "corn",
+            "colonized": false
+          }
+        ]
+      },
+      "city": {
+        "total_spaces": 12,
+        "used_spaces": 2,
+        "empty_spaces": 10,
+        "colonists_unplaced": 0,
+        "quarry_discount": 0,
+        "total_empty_colonist_slots": 1,
+        "buildings": [
+          {
+            "name": "small_indigo_plant",
+            "max_colonists": 1,
+            "current_colonists": 1,
+            "empty_slots": 0,
+            "is_active": true,
+            "vp": 1
+          },
+          {
+            "name": "small_sugar_mill",
+            "max_colonists": 1,
+            "current_colonists": 1,
+            "empty_slots": 0,
+            "is_active": true,
+            "vp": 1
+          }
+        ]
+      },
+      "production": {
+        "corn": {
+          "can_produce": false,
+          "amount": 0
+        },
+        "indigo": {
+          "can_produce": true,
+          "amount": 1
+        },
+        "sugar": {
+          "can_produce": true,
+          "amount": 1
+        },
+        "tobacco": {
+          "can_produce": false,
+          "amount": 0
+        },
+        "coffee": {
+          "can_produce": false,
+          "amount": 0
+        },
+        "total": 2
+      },
+      "warehouse": {
+        "has_small_warehouse": false,
+        "has_large_warehouse": false,
+        "goods_storable": 0,
+        "protected_goods": []
+      }
+    },
+    "player_3": {
+      "display_name": "Carol",
+      "is_governor": false,
+      "doubloons": 7,
+      "vp_chips": 5,
+      "goods": {
+        "corn": 2,
+        "indigo": 0,
+        "sugar": 0,
+        "tobacco": 1,
+        "coffee": 0,
+        "total": 3
+      },
+      "island": {
+        "total_spaces": 12,
+        "used_spaces": 5,
+        "empty_spaces": 7,
+        "active_quarries": 0,
+        "plantations": [
+          {
+            "type": "corn",
+            "colonized": true
+          },
+          {
+            "type": "corn",
+            "colonized": true
+          },
+          {
+            "type": "tobacco",
+            "colonized": true
+          },
+          {
+            "type": "quarry",
+            "colonized": false
+          },
+          {
+            "type": "coffee",
+            "colonized": false
+          }
+        ]
+      },
+      "city": {
+        "total_spaces": 12,
+        "used_spaces": 2,
+        "empty_spaces": 10,
+        "colonists_unplaced": 0,
+        "quarry_discount": 0,
+        "total_empty_colonist_slots": 4,
+        "buildings": [
+          {
+            "name": "hacienda",
+            "max_colonists": 1,
+            "current_colonists": 1,
+            "empty_slots": 0,
+            "is_active": true,
+            "vp": 1
+          },
+          {
+            "name": "tobacco_storage",
+            "max_colonists": 3,
+            "current_colonists": 1,
+            "empty_slots": 2,
+            "is_active": true,
+            "vp": 3
+          }
+        ]
+      },
+      "production": {
+        "corn": {
+          "can_produce": true,
+          "amount": 2
+        },
+        "indigo": {
+          "can_produce": false,
+          "amount": 0
+        },
+        "sugar": {
+          "can_produce": false,
+          "amount": 0
+        },
+        "tobacco": {
+          "can_produce": true,
+          "amount": 1
+        },
+        "coffee": {
+          "can_produce": false,
+          "amount": 0
+        },
+        "total": 3
+      },
+      "warehouse": {
+        "has_small_warehouse": false,
+        "has_large_warehouse": false,
+        "goods_storable": 0,
+        "protected_goods": []
+      }
+    }
+  },
+  "decision": {
+    "type": "role_selection",
+    "player": "player_2",
+    "note": "player_2 is the governor and must choose a role."
+  }
+}

@@ -1,0 +1,60 @@
+# ### Castest Root .gitignore ###
+
+# --- Legacy & Backup ---
+backup/
+backend_rs/
+archive/
+*.bak
+*.tmp
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.stats
+.hypothesis/
+.venv/
+venv/
+ENV/
+env/
+
+# --- Node (Frontend) ---
+node_modules/
+.npm
+dist/
+dist-ssr
+*.local
+.parcel-cache
+.eslintcache
+
+# --- Docker ---
+.docker
+*.log
+
+# --- OS ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Project Specific ---
+castone/data/logs/*
+!castone/data/logs/.gitkeep
+castone/PuCo_RL/.venv/
+castone/PuCo_RL/.pytest_cache/
