@@ -4,16 +4,13 @@ from jose import jwt
 import os
 
 # Secret key for JWT signing.
-# In production, set SECRET_KEY env var. In local dev, a fallback is used.
-_secret_key = os.getenv("SECRET_KEY")
-if not _secret_key:
-    import warnings
-    _secret_key = "dev-only-insecure-key-set-SECRET_KEY-in-production"
-    warnings.warn(
-        "SECRET_KEY env var not set. Using insecure default — DO NOT use in production.",
-        stacklevel=2,
+# SECRET_KEY env var is REQUIRED. The server will refuse to start without it.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is not set. "
+        "Set it before starting the server (e.g. export SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(32))'))"
     )
-SECRET_KEY = _secret_key
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
 

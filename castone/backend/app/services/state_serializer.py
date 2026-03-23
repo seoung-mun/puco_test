@@ -74,17 +74,7 @@ def _serialize_cargo_ship(ship) -> Dict[str, Any]:
 
 
 def _serialize_common_board(game: "PuertoRicoGame") -> Dict[str, Any]:
-    # Roles: which player holds each role this round
-    role_data: Dict[str, Any] = {}
-    for role in game.available_roles + list(game.roles_in_play if hasattr(game, "roles_in_play") else []):
-        pass
-
     all_roles = list(game.available_roles) + list(game.roles_in_play)
-    # Map role → player name (if taken this round)
-    role_taken_by: Dict[Role, Optional[str]] = {r: None for r in all_roles}
-    # roles_in_play are roles already picked; the player who picked them is not stored in game
-    # directly, but we can infer from each player's active role selection is not stored per-player.
-    # We'll leave taken_by as None and populate via session if needed.
 
     roles: Dict[str, Any] = {}
     for role in all_roles:

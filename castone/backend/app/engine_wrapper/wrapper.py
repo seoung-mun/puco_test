@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 
 try:
     from env.pr_env import PuertoRicoEnv
-except ImportError as e:
+except ImportError:
     import traceback
     traceback.print_exc()
     PuertoRicoEnv = None

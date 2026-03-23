@@ -1,35 +1,176 @@
 import logging
 from fastapi import WebSocket
-from typing import Dict, Set
+from typing import Dict, Optional, Set
 import asyncio
 import json
-import redis.asyncio as async_redis
-import os
+
+from app.core.redis import async_redis_client
 
 logger = logging.getLogger(__name__)
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+DISCONNECT_TIMEOUT_SECONDS = 600  # 10 minutes
+
 
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, Set[WebSocket]] = {}
-        self.redis = async_redis.from_url(REDIS_URL)
+        self.redis = async_redis_client
+        # Track player_id -> websocket mapping per game
+        self.player_connections: Dict[str, Dict[str, WebSocket]] = {}
+        # Track disconnect timers per game:player
+        self._disconnect_timers: Dict[str, asyncio.Task] = {}
 
-    async def connect(self, game_id: str, websocket: WebSocket):
+    async def connect(self, game_id: str, websocket: WebSocket, player_id: Optional[str] = None):
         await websocket.accept()
-        logger.info("WS connected: %s", game_id)
+        logger.info("WS connected: game=%s player=%s", game_id, player_id)
+
         if game_id not in self.active_connections:
             self.active_connections[game_id] = set()
-            # Start pub/sub listener for this game if this is the first connection
             asyncio.create_task(self._redis_listener(game_id))
         self.active_connections[game_id].add(websocket)
 
-    def disconnect(self, game_id: str, websocket: WebSocket):
-        logger.info("WS disconnected: %s", game_id)
+        # Track player connection
+        if player_id:
+            if game_id not in self.player_connections:
+                self.player_connections[game_id] = {}
+            self.player_connections[game_id][player_id] = websocket
+
+            await self.redis.hset(f"game:{game_id}:players", player_id, "connected")
+            await self.redis.expire(f"game:{game_id}:players", 900)
+
+            # Cancel any pending disconnect timer for this player
+            timer_key = f"{game_id}:{player_id}"
+            if timer_key in self._disconnect_timers:
+                self._disconnect_timers[timer_key].cancel()
+                del self._disconnect_timers[timer_key]
+                logger.info("Player reconnected, timer cancelled: game=%s player=%s", game_id, player_id)
+
+    async def disconnect(self, game_id: str, websocket: WebSocket, player_id: Optional[str] = None):
+        logger.info("WS disconnected: game=%s player=%s", game_id, player_id)
+
         if game_id in self.active_connections:
-            self.active_connections[game_id].remove(websocket)
+            self.active_connections[game_id].discard(websocket)
             if not self.active_connections[game_id]:
                 del self.active_connections[game_id]
+
+        # Update player status and handle disconnect logic
+        if player_id:
+            if game_id in self.player_connections:
+                self.player_connections[game_id].pop(player_id, None)
+                if not self.player_connections[game_id]:
+                    del self.player_connections[game_id]
+
+            await self.redis.hset(f"game:{game_id}:players", player_id, "disconnected")
+            await self._handle_player_disconnect(game_id, player_id)
+
+    async def _handle_player_disconnect(self, game_id: str, disconnected_player_id: str):
+        """Handle player disconnect: notify others and start auto-end timer."""
+        try:
+            meta = await self.redis.hgetall(f"game:{game_id}:meta")
+            if not meta:
+                return
+
+            status = meta.get(b"status", b"").decode()
+            if status != "PROGRESS":
+                return
+
+            human_count = int(meta.get(b"human_count", b"0").decode())
+
+            # Notify remaining players about the disconnect
+            disconnect_msg = {
+                "type": "PLAYER_DISCONNECTED",
+                "player_id": disconnected_player_id,
+                "message": f"Player {disconnected_player_id} has disconnected.",
+            }
+
+            if human_count >= 2:
+                # Multi-human game: ask remaining players if they want to end
+                disconnect_msg["options"] = ["end_game", "wait"]
+                disconnect_msg["timeout_seconds"] = DISCONNECT_TIMEOUT_SECONDS
+
+            await self._broadcast(game_id, json.dumps(disconnect_msg))
+
+            # Start auto-end timer
+            timer_key = f"{game_id}:{disconnected_player_id}"
+            if timer_key not in self._disconnect_timers:
+                task = asyncio.create_task(
+                    self._disconnect_timeout(game_id, disconnected_player_id)
+                )
+                self._disconnect_timers[timer_key] = task
+
+        except Exception as e:
+            logger.error("Error handling disconnect for game=%s player=%s: %s", game_id, disconnected_player_id, e)
+
+    async def _disconnect_timeout(self, game_id: str, player_id: str):
+        """Wait for timeout then auto-end the game."""
+        try:
+            await asyncio.sleep(DISCONNECT_TIMEOUT_SECONDS)
+
+            logger.info("Disconnect timeout reached: game=%s player=%s, auto-ending game", game_id, player_id)
+
+            # Check if player is still disconnected
+            status = await self.redis.hget(f"game:{game_id}:players", player_id)
+            if status and status.decode() == "connected":
+                return  # Player reconnected
+
+            # End the game via database update
+            from app.dependencies import SessionLocal
+            from app.db.models import GameSession
+
+            with SessionLocal() as db:
+                game = db.query(GameSession).filter(GameSession.id == game_id).first()
+                if game and game.status == "PROGRESS":
+                    game.status = "FINISHED"
+                    game.winner_id = None  # No winner on timeout
+                    db.commit()
+
+            # Broadcast game end
+            end_msg = {
+                "type": "GAME_ENDED",
+                "reason": "player_disconnect_timeout",
+                "disconnected_player": player_id,
+            }
+            await self._broadcast(game_id, json.dumps(end_msg))
+
+        except asyncio.CancelledError:
+            logger.info("Disconnect timer cancelled: game=%s player=%s", game_id, player_id)
+        except Exception as e:
+            logger.error("Disconnect timeout error: game=%s player=%s: %s", game_id, player_id, e)
+        finally:
+            timer_key = f"{game_id}:{player_id}"
+            self._disconnect_timers.pop(timer_key, None)
+
+    async def handle_client_message(self, game_id: str, player_id: str, message: dict):
+        """Handle incoming WebSocket messages from clients."""
+        msg_type = message.get("type")
+
+        if msg_type == "END_GAME_REQUEST":
+            # Player requested to end the game immediately
+            logger.info("Player requested game end: game=%s player=%s", game_id, player_id)
+
+            # Cancel all disconnect timers for this game
+            keys_to_remove = [k for k in self._disconnect_timers if k.startswith(f"{game_id}:")]
+            for key in keys_to_remove:
+                self._disconnect_timers[key].cancel()
+                del self._disconnect_timers[key]
+
+            # End the game
+            from app.dependencies import SessionLocal
+            from app.db.models import GameSession
+
+            with SessionLocal() as db:
+                game = db.query(GameSession).filter(GameSession.id == game_id).first()
+                if game and game.status == "PROGRESS":
+                    game.status = "FINISHED"
+                    game.winner_id = None
+                    db.commit()
+
+            end_msg = {
+                "type": "GAME_ENDED",
+                "reason": "player_request",
+                "requested_by": player_id,
+            }
+            await self._broadcast(game_id, json.dumps(end_msg))
 
     async def _redis_listener(self, game_id: str):
         pubsub = self.redis.pubsub()
@@ -57,7 +198,7 @@ class ConnectionManager:
                 try:
                     await connection.send_text(message)
                 except Exception:
-                    # Connection closed or dead
                     pass
+
 
 manager = ConnectionManager()

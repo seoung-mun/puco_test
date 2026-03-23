@@ -3,7 +3,6 @@ import logging
 import os
 import sys
 import torch
-import numpy as np
 from typing import Dict, Any
 from uuid import UUID
 
@@ -42,7 +41,7 @@ class BotService:
             
             if os.path.exists(model_path):
                 try:
-                    checkpoint = torch.load(model_path, map_location=device)
+                    checkpoint = torch.load(model_path, map_location=device, weights_only=True)
                     # Handle both raw state_dict and dict containing 'model_state_dict'
                     if "model_state_dict" in checkpoint:
                         agent.load_state_dict(checkpoint["model_state_dict"], strict=False)

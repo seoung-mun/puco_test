@@ -26,7 +26,7 @@ from typing import List, Optional, TYPE_CHECKING
 from configs.constants import Role, Good, BuildingType, TileType
 
 if TYPE_CHECKING:
-    from env.engine import PuertoRicoGame
+    pass
 
 # ------------------------------------------------------------------ #
 #  Name → enum mappings                                                #

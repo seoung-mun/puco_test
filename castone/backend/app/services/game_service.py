@@ -1,22 +1,18 @@
+import asyncio
 import json
 import logging
-from uuid import UUID, uuid4
 from typing import Dict, List
-import redis
-import os
+from uuid import UUID, uuid4
+
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
-
-from app.engine_wrapper.wrapper import create_game_engine, EngineWrapper
+from app.core.redis import sync_redis_client as redis_client
 from app.db.models import GameSession, GameLog
+from app.engine_wrapper.wrapper import create_game_engine, EngineWrapper
 from app.schemas.game import GameRoomCreate
 from app.services.ws_manager import manager
-import asyncio
 
-# Redis setup
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_client = redis.from_url(REDIS_URL)
+logger = logging.getLogger(__name__)
 
 class GameService:
     # In-memory store for active engines (Class variable to persist between requests)
@@ -49,9 +45,10 @@ class GameService:
         room.status = "PROGRESS"
         self.db.commit()
         
-        # Store initial state in Redis if needed for websocket
+        # Store game metadata and initial state in Redis
         state = engine.get_state()
         action_mask = engine.get_action_mask()
+        self._store_game_meta(game_id, room)
         self._sync_to_redis(game_id, state, action_mask)
 
         # Trigger Bot if first player is a bot
@@ -74,7 +71,6 @@ class GameService:
         
         # Async MLOps Logging
         from app.services.ml_logger import MLLogger
-        import asyncio
         import copy
         
         try:
@@ -111,15 +107,18 @@ class GameService:
         room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
         if result["done"] and room:
             room.status = "FINISHED"
-            
-            # Simple tie-break for MVP winner storing: 
-            # We assume engine.get_scores() or similar exists. For now just set FINISHED.
+            # Update Redis meta to reflect finished status
+            try:
+                redis_client.hset(f"game:{game_id}:meta", "status", "FINISHED")
+                redis_client.expire(f"game:{game_id}:meta", 300)
+            except Exception as e:
+                logger.warning("Redis meta update failed: %s", e)
 
         self.db.commit()
 
         # Update Redis for WebSocket broadcast (Bot actions are also blasted through this channel)
         new_action_mask = engine.get_action_mask()
-        self._sync_to_redis(game_id, result["state_after"], new_action_mask)
+        self._sync_to_redis(game_id, result["state_after"], new_action_mask, finished=result["done"])
 
         # Trigger Bot if next player is bot
         if not result["done"] and room:
@@ -136,7 +135,6 @@ class GameService:
         if str(next_actor).startswith("BOT_"):
             from app.services.bot_service import BotService
             from app.dependencies import SessionLocal
-            import asyncio
 
             def sync_callback(bg_game_id, bg_actor_id, bg_action):
                 with SessionLocal() as bg_db:
@@ -152,20 +150,35 @@ class GameService:
                 )
             )
 
-    def _sync_to_redis(self, game_id: UUID, state: Dict, action_mask=None):
-        data = {"type": "STATE_UPDATE", "data": state, "action_mask": action_mask or []}
-        # 1. Redis sync (Will fail gracefully if Redis is down)
+    def _store_game_meta(self, game_id: UUID, room: GameSession):
+        """Store game metadata in Redis for disconnect/timeout logic."""
+        players = room.players or []
+        human_count = sum(1 for p in players if not str(p).startswith("BOT_"))
         try:
-            redis_client.set(f"game:{game_id}:state", json.dumps(state))
+            redis_client.hset(f"game:{game_id}:meta", mapping={
+                "status": room.status,
+                "human_count": str(human_count),
+                "num_players": str(room.num_players),
+            })
+            redis_client.expire(f"game:{game_id}:meta", 900)
+        except Exception as e:
+            logger.warning("Redis meta store failed: %s", e)
+
+    def _sync_to_redis(self, game_id: UUID, state: Dict, action_mask=None, finished: bool = False):
+        ttl = 300 if finished else 900  # 5 min after game end, 15 min during play
+        data = {"type": "STATE_UPDATE", "data": state, "action_mask": action_mask or []}
+        try:
+            redis_client.set(f"game:{game_id}:state", json.dumps(state), ex=ttl)
             redis_client.publish(f"game:{game_id}:events", json.dumps(data))
         except Exception as e:
             logger.warning("Redis sync failed: %s", e)
 
         # 2. Direct In-Memory Broadcast (Fallback for single-instance development)
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(manager.broadcast_to_game(str(game_id), data))
+            loop = asyncio.get_running_loop()
+            loop.create_task(manager.broadcast_to_game(str(game_id), data))
+        except RuntimeError:
+            pass  # No running loop (sync context)
         except Exception as e:
             logger.warning("Direct broadcast failed: %s", e)
 

@@ -1,15 +1,18 @@
+import logging
 import os
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+import uvicorn
 
 from app.api.v1 import room, game, ws, auth
 from app.api.legacy import router as legacy_router
-from app.db.models import Base
-from app.dependencies import engine
+from app.dependencies import SessionLocal
+from app.core.redis import async_redis_client
 
-# Create tables if they don't exist
-Base.metadata.create_all(bind=engine)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Puerto Rico AI Battle Platform API",
@@ -18,8 +21,6 @@ app = FastAPI(
 )
 
 # CORS Setting
-# Set ALLOWED_ORIGINS env var to a comma-separated list for production.
-# e.g. ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
 _allowed_origins: list[str] = (
     [o.strip() for o in _raw_origins.split(",") if o.strip()]
@@ -30,17 +31,57 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
+
+
+@app.on_event("startup")
+async def startup_checks():
+    # Verify PostgreSQL connection
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+        logger.info("PostgreSQL connection verified")
+    except Exception as e:
+        logger.error("PostgreSQL connection failed: %s", e)
+
+    # Verify Redis connection
+    try:
+        await async_redis_client.ping()
+        logger.info("Redis connection verified")
+    except Exception as e:
+        logger.error("Redis connection failed: %s", e)
+
 
 @app.get("/")
 async def root():
     return {"message": "Puerto Rico AI Battle Platform API is running"}
 
+
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    checks = {}
+
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+        checks["postgresql"] = "ok"
+    except Exception as e:
+        checks["postgresql"] = f"error: {e}"
+
+    try:
+        await async_redis_client.ping()
+        checks["redis"] = "ok"
+    except Exception as e:
+        checks["redis"] = f"error: {e}"
+
+    all_ok = all(v == "ok" for v in checks.values())
+    return JSONResponse(
+        content={"status": "ok" if all_ok else "degraded", "checks": checks},
+        status_code=200 if all_ok else 503,
+    )
+
 
 # Frontend-compatible API (no version prefix)
 app.include_router(legacy_router, prefix="/api", tags=["legacy"])

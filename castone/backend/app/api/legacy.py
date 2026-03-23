@@ -3,7 +3,8 @@ Legacy API — endpoints at /api/* that match the frontend's expected interface.
 All game state is managed by the SessionManager singleton.
 """
 import random
-import os, sys
+import os
+import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../PuCo_RL")))
 from typing import Any, Dict, List, Optional
 

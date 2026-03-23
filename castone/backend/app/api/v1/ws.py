@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Depends
 from sqlalchemy.orm import Session
 from app.services.ws_manager import manager
@@ -20,7 +21,7 @@ def get_ws_user(token: str, db: Session) -> User:
 
 @router.websocket("/{game_id}")
 async def websocket_endpoint(
-    websocket: WebSocket, 
+    websocket: WebSocket,
     game_id: str,
     token: str = Query(None),
     db: Session = Depends(get_db)
@@ -28,17 +29,21 @@ async def websocket_endpoint(
     if not token:
         await websocket.close(code=1008)
         return
-        
+
     user = get_ws_user(token, db)
     if not user:
         await websocket.close(code=1008)
         return
 
-    await manager.connect(game_id, websocket)
+    player_id = str(user.id)
+    await manager.connect(game_id, websocket, player_id=player_id)
     try:
         while True:
-            # TDD: WebSocket Payload validation placeholder
             data = await websocket.receive_text()
-            pass
+            try:
+                message = json.loads(data)
+                await manager.handle_client_message(game_id, player_id, message)
+            except json.JSONDecodeError:
+                pass
     except WebSocketDisconnect:
-        manager.disconnect(game_id, websocket)
+        await manager.disconnect(game_id, websocket, player_id=player_id)
