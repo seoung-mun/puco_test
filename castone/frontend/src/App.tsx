@@ -12,6 +12,7 @@ import HistoryPanel from './components/HistoryPanel';
 import HomeScreen from './components/HomeScreen';
 import JoinScreen from './components/JoinScreen';
 import LobbyScreen from './components/LobbyScreen';
+import LoginScreen from './components/LoginScreen';
 import type { LobbyPlayer, ServerInfo } from './types/gameState';
 import './App.css';
 
@@ -98,8 +99,14 @@ export default function App() {
   const popupIdRef = useRef(0);
   const prevHistoryLenRef = useRef<number>(-1);
 
+  // --- Auth state ---
+  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('access_token'));
+  const [authUser, setAuthUser] = useState<{ id: string; nickname: string | null; needs_nickname: boolean } | null>(null);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
+
   // --- Multiplayer / screen routing ---
-  const [screen, setScreen] = useState<'loading' | 'home' | 'join' | 'lobby' | 'game'>('loading');
+  const [screen, setScreen] = useState<'loading' | 'login' | 'home' | 'join' | 'lobby' | 'game'>('loading');
   const [myName, setMyName] = useState<string | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [isMultiplayer, setIsMultiplayer] = useState(false);
@@ -242,7 +249,85 @@ export default function App() {
 
   useEffect(() => { initializeApp(); }, []);
 
-  async function initializeApp() {
+  async function handleGoogleLogin(credentialResponse: { credential?: string }) {
+    if (!credentialResponse.credential) return;
+    try {
+      const res = await fetch(`${BACKEND}/api/v1/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: credentialResponse.credential }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.detail || 'Login failed');
+        return;
+      }
+      const data = await res.json();
+      localStorage.setItem('access_token', data.access_token);
+      setAuthToken(data.access_token);
+      setAuthUser(data.user);
+      if (data.user.needs_nickname) {
+        setNicknameInput('');
+      }
+      initializeApp(data.access_token);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Login failed');
+    }
+  }
+
+  async function handleSetNickname() {
+    if (!authToken || !nicknameInput.trim()) return;
+    setNicknameError(null);
+    try {
+      const res = await fetch(`${BACKEND}/api/v1/auth/me/nickname`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ nickname: nicknameInput.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setNicknameError(err.detail || 'Failed to set nickname');
+        return;
+      }
+      const user = await res.json();
+      setAuthUser({ id: user.id, nickname: user.nickname, needs_nickname: false });
+    } catch (e) {
+      setNicknameError(e instanceof Error ? e.message : 'Failed');
+    }
+  }
+
+  function handleAuthLogout() {
+    localStorage.removeItem('access_token');
+    setAuthToken(null);
+    setAuthUser(null);
+    setScreen('login');
+  }
+
+  async function initializeApp(token?: string) {
+    const currentToken = token || authToken;
+    // Check auth first
+    if (!currentToken) {
+      setScreen('login');
+      return;
+    }
+    // Validate token
+    try {
+      const meRes = await fetch(`${BACKEND}/api/v1/auth/me`, {
+        headers: { 'Authorization': `Bearer ${currentToken}` },
+      });
+      if (!meRes.ok) {
+        localStorage.removeItem('access_token');
+        setAuthToken(null);
+        setScreen('login');
+        return;
+      }
+      const user = await meRes.json();
+      setAuthUser(user);
+    } catch {
+      setScreen('login');
+      return;
+    }
+
     try {
       const info: ServerInfo = await fetch(`${BACKEND}/api/server-info`).then(r => r.json());
 
@@ -390,6 +475,12 @@ export default function App() {
     setLobbyHost(null);
     setState(null);
     setScreen(!forceHome && isClient ? 'join' : 'home');
+  }
+
+  // Auth logout: fully sign out including Google auth
+  function fullLogout() {
+    logout(true);
+    handleAuthLogout();
   }
 
   async function handleSinglePlayer() {
@@ -891,6 +982,18 @@ export default function App() {
 
   if (screen === 'loading') {
     return <div style={{ color: '#eee', padding: 40, textAlign: 'center' }}>Loading...</div>;
+  }
+  if (screen === 'login' || (authUser?.needs_nickname && authToken)) {
+    return <LoginScreen
+      onGoogleLogin={handleGoogleLogin}
+      isLoggedIn={!!authToken}
+      needsNickname={authUser?.needs_nickname ?? false}
+      nicknameInput={nicknameInput}
+      onNicknameChange={setNicknameInput}
+      onSetNickname={handleSetNickname}
+      nicknameError={nicknameError}
+      error={error}
+    />;
   }
   if (screen === 'home') {
     return <HomeScreen

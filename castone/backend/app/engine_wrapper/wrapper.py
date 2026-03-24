@@ -14,16 +14,20 @@ except ImportError:
     PuertoRicoEnv = None
 
 class EngineWrapper:
-    def __init__(self, num_players: int = 3):
+    def __init__(self, num_players: int = 3, max_game_steps: int = 50000):
         if PuertoRicoEnv is None:
             raise RuntimeError("PuertoRicoEnv could not be imported. Check PYTHONPATH.")
-        self.env = PuertoRicoEnv(num_players=num_players)
+        self.env = PuertoRicoEnv(num_players=num_players, max_game_steps=max_game_steps)
         self.env.reset()
         # PettingZoo AEC retrieve observation via observe()
         obs_dict = self.env.observe(self.env.agent_selection)
         self.last_obs = obs_dict["observation"]
         self.last_info = self.env.infos[self.env.agent_selection]
         self.last_action_mask = obs_dict["action_mask"]
+        # Round/step tracking for DB logging
+        self._step_count = 0
+        self._round_count = 0
+        self._last_governor = self.env.game.governor_idx
 
     def get_state(self) -> Dict[str, Any]:
         """Returns the current state/observation as a serializable dict."""
@@ -62,7 +66,16 @@ class EngineWrapper:
         reward = self.env.rewards[self.env.agent_selection]
         done = self.env.terminations[self.env.agent_selection]
         truncated = self.env.truncations[self.env.agent_selection]
-        info = self.last_info # Use the updated info
+
+        # Track round/step
+        self._step_count += 1
+        if self.env.game.governor_idx != self._last_governor:
+            self._round_count += 1
+            self._last_governor = self.env.game.governor_idx
+
+        info = dict(self.last_info) if self.last_info else {}
+        info["round"] = self._round_count
+        info["step"] = self._step_count
 
         state_after = self.get_state()
         
@@ -73,6 +86,8 @@ class EngineWrapper:
             "state_after": state_after,
             "reward": float(reward) if isinstance(reward, (int, float, np.number)) else [float(r) for r in reward],
             "done": bool(done or truncated),
+            "terminated": bool(done),
+            "truncated": bool(truncated),
             "info": info
         }
 

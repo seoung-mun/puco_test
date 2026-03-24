@@ -28,8 +28,8 @@ class UserResponse(BaseModel):
     id: str
     nickname: Optional[str]
     email: Optional[str]
-    total_games: int
-    win_rate: float
+    total_games: int = 0
+    win_rate: float = 0.0
     needs_nickname: bool  # True if user hasn't set a nickname yet
 
     model_config = {"from_attributes": True}

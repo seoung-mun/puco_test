@@ -45,8 +45,8 @@ def _build_user_response(user: User) -> UserResponse:
         id=str(user.id),
         nickname=user.nickname,
         email=user.email,
-        total_games=user.total_games,
-        win_rate=user.win_rate,
+        total_games=user.total_games if user.total_games is not None else 0,
+        win_rate=user.win_rate if user.win_rate is not None else 0.0,
         needs_nickname=user.nickname is None,
     )
 
@@ -173,31 +173,3 @@ async def get_me(
     """Return the currently authenticated user's profile."""
     return _build_user_response(current_user)
 
-
-# ---------------------------------------------------------------------------
-# Development-only mock login (disabled in production)
-# ---------------------------------------------------------------------------
-
-@router.post("/mock-login")
-async def mock_login(db: Session = Depends(get_db)):
-    """Development-only endpoint. Disabled unless DEBUG=true."""
-    if os.getenv("DEBUG", "false").lower() != "true":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-
-    user = db.query(User).filter(User.google_id == "mock_google_id").first()
-    if not user:
-        user = User(
-            id=uuid4(),
-            google_id="mock_google_id",
-            email="mock@dev.local",
-            nickname="AI_Tester",
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    access_token = create_access_token(subject=str(user.id))
-    return TokenResponse(
-        access_token=access_token,
-        user=_build_user_response(user),
-    )

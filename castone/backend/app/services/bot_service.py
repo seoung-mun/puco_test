@@ -37,6 +37,7 @@ class BotService:
             agent = Agent(obs_dim=cls._obs_dim, action_dim=200).to(device)
             
             model_filename = os.getenv("PPO_MODEL_FILENAME", "ppo_agent_update_100.pth")
+            
             model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../../PuCo_RL/models/{model_filename}"))
             
             if os.path.exists(model_path):

@@ -14,6 +14,7 @@ from configs.constants import (
 
 if TYPE_CHECKING:
     from env.engine import PuertoRicoGame
+    from app.engine_wrapper.wrapper import EngineWrapper
     from app.services.session_manager import SessionManager
 
 # ------------------------------------------------------------------ #
@@ -398,4 +399,55 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
         "decision": decision,
         "history": session.history,
         "bot_players": bot_players,
+    }
+
+
+# ------------------------------------------------------------------ #
+#  Compact summary for DB logging (Adminer-friendly)                  #
+# ------------------------------------------------------------------ #
+
+def serialize_compact_summary(engine: "EngineWrapper") -> Dict[str, Any]:
+    """
+    EngineWrapper에서 핵심 게임 지표만 추출하여 Adminer에서 읽기 쉬운
+    compact JSON을 반환한다. GameLog.state_summary 컬럼에 저장된다.
+    """
+    game = engine.env.game
+
+    phase_name = PHASE_TO_STR.get(game.current_phase, "unknown")
+    active_role_name = ROLE_TO_STR.get(game.active_role) if game.active_role else None
+
+    players_summary = {}
+    for i, p in enumerate(game.players):
+        goods = {GOOD_TO_STR[g]: v for g, v in p.goods.items() if v > 0}
+        buildings = [
+            _building_name(b.building_type)
+            for b in p.city_board
+            if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE)
+        ]
+        plantations = {}
+        for t in p.island_board:
+            tname = TILE_TO_STR.get(t.tile_type, "empty")
+            if tname == "empty":
+                continue
+            plantations[tname] = plantations.get(tname, 0) + 1
+
+        players_summary[f"p{i}"] = {
+            "doubloons": p.doubloons,
+            "vp": p.vp_chips,
+            "goods": goods,
+            "buildings": buildings,
+            "plantations": plantations,
+            "colonists": p.total_colonists_owned,
+            "empty_city": p.empty_city_spaces,
+        }
+
+    return {
+        "phase": phase_name,
+        "role": active_role_name,
+        "current_player": game.current_player_idx,
+        "governor": game.governor_idx,
+        "vp_supply": game.vp_chips,
+        "colonist_supply": game.colonists_supply,
+        "colonist_ship": game.colonists_ship,
+        "players": players_summary,
     }

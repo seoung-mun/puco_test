@@ -3,10 +3,9 @@
   "configurations": [
     {
       "name": "frontend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "rootDir": "/Users/seoungmun/Documents/agent_dev/castest/castone/frontend",
-      "port": 5173
+      "runtimeExecutable": "echo",
+      "runtimeArgs": ["Frontend already running in Docker on port 3000"],
+      "port": 3000
     }
   ]
 }

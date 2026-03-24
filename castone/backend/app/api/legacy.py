@@ -13,21 +13,19 @@ from pydantic import BaseModel
 
 from app.services.session_manager import session
 from app.services.state_serializer import serialize_game_state, compute_score_breakdown, TILE_TO_STR
+from app.services.bot_service import BotService
+from app.services.agent_registry import bot_agents_list, valid_bot_types
 import app.services.action_translator as tr
 from configs.constants import Role, Good, BuildingType
 
 router = APIRouter()
 
 # ------------------------------------------------------------------ #
-#  Bot agent catalogue (defined in code; UI only selects from this)   #
+#  Bot agent catalogue — agent_registry.py 에서 자동 생성             #
 # ------------------------------------------------------------------ #
 
-BOT_AGENTS = [
-    {"type": "random", "name": "Random Bot"},
-    {"type": "ppo",    "name": "PPO Bot"},
-]
-
-_VALID_BOT_TYPES: set = {b["type"] for b in BOT_AGENTS}
+BOT_AGENTS = bot_agents_list()          # [{"type": "ppo", "name": "PPO Bot"}, ...]
+_VALID_BOT_TYPES: set = valid_bot_types()  # {"ppo", "hppo", "random", ...}
 
 
 # ------------------------------------------------------------------ #
@@ -51,8 +49,8 @@ def _step(action: int) -> Dict[str, Any]:
     if not (0 <= action < len(mask)) or not mask[action]:
         raise HTTPException(status_code=400, detail=f"Invalid action {action} for current state")
     result = session.game.step(action)
-    # Check game over
-    if result["done"]:
+    # Check game over — 자연 종료(terminated)만 game_over로 처리, truncation은 무시
+    if result.get("terminated", result["done"]):
         session.game_over = True
     return result
 
@@ -123,22 +121,69 @@ def _run_pending_bots():
     if session.game_over:
         return
     game = session.game.env.game
-    for _ in range(200):   # safety limit
+    engine = session.game  # EngineWrapper
+
+    # Mayor phase toggle 카운터: 봇이 무한 toggle에 빠지는 것을 방지
+    mayor_toggle_count: Dict[int, int] = {}
+    MAX_MAYOR_TOGGLES = 30  # 플레이어당 최대 Mayor toggle 횟수
+
+    for _ in range(5000):   # safety limit (전원 봇 게임 완주 가능하도록 상향)
         if session.game_over:
             break
         idx = game.current_player_idx
         if idx not in session.bot_players:
             break   # human's turn
-        # Pick a random valid action
-        mask = session.game.get_action_mask()
-        valid = [i for i, v in enumerate(mask) if v]
-        if not valid:
+        bot_type = session.bot_players[idx]
+        mask = engine.get_action_mask()
+        if not any(mask):
             break
-        action = random.choice(valid)
+
+        # Mayor phase에서 toggle 횟수 초과 시 강제 pass
+        from configs.constants import Phase
+        is_mayor = (game.current_phase == Phase.MAYOR)
+        if is_mayor:
+            mayor_toggle_count.setdefault(idx, 0)
+            if mayor_toggle_count[idx] >= MAX_MAYOR_TOGGLES and mask[15]:
+                action = 15  # 강제 pass
+                mayor_toggle_count[idx] = 0
+            else:
+                phase_id = engine.last_info.get("current_phase_id", 9) if engine.last_info else 9
+                game_context = {
+                    "vector_obs": engine.last_obs,
+                    "engine_instance": game,
+                    "action_mask": mask,
+                    "phase_id": phase_id,
+                }
+                try:
+                    action = BotService.get_action(bot_type, game_context)
+                except Exception:
+                    valid = [i for i, v in enumerate(mask) if v]
+                    action = random.choice(valid) if valid else 15
+                # toggle 액션(69-92)이면 카운터 증가
+                if 69 <= action <= 92:
+                    mayor_toggle_count[idx] += 1
+                else:
+                    mayor_toggle_count[idx] = 0
+        else:
+            # Mayor phase 전환 시 카운터 리셋
+            mayor_toggle_count.clear()
+            phase_id = engine.last_info.get("current_phase_id", 9) if engine.last_info else 9
+            game_context = {
+                "vector_obs": engine.last_obs,
+                "engine_instance": game,
+                "action_mask": mask,
+                "phase_id": phase_id,
+            }
+            try:
+                action = BotService.get_action(bot_type, game_context)
+            except Exception:
+                valid = [i for i, v in enumerate(mask) if v]
+                action = random.choice(valid) if valid else 15
+
         action_name, params = _action_to_history(action, game, session)
-        result = session.game.step(action)
+        result = engine.step(action)
         session.add_history(action_name, params)
-        if result["done"]:
+        if result.get("terminated", result["done"]):
             session.game_over = True
             break
 

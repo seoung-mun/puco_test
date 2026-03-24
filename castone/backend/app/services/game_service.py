@@ -11,6 +11,7 @@ from app.db.models import GameSession, GameLog
 from app.engine_wrapper.wrapper import create_game_engine, EngineWrapper
 from app.schemas.game import GameRoomCreate
 from app.services.ws_manager import manager
+from app.services.state_serializer import serialize_compact_summary
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,11 @@ class GameService:
         except RuntimeError:
             pass # No running loop (e.g. synch fallback test scripts)
         
-        # Save Log to DB
+        # Save Log to DB (with human-readable summary for Adminer)
+        try:
+            summary = serialize_compact_summary(engine)
+        except Exception:
+            summary = None
         game_log = GameLog(
             game_id=game_id,
             round=result["info"].get("round", 0),
@@ -99,13 +104,14 @@ class GameService:
             action_data={"action": action},
             available_options=result["action_mask"],
             state_before=result["state_before"],
-            state_after=result["state_after"]
+            state_after=result["state_after"],
+            state_summary=summary,
         )
         self.db.add(game_log)
         
         # Load the room to check players (for bot scheduling)
         room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
-        if result["done"] and room:
+        if result.get("terminated", result["done"]) and room:
             room.status = "FINISHED"
             # Update Redis meta to reflect finished status
             try:
@@ -118,10 +124,11 @@ class GameService:
 
         # Update Redis for WebSocket broadcast (Bot actions are also blasted through this channel)
         new_action_mask = engine.get_action_mask()
-        self._sync_to_redis(game_id, result["state_after"], new_action_mask, finished=result["done"])
+        terminated = result.get("terminated", result["done"])
+        self._sync_to_redis(game_id, result["state_after"], new_action_mask, finished=terminated)
 
         # Trigger Bot if next player is bot
-        if not result["done"] and room:
+        if not terminated and room:
             self._schedule_next_bot_turn_if_needed(game_id, room, engine)
 
         return {"state": result["state_after"], "action_mask": new_action_mask}

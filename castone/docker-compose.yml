@@ -62,6 +62,8 @@ services:
       dockerfile: Dockerfile
       target: builder
     container_name: puco_frontend
+    env_file:
+      - .env
     environment:
       - VITE_API_TARGET=http://backend:8000
     ports:
@@ -73,6 +75,15 @@ services:
       - backend
     restart: unless-stopped
     command: npm run dev -- --host --port 3000
+
+  adminer:
+    image: adminer:latest
+    container_name: puco_adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    restart: unless-stopped
 
 volumes:
   pgdata:

@@ -17,8 +17,8 @@ class User(Base):
     google_id = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=True)
     nickname = Column(String, unique=True, nullable=True)  # None until user completes setup
-    total_games = Column(Integer, server_default="0")
-    win_rate = Column(Float, server_default="0.0")
+    total_games = Column(Integer, server_default="0", default=0)
+    win_rate = Column(Float, server_default="0.0", default=0.0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -53,6 +53,7 @@ class GameLog(Base):
     available_options = Column(JSONB)
     state_before = Column(JSONB)
     state_after = Column(JSONB)
+    state_summary = Column(JSONB, nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     game_session = relationship("GameSession", back_populates="logs")
