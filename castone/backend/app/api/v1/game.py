@@ -11,7 +11,11 @@ from app.db.models import User
 router = APIRouter()
 
 @router.post("/{game_id}/start")
-async def start_game(game_id: UUID, db: Session = Depends(get_db)):
+async def start_game(
+    game_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     service = GameService(db)
     try:
         result = service.start_game(game_id)

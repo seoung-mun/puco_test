@@ -5,11 +5,17 @@ from typing import List
 from app.dependencies import get_db
 from app.schemas.game import GameRoomCreate, GameRoomResponse
 from app.services.game_service import GameService
+from app.api.deps import get_current_user
+from app.db.models import User
 
 router = APIRouter()
 
 @router.post("/", response_model=GameRoomResponse)
-async def create_room(room_info: GameRoomCreate, db: Session = Depends(get_db)):
+async def create_room(
+    room_info: GameRoomCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     service = GameService(db)
     room = service.create_room(room_info)
     return GameRoomResponse(
