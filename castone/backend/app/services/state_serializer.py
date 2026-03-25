@@ -363,8 +363,19 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
         name = session.player_names[i] if i < len(session.player_names) else f"Player {i}"
         players[f"player_{i}"] = _serialize_player(p, game, name, i, display_order[i])
 
+    from configs.constants import Phase as _Phase
+    _in_mayor = game.current_phase == _Phase.MAYOR
+    mayor_slot_idx = game.mayor_placement_idx if _in_mayor else None
+    # True when action 69 (place 0 / skip) is currently valid
+    if _in_mayor and not session.game_over:
+        _mask = session.game.get_action_mask()
+        mayor_can_skip = bool(_mask[69]) if len(_mask) > 69 else False
+    else:
+        mayor_can_skip = False
+
     meta = {
-        "round": session.round,
+        "game_id": session.session_id,
+        "round": session.game._round_count + 1,
         "num_players": game.num_players,
         "player_order": player_order,
         "governor": governor_key,
@@ -377,6 +388,8 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
         "vp_supply_remaining": game.vp_chips,
         "captain_consecutive_passes": len(game._captain_passed_players),
         "bot_thinking": session.bot_thinking,
+        "mayor_slot_idx": mayor_slot_idx,  # 0-11=island slot, 12-23=city slot(idx-12), null if not mayor phase
+        "mayor_can_skip": mayor_can_skip,  # True if skip (action 69) is currently valid
     }
 
     decision = {
@@ -424,7 +437,7 @@ def serialize_compact_summary(engine: "EngineWrapper") -> Dict[str, Any]:
             for b in p.city_board
             if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE)
         ]
-        plantations = {}
+        plantations: dict[str, int] = {}
         for t in p.island_board:
             tname = TILE_TO_STR.get(t.tile_type, "empty")
             if tname == "empty":

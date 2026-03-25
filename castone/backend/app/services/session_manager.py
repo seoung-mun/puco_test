@@ -41,6 +41,10 @@ class SessionManager:
         return cls._instance
 
     def _init(self):
+        # Stable session ID for WebSocket channel routing
+        import uuid
+        self.session_id: str = str(uuid.uuid4())
+
         # Game engine (EngineWrapper instance)
         self.game = None
 
@@ -96,7 +100,7 @@ class SessionManager:
     #  History                                                             #
     # ------------------------------------------------------------------ #
 
-    def add_history(self, action: str, params: Dict[str, str]):
+    def add_history(self, action: str, params: Dict[str, object]):
         self.history.append({
             "ts": int(time.time() * 1000),
             "action": action,

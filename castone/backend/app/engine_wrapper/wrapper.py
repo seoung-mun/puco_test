@@ -14,7 +14,7 @@ except ImportError:
     PuertoRicoEnv = None
 
 class EngineWrapper:
-    def __init__(self, num_players: int = 3, max_game_steps: int = 50000):
+    def __init__(self, num_players: int = 3, max_game_steps: int = 1200):
         if PuertoRicoEnv is None:
             raise RuntimeError("PuertoRicoEnv could not be imported. Check PYTHONPATH.")
         self.env = PuertoRicoEnv(num_players=num_players, max_game_steps=max_game_steps)
@@ -91,7 +91,7 @@ class EngineWrapper:
             "info": info
         }
 
-    def _sanitize_obs(self, obs: Any) -> Dict[str, Any]:
+    def _sanitize_obs(self, obs: Any) -> Any:
         """Converts numpy types in observation to JSON serializable types."""
         if isinstance(obs, dict):
             return {k: self._sanitize_obs(v) for k, v in obs.items()}

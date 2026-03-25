@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from typing import Any, Dict
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Header, HTTPException
 
 from app.services.session_manager import session
 from app.services.state_serializer import TILE_TO_STR
@@ -27,9 +27,12 @@ BOT_AGENTS = bot_agents_list()         # [{"type": "ppo", "name": "PPO Bot"}, ..
 _VALID_BOT_TYPES: set = valid_bot_types()  # {"ppo", "hppo", "random", ...}
 
 
-def require_internal_key(x_api_key: str = Header(...)):
-    """INTERNAL_API_KEY 환경변수와 일치하는 X-API-Key 헤더가 없으면 403."""
-    if not INTERNAL_API_KEY or not hmac.compare_digest(x_api_key, INTERNAL_API_KEY):
+def require_internal_key(x_api_key: str | None = Header(default=None)):
+    """INTERNAL_API_KEY 환경변수가 설정된 경우에만 X-API-Key 헤더를 검증한다.
+    키가 설정되지 않은 경우(개발 환경)에는 모든 요청을 허용한다."""
+    if not INTERNAL_API_KEY:
+        return  # 키 미설정 시 인증 생략
+    if not x_api_key or not hmac.compare_digest(x_api_key, INTERNAL_API_KEY):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
@@ -57,7 +60,34 @@ def _step(action: int) -> Dict[str, Any]:
     # 자연 종료(terminated)만 game_over로 처리, truncation은 무시
     if result.get("terminated", result["done"]):
         session.game_over = True
+    # 주의: publish는 호출자가 add_history() 이후에 직접 호출해야 history가 포함됨
     return result
+
+
+def _publish_state_update():
+    """액션 완료 후 WebSocket 클라이언트에 상태를 push한다."""
+    try:
+        from app.services.state_serializer import serialize_game_state
+        from app.core.redis import sync_redis_client as redis_client
+        from app.services.ws_manager import manager
+        import json
+        import asyncio
+
+        state = serialize_game_state(session)
+        mask = session.game.get_action_mask() if session.game else []
+        payload = json.dumps({"type": "STATE_UPDATE", "data": state, "action_mask": mask})
+        channel = f"game:{session.session_id}:events"
+
+        redis_client.publish(channel, payload)
+
+        # 동일 프로세스 WS 브로드캐스트 (Redis Pub/Sub 구독 전 fallback)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(manager.broadcast_to_game(session.session_id, json.loads(payload)))
+        except RuntimeError:
+            pass  # 동기 컨텍스트에서는 무시
+    except Exception:
+        pass  # 브로드캐스트 실패는 게임 진행에 영향 없음
 
 
 def _action_to_history(action: int, game, sess) -> tuple:
@@ -123,6 +153,9 @@ def _action_to_history(action: int, game, sess) -> tuple:
 
 def _run_pending_bots():
     """Run bot turns until a human player's turn (or game over)."""
+    # 사람 액션 완료 후 현재 상태(history 포함) 즉시 push
+    _publish_state_update()
+
     if session.game_over:
         return
     game = session.game.env.game
@@ -188,4 +221,6 @@ def _run_pending_bots():
         session.add_history(action_name, params)
         if result.get("terminated", result["done"]):
             session.game_over = True
+            _publish_state_update()
             break
+        _publish_state_update()

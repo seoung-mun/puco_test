@@ -62,6 +62,15 @@ class GameService:
         if not engine:
             raise ValueError(f"Active game engine not found for game {game_id}")
 
+        # Turn validation: actor_id must be the current turn player
+        room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
+        if room and room.players:
+            current_idx = engine.env.game.current_player_idx
+            if current_idx < len(room.players):
+                expected_actor = str(room.players[current_idx])
+                if not expected_actor.startswith("BOT_") and actor_id != expected_actor:
+                    raise ValueError(f"Not your turn. Current player: {current_idx}")
+
         # TDD Defense: Validate action against the current action mask
         current_mask = engine.get_action_mask()
         if not (0 <= action < len(current_mask)) or not current_mask[action]:

@@ -77,7 +77,7 @@ class ConnectionManager:
             human_count = int(meta.get(b"human_count", b"0").decode())
 
             # Notify remaining players about the disconnect
-            disconnect_msg = {
+            disconnect_msg: dict[str, object] = {
                 "type": "PLAYER_DISCONNECTED",
                 "player_id": disconnected_player_id,
                 "message": f"Player {disconnected_player_id} has disconnected.",

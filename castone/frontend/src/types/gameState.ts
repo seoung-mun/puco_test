@@ -6,6 +6,7 @@ export type PhaseType =
   | 'captain_action' | 'captain_discard' | 'end_of_round' | 'game_over';
 
 export interface Meta {
+  game_id?: string;
   round: number;
   num_players: number;
   player_order: string[];
@@ -19,6 +20,8 @@ export interface Meta {
   vp_supply_remaining: number;
   captain_consecutive_passes: number;
   bot_thinking?: boolean;
+  mayor_slot_idx?: number | null; // 0-11=island slot, 12-23=city slot(idx-12), null if not mayor phase
+  mayor_can_skip?: boolean;       // true if skip (place 0) is valid on current slot
 }
 
 export interface Role {

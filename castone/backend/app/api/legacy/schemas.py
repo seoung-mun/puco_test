@@ -66,6 +66,16 @@ class MayorColonistBody(BaseModel):
     target_index: int
 
 
+class MayorPlaceAmountBody(BaseModel):
+    player: str
+    amount: int  # 0-3: colonists to place on CURRENT sequential slot
+
+
+class MayorDistributeBody(BaseModel):
+    player: str
+    distribution: List[int]  # 길이 24: 인덱스 0-11=island slots, 12-23=city slots
+
+
 class MayorFinishBody(BaseModel):
     player: str
 

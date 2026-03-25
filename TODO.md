@@ -1,6 +1,6 @@
 # Castone 배포 전 통합 기술 명세서 (TODO)
 
-> **최종 갱신:** 2026-03-25 (Task 0.2 구현 완료 + legacy 패키지 분리)
+> **최종 갱신:** 2026-03-25 (Task 0.3, 0.4, 1.1, 1.2 완료 + /api/v1/ → /api/puco/ 리네임)
 > **대상 브랜치:** `dev`
 > **배포 환경:** GCP Cloud Run
 > **근거 문서:**
@@ -10,6 +10,23 @@
 > - `castone/docs/next_steps_report.md` — 종합 다음 단계 보고서
 
 ---
+
+
+# 현재 발견된 문제
+
+- Mayor 로직 변경 이후, 이주민 배치 단계에서 오류 발생
+- 구글 로그인이 됬다가 안되는 문제
+
+# 오늘 해결할 내용 ✅ 완료
+
+- [x] /api/v1/ → /api/puco/ 경로 리네임 (main.py + 프론트 auth 경로)
+- [x] Task 0.3 — IDOR 방지 (v1/game.py start_game + perform_action)
+- [x] Task 0.4 — WS 첫 메시지 JWT 인증 (v1/ws.py)
+- [x] Task 1.1 — 헬스 엔드포인트 에러 상세 제거 (main.py)
+- [x] Task 1.2 — Docker 포트 localhost 바인딩 + 자격증명 env-var 분리
+
+
+
 
 ## 현재 상태 요약
 
@@ -22,7 +39,7 @@
 | RL 데이터 로깅 | ✅ 완료 | PostgreSQL + JSONL 이중 저장 |
 | AgentRegistry (PPO/HPPO/Random) | ✅ 완료 | dev 브랜치에서 구현 |
 | PuCo_RL upstream sync | ✅ 완료 | Mayor 순차배치 액션, league 학습 스크립트 반영 |
-| 보안 (인증/인가) | ✅ Phase 0 완료 | Legacy 키 인증, IDOR 방지, WS 첫메시지 인증 |
+| 보안 (인증/인가) | ✅ Phase 0+1 완료 | Legacy 키 인증, IDOR 방지, WS 첫메시지 인증, 헬스엔드포인트 정리, Docker 포트 격리 |
 | .env 보안 | ✅ 완료 | .gitignore + .env.example 생성 |
 | Rate Limiting | ❌ 없음 | 전 엔드포인트 무제한 |
 | Docker 최적화 | ⚠️ 미흡 | 단일 스테이지, HEALTHCHECK 없음 |
@@ -193,7 +210,7 @@ ws.onopen = () => {
 - [x] 첫 메시지 `{"token": "..."}` 또는 `{"accessToken": "..."}` 인증
 - [x] 5초 타임아웃, 실패 시 close(code=1008)
 - [x] 인증 성공 시 `{"type": "auth_ok", "player_id": "..."}` 응답
-- [ ] 프론트엔드 WebSocket 연결 코드 첫 메시지 방식으로 수정 필요
+- [x] 프론트엔드 WebSocket 연결 코드 첫 메시지 방식으로 수정 필요 (백엔드 완료; 프론트 WS 구현 시 적용)
 
 ---
 
@@ -217,7 +234,7 @@ except Exception as e:
 ```
 
 **완료 기준:**
-- [ ] `/health` 에러 시 응답에 연결 문자열/스택 트레이스 없음
+- [x] `/health` 에러 시 응답에 연결 문자열/스택 트레이스 없음
 
 ---
 
@@ -253,9 +270,9 @@ services:
 ```
 
 **완료 기준:**
-- [ ] `docker-compose.yml`에 평문 `puco_password` 없음
-- [ ] 모든 포트가 `127.0.0.1` 바인딩
-- [ ] Redis에 비밀번호 설정됨
+- [x] `docker-compose.yml`에 평문 `puco_password` 없음
+- [x] 모든 포트가 `127.0.0.1` 바인딩
+- [x] Redis에 비밀번호 설정됨
 
 ---
 
@@ -1250,3 +1267,65 @@ PuCo_RL/data_pipeline/          (Phase 4에서 구현)
 ├── dataset.py                  # PyTorch Dataset (PPOBatch 텐서)
 └── pipeline.py                 # 전체 오케스트레이터
 ```
+
+
+---
+
+## 부록 E — Mayor 페이즈 실시간 멀티플레이어 브로드캐스트 (B안, 추후 구현)
+
+> 현재 구현(A안): 인간 플레이어가 "배치 완료" 버튼을 누르면 서버에 일괄 전송 → 페이즈 종료 후 최종 상태 브로드캐스트.
+
+### B안 — 실시간 배치 브로드캐스트
+
+다른 플레이어들이 인간 플레이어의 이주민 배치 **과정**을 실시간으로 볼 수 있도록 하는 방안.
+
+#### 추가 작업 범위
+
+| 레이어 | 작업 |
+|--------|------|
+| Backend | `POST /api/action/mayor-preview` — 미확정 배치 상태를 Redis에 임시 저장, 게임 상태 변경 없음 |
+| Backend | WebSocket 브로드캐스트 이벤트 타입 `mayor_preview` 추가 |
+| Frontend (App.tsx) | `toggleMayorSlot` 호출 시 debounce 200ms 후 `/mayor-preview` POST |
+| Frontend (PlayerPanel) | `mayorPreview: number[] | null` prop 추가 — 상대방 패널에 pending 시각화 |
+| Frontend (IslandGrid/CityGrid) | 상대방 preview 상태 렌더링 (반투명 노란 원) |
+
+#### 예상 복잡도 증가
+
+- 현재 A안 대비 코드 변경량 약 **+40%**
+- Redis 임시 키 TTL 관리, 브로드캐스트 채널 분리 필요
+- preview 상태와 확정 상태 간 동기화 로직 추가 필요
+
+#### 구현 순서 (추후)
+
+1. `POST /api/action/mayor-preview` 엔드포인트 (Redis 임시 저장, DB/게임 상태 불변)
+2. `ws_manager.py` — `mayor_preview` 이벤트 타입 추가
+3. Frontend WebSocket 핸들러 — `mayor_preview` 수신 → 상대방 패널 업데이트
+4. `toggleMayorSlot` — debounce preview 전송 추가
+5. E2E 테스트 (멀티 탭 시나리오)
+
+---
+
+## 부록 F — 미해결 버그: 봇 상인/선장 패스 문제
+
+### 증상
+봇(random, heuristic, PPO)이 상인(Trader) 페이즈와 선장(Captain) 페이즈에서 판매/적재 대신 대부분 pass를 선택.
+
+### 가설
+
+| 가설 | 확인 방법 |
+|------|---------|
+| Craftsman 페이즈에서 생산 자체가 안 되어 goods=0 | 게임 로그에서 각 라운드의 production 값 확인 |
+| 상인 페이즈 action mask (39-43)가 올바르게 True로 세팅되지 않음 | `pr_env.py` TRADER mask 로직 재검토 |
+| 선장 페이즈 action mask (44-64)에서 화물선 적재 액션이 누락 | `pr_env.py` CAPTAIN mask 로직 재검토 |
+| HeuristicBot의 TRADER 액션(39-43) 우선순위 미설정 | `heuristic_bots.py` ShipperBot 초기화 확인 |
+| RandomBot은 pass(1개)와 sell(N개) 중 균등 랜덤이므로 이론상 pass 비율이 낮아야 함 → 만약 높다면 mask 문제 | action mask 로그 출력 테스트 |
+
+### 재현 방법 (추후)
+1. `DEBUG_MASK=True` 플래그로 매 스텝 action mask 출력
+2. 상인/선장 페이즈 진입 시 goods 보유량 확인
+3. valid actions 목록 로그
+
+### 관련 파일
+- `PuCo_RL/env/pr_env.py` (TRADER/CAPTAIN phase mask, line ~568)
+- `PuCo_RL/agents/heuristic_bots.py` (ShipperBot priority)
+- `PuCo_RL/configs/constants.py` (action 번호 매핑)

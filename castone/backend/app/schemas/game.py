@@ -4,8 +4,8 @@ from datetime import datetime
 from uuid import UUID
 
 class GameAction(BaseModel):
-    game_id: UUID
-    action_type: str
+    game_id: UUID | None = None
+    action_type: str | None = None
     payload: Dict[str, Any]
 
 class ActionLog(BaseModel):

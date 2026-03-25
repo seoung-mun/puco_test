@@ -2,15 +2,12 @@
 set -e
 
 echo "=== DB Migration ==="
-
-if alembic upgrade head; then
-    echo "Migration complete."
-else
-    echo "Migration failed — existing schema detected. Stamping as head..."
-    alembic stamp head
-    alembic upgrade head
-    echo "Stamp complete."
-fi
+alembic upgrade head
+echo "Migration complete."
 
 echo "=== Starting server ==="
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+if [ "${DEBUG:-false}" = "true" ]; then
+    exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+else
+    exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+fi

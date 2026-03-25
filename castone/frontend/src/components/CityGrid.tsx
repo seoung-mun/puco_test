@@ -4,8 +4,13 @@ import type { City } from '../types/gameState';
 
 interface Props {
   city: City;
-  onPlace?: (buildingIndex: number) => void;
-  onPickup?: (buildingIndex: number) => void;
+  // Toggle mode (human)
+  mayorPending?: number[] | null;        // per-building pending colonists [0..11]
+  mayorLocalUnplaced?: number;
+  onMayorToggle?: (slotIdx: number, delta: 1 | -1) => void;
+  // Sequential mode (bot)
+  currentMayorSlot?: number | null;
+  onMayorPlace?: (amount: number) => void;
 }
 
 const BUILDING_CONFIG: Record<string, { icon: string; color: string }> = {
@@ -90,13 +95,17 @@ function buildColumnLayout(buildings: City['buildings'], totalSpaces: number): S
   return entries;
 }
 
-function BuildingTile({ building, x, y, tileH, buildingIndex, hasUnplaced, onPlace, onPickup, onHover, onLeave }: {
+function BuildingTile({ building, buildingIdx, x, y, tileH, isMayorCurrent, hasUnplaced, onMayorPlace, isToggleMode, mayorPendingCount, mayorLocalUnplaced, onMayorToggle, onHover, onLeave }: {
   building: City['buildings'][0];
+  buildingIdx: number;
   x: number; y: number; tileH: number;
-  buildingIndex: number;
+  isMayorCurrent: boolean;
   hasUnplaced: boolean;
-  onPlace?: (index: number) => void;
-  onPickup?: (index: number) => void;
+  onMayorPlace?: (amount: number) => void;
+  isToggleMode: boolean;
+  mayorPendingCount: number;
+  mayorLocalUnplaced: number;
+  onMayorToggle?: (slotIdx: number, delta: 1 | -1) => void;
   onHover?: (name: string, e: React.MouseEvent) => void;
   onLeave?: () => void;
 }) {
@@ -141,25 +150,55 @@ function BuildingTile({ building, x, y, tileH, buildingIndex, hasUnplaced, onPla
       )}
       <g>
         {Array.from({ length: building.max_colonists }).map((_, i) => {
-          const slotSize = 10;
-          const totalW = building.max_colonists * slotSize + (building.max_colonists - 1) * 3;
-          const slotX = x + (TILE_W - totalW) / 2 + i * (slotSize + 3);
-          const slotY = y + tileH - 16;
-          const filled = i < building.current_colonists;
-          const canPlace = !filled && !!onPlace && hasUnplaced;
-          const canPickup = filled && !!onPickup;
-          const interactive = canPlace || canPickup;
+          const slotSize = 15;
+          const totalW = building.max_colonists * slotSize + (building.max_colonists - 1) * 4;
+          const slotX = x + (TILE_W - totalW) / 2 + i * (slotSize + 4);
+          const slotY = y + tileH - slotSize - 5;
+          const serverFilled = i < building.current_colonists;
+
+          if (isToggleMode) {
+            const isPending = !serverFilled && i < building.current_colonists + mayorPendingCount;
+            const isAddable = !serverFilled && i === building.current_colonists + mayorPendingCount
+              && mayorPendingCount < building.empty_slots && mayorLocalUnplaced > 0;
+            const isRemovable = i === building.current_colonists + mayorPendingCount - 1 && isPending;
+            return (
+              <g key={i}
+                onClick={isAddable ? () => onMayorToggle!(buildingIdx, 1) : isRemovable ? () => onMayorToggle!(buildingIdx, -1) : undefined}
+                style={{ cursor: (isAddable || isRemovable) ? 'pointer' : 'default' }}
+              >
+                <circle cx={slotX + slotSize / 2} cy={slotY + slotSize / 2} r={slotSize / 2}
+                  fill={serverFilled ? '#f5deb3' : isPending ? '#ffe066bb' : '#00000055'}
+                  stroke={serverFilled ? '#8b4513' : isPending ? '#ffe066' : '#ffffff44'}
+                  strokeWidth={isPending ? 2 : 1}
+                />
+                {(serverFilled || isPending) && (
+                  <text x={slotX + slotSize / 2} y={slotY + slotSize / 2}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize={10} style={{ userSelect: 'none' }}>👤</text>
+                )}
+                {isAddable && (
+                  <text x={slotX + slotSize / 2} y={slotY + slotSize / 2}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize={11} fill="#ffe066" fontWeight="bold" style={{ userSelect: 'none' }}>+</text>
+                )}
+              </g>
+            );
+          }
+
+          // Sequential mode
+          const isFirstEmpty = i === building.current_colonists && isMayorCurrent;
+          const canPlace = isFirstEmpty && !!onMayorPlace && hasUnplaced;
           return (
             <g key={i}
-              onClick={canPlace ? () => onPlace!(buildingIndex) : canPickup ? () => onPickup!(buildingIndex) : undefined}
-              style={{ cursor: interactive ? 'pointer' : 'default' }}
+              onClick={canPlace ? () => onMayorPlace!(building.empty_slots) : undefined}
+              style={{ cursor: canPlace ? 'pointer' : 'default' }}
             >
               <circle cx={slotX + slotSize / 2} cy={slotY + slotSize / 2} r={slotSize / 2}
-                fill={filled ? '#f5deb3' : canPlace ? '#ffffff33' : '#00000055'}
-                stroke={filled ? '#8b4513' : canPlace ? '#ffffffaa' : '#ffffff44'}
-                strokeWidth={1}
+                fill={serverFilled ? '#f5deb3' : isMayorCurrent ? '#ffe06633' : '#00000055'}
+                stroke={serverFilled ? '#8b4513' : isMayorCurrent ? '#ffe066' : '#ffffff44'}
+                strokeWidth={isMayorCurrent ? 1.5 : 1}
               />
-              {filled && (
+              {serverFilled && (
                 <text x={slotX + slotSize / 2} y={slotY + slotSize / 2}
                   textAnchor="middle" dominantBaseline="middle"
                   fontSize={7} style={{ userSelect: 'none' }}>👤</text>
@@ -167,7 +206,7 @@ function BuildingTile({ building, x, y, tileH, buildingIndex, hasUnplaced, onPla
               {canPlace && (
                 <text x={slotX + slotSize / 2} y={slotY + slotSize / 2}
                   textAnchor="middle" dominantBaseline="middle"
-                  fontSize={8} fill="#ffffffbb" fontWeight="bold" style={{ userSelect: 'none' }}>+</text>
+                  fontSize={8} fill="#ffe066" fontWeight="bold" style={{ userSelect: 'none' }}>+</text>
               )}
             </g>
           );
@@ -191,7 +230,7 @@ function EmptySlot({ x, y, tileH }: { x: number; y: number; tileH: number }) {
   );
 }
 
-export default function CityGrid({ city, onPlace, onPickup }: Props) {
+export default function CityGrid({ city, mayorPending, mayorLocalUnplaced = 0, onMayorToggle, currentMayorSlot, onMayorPlace }: Props) {
   const { t } = useTranslation();
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
   const rowsPerCol = Math.ceil(city.total_spaces / COLS);
@@ -199,6 +238,7 @@ export default function CityGrid({ city, onPlace, onPickup }: Props) {
   const svgW = PAD * 2 + COLS * TILE_W + (COLS - 1) * GAP;
   const svgH = PAD * 2 + rowsPerCol * TILE_H + (rowsPerCol - 1) * GAP;
   const hasUnplaced = city.colonists_unplaced > 0;
+  const isToggleMode = mayorPending !== null && mayorPending !== undefined;
 
   function handleHover(name: string, e: React.MouseEvent) {
     const tip = t(`buildingAdvantages.${name}.tip`, { defaultValue: '' });
@@ -216,9 +256,13 @@ export default function CityGrid({ city, onPlace, onPickup }: Props) {
           const y = PAD + entry.unitRow * (TILE_H + GAP);
           const tileH = entry.large ? LARGE_TILE_H : TILE_H;
           return entry.building
-            ? <BuildingTile key={i} building={entry.building} x={x} y={y} tileH={tileH}
-                buildingIndex={entry.originalIndex} hasUnplaced={hasUnplaced}
-                onPlace={onPlace} onPickup={onPickup}
+            ? <BuildingTile key={i} building={entry.building} buildingIdx={entry.originalIndex} x={x} y={y} tileH={tileH}
+                isMayorCurrent={currentMayorSlot === entry.originalIndex} hasUnplaced={hasUnplaced}
+                onMayorPlace={onMayorPlace}
+                isToggleMode={isToggleMode}
+                mayorPendingCount={isToggleMode ? (mayorPending?.[entry.originalIndex] ?? 0) : 0}
+                mayorLocalUnplaced={mayorLocalUnplaced}
+                onMayorToggle={onMayorToggle}
                 onHover={handleHover} onLeave={() => setTooltip(null)} />
             : <EmptySlot key={i} x={x} y={y} tileH={tileH} />;
         })}

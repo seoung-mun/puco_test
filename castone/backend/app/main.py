@@ -1,7 +1,7 @@
 import logging
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -14,10 +14,16 @@ from app.core.redis import async_redis_client
 
 logger = logging.getLogger(__name__)
 
+_DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+
+# H-3: Swagger/OpenAPI 비프로덕션에서만 노출
 app = FastAPI(
     title="Puerto Rico AI Battle Platform API",
     description="Backend for Puerto Rico AI Battle Platform with RL Logging",
     version="0.1.0",
+    docs_url="/docs" if _DEBUG else None,
+    redoc_url="/redoc" if _DEBUG else None,
+    openapi_url="/openapi.json" if _DEBUG else None,
 )
 
 # CORS Setting
@@ -36,9 +42,20 @@ app.add_middleware(
 )
 
 
+# M-2: 보안 응답 헤더 미들웨어
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response: Response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if not _DEBUG:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
 @app.on_event("startup")
 async def startup_checks():
-    # Verify PostgreSQL connection
     try:
         with SessionLocal() as db:
             db.execute(text("SELECT 1"))
@@ -46,7 +63,6 @@ async def startup_checks():
     except Exception as e:
         logger.error("PostgreSQL connection failed: %s", e)
 
-    # Verify Redis connection
     try:
         await async_redis_client.ping()
         logger.info("Redis connection verified")
@@ -68,13 +84,15 @@ async def health():
             db.execute(text("SELECT 1"))
         checks["postgresql"] = "ok"
     except Exception as e:
-        checks["postgresql"] = f"error: {e}"
+        checks["postgresql"] = "error"
+        logger.error("PostgreSQL health check failed: %s", e)
 
     try:
         await async_redis_client.ping()
         checks["redis"] = "ok"
     except Exception as e:
-        checks["redis"] = f"error: {e}"
+        checks["redis"] = "error"
+        logger.error("Redis health check failed: %s", e)
 
     all_ok = all(v == "ok" for v in checks.values())
     return JSONResponse(
@@ -86,11 +104,11 @@ async def health():
 # Frontend-compatible API (no version prefix)
 app.include_router(legacy_router, prefix="/api", tags=["legacy"])
 
-# API Routes Inclusion
-app.include_router(room.router, prefix="/api/v1/rooms", tags=["rooms"])
-app.include_router(game.router, prefix="/api/v1/game", tags=["game"])
-app.include_router(ws.router, prefix="/api/v1/ws", tags=["websocket"])
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+# API Routes
+app.include_router(room.router, prefix="/api/puco/rooms", tags=["rooms"])
+app.include_router(game.router, prefix="/api/puco/game", tags=["game"])
+app.include_router(ws.router, prefix="/api/puco/ws", tags=["websocket"])
+app.include_router(auth.router, prefix="/api/puco/auth", tags=["auth"])
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000)

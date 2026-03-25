@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useGameWebSocket } from './hooks/useGameWebSocket';
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import type { GameState } from './types/gameState';
@@ -68,6 +69,14 @@ const BUILDING_ADVANTAGE_META: Record<string, { cls: string; phases: string[] }>
 };
 
 const BACKEND = '';
+const _INTERNAL_KEY = (import.meta.env.VITE_INTERNAL_API_KEY as string) || '';
+
+/** Legacy API 호출 래퍼: INTERNAL_API_KEY 헤더를 자동으로 포함 */
+function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(options.headers as HeadersInit);
+  if (_INTERNAL_KEY) headers.set('X-API-Key', _INTERNAL_KEY);
+  return fetch(url, { ...options, headers });
+}
 
 export default function App() {
   const { t } = useTranslation();
@@ -107,6 +116,7 @@ export default function App() {
 
   // --- Multiplayer / screen routing ---
   const [screen, setScreen] = useState<'loading' | 'login' | 'home' | 'join' | 'lobby' | 'game'>('loading');
+  const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [myName, setMyName] = useState<string | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [isMultiplayer, setIsMultiplayer] = useState(false);
@@ -116,8 +126,49 @@ export default function App() {
   const [lobbyHost, setLobbyHost] = useState<string | null>(null);
   const [lobbyError, setLobbyError] = useState<string | null>(null);
 
+  // Mayor 토글 모드 (인간 플레이어 전용)
+  const [mayorPending, setMayorPending] = useState<number[] | null>(null);
+  // 이전 라운드 배치를 기억해서 다음 시장 페이즈에 재사용
+  const lastMayorDistRef = useRef<number[] | null>(null);
+
+  // Mayor 토글 상태 초기화/정리
   useEffect(() => {
-    fetch(`${BACKEND}/api/bot-types`)
+    if (!state) return;
+    const isMayorTurn = state.meta.phase === 'mayor_action'
+      && !notMyTurn()
+      && !state.bot_players?.[state.meta.active_player];
+    if (isMayorTurn && mayorPending === null) {
+      const player = state.players[state.meta.active_player];
+      const available = player?.city.colonists_unplaced ?? 0;
+      let init = new Array(24).fill(0);
+      if (lastMayorDistRef.current && player) {
+        // 이전 배치를 현재 슬롯 capacity에 맞게 클리핑
+        const clipped = lastMayorDistRef.current.map((v, idx) => {
+          if (idx < 12) return Math.min(v, idx < player.island.plantations.length ? 1 : 0);
+          const b = player.city.buildings[idx - 12];
+          return Math.min(v, b ? b.max_colonists : 0);
+        });
+        // 총합이 available을 초과하면 뒤쪽 슬롯부터 줄임
+        let excess = clipped.reduce((a, b) => a + b, 0) - available;
+        if (excess > 0) {
+          for (let i = clipped.length - 1; i >= 0 && excess > 0; i--) {
+            const cut = Math.min(clipped[i], excess);
+            clipped[i] -= cut;
+            excess -= cut;
+          }
+        }
+        init = clipped;
+      }
+      setMayorPending(init);
+    }
+    if (state.meta.phase !== 'mayor_action') {
+      setMayorPending(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.meta.phase, state?.meta.active_player]);
+
+  useEffect(() => {
+    apiFetch(`${BACKEND}/api/bot-types`)
       .then(r => r.json())
       .then((data: {type: string; name: string}[]) => setBotAgents(data))
       .catch(() => {});
@@ -240,7 +291,7 @@ export default function App() {
 
   useEffect(() => {
     if (!state?.meta.end_game_triggered) return;
-    fetch(`${BACKEND}/api/final-score`)
+    apiFetch(`${BACKEND}/api/final-score`)
       .then(r => r.json())
       .then(setFinalScores)
       .catch(() => {});
@@ -252,7 +303,7 @@ export default function App() {
   async function handleGoogleLogin(credentialResponse: { credential?: string }) {
     if (!credentialResponse.credential) return;
     try {
-      const res = await fetch(`${BACKEND}/api/v1/auth/google`, {
+      const res = await apiFetch(`${BACKEND}/api/puco/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: credentialResponse.credential }),
@@ -279,7 +330,7 @@ export default function App() {
     if (!authToken || !nicknameInput.trim()) return;
     setNicknameError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/v1/auth/me/nickname`, {
+      const res = await apiFetch(`${BACKEND}/api/puco/auth/me/nickname`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
         body: JSON.stringify({ nickname: nicknameInput.trim() }),
@@ -296,13 +347,6 @@ export default function App() {
     }
   }
 
-  function handleAuthLogout() {
-    localStorage.removeItem('access_token');
-    setAuthToken(null);
-    setAuthUser(null);
-    setScreen('login');
-  }
-
   async function initializeApp(token?: string) {
     const currentToken = token || authToken;
     // Check auth first
@@ -312,7 +356,7 @@ export default function App() {
     }
     // Validate token
     try {
-      const meRes = await fetch(`${BACKEND}/api/v1/auth/me`, {
+      const meRes = await apiFetch(`${BACKEND}/api/puco/auth/me`, {
         headers: { 'Authorization': `Bearer ${currentToken}` },
       });
       if (!meRes.ok) {
@@ -329,7 +373,7 @@ export default function App() {
     }
 
     try {
-      const info: ServerInfo = await fetch(`${BACKEND}/api/server-info`).then(r => r.json());
+      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
 
       if (info.mode === 'idle') {
         setHomeGameExists(info.game_exists ?? false);
@@ -339,7 +383,7 @@ export default function App() {
 
       if (info.mode === 'single') {
         if (info.game_exists) {
-          const gs = await fetch(`${BACKEND}/api/game-state`).then(r => r.json());
+          const gs = await apiFetch(`${BACKEND}/api/game-state`).then(r => r.json());
           setState(gs);
         }
         setScreen('game');
@@ -350,7 +394,7 @@ export default function App() {
       const savedKey = localStorage.getItem('mp_key');
       const savedName = localStorage.getItem('mp_name');
       if (savedKey && savedName) {
-        const hb = await fetch(`${BACKEND}/api/heartbeat`, {
+        const hb = await apiFetch(`${BACKEND}/api/heartbeat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key: savedKey, name: savedName }),
@@ -361,11 +405,11 @@ export default function App() {
           setMpKey(savedKey);
           setIsMultiplayer(true);
           if (hbData.player_id) setMyPlayerId(hbData.player_id);
-          const info2: ServerInfo = await fetch(`${BACKEND}/api/server-info`).then(r => r.json());
+          const info2: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
           setLobbyPlayers(info2.players ?? []);
           setLobbyHost(info2.host);
           if (hbData.lobby_status === 'playing') {
-            const gs = await fetch(`${BACKEND}/api/game-state`).then(r => r.json());
+            const gs = await apiFetch(`${BACKEND}/api/game-state`).then(r => r.json());
             setState(gs);
             setScreen('game');
           } else {
@@ -391,8 +435,8 @@ export default function App() {
     const interval = setInterval(async () => {
       try {
         const [gs, info] = await Promise.all([
-          fetch(`${BACKEND}/api/game-state`).then(r => r.json()),
-          fetch(`${BACKEND}/api/server-info`).then(r => r.json()),
+          apiFetch(`${BACKEND}/api/game-state`).then(r => r.json()),
+          apiFetch(`${BACKEND}/api/server-info`).then(r => r.json()),
         ]);
         if (gs && gs.meta) {
           setState(gs);
@@ -403,36 +447,44 @@ export default function App() {
     return () => clearInterval(interval);
   }, [screen, isMultiplayer, state?.meta.bot_thinking]);
 
-  // Polling: run bots and refresh state in offline single-player mode.
-  // Each poll processes ONE bot role turn, giving ~2s visibility between moves.
-  useEffect(() => {
-    if (screen !== 'game' || isMultiplayer) return;
-    const ms = state?.meta.bot_thinking ? 800 : 2000; // 2s gap between bot turns
-    const interval = setInterval(async () => {
-      try {
-        const gs: GameState = await fetch(`${BACKEND}/api/run-bots`, { method: 'POST' }).then(r => r.json());
-        if (!gs || !gs.meta) return;
-        setState(prev => {
-          if (prev && gs.history.length === prev.history.length && gs.meta.active_player === prev.meta.active_player) return prev;
-          return gs;
-        });
-      } catch { /* ignore */ }
-    }, ms);
-    return () => clearInterval(interval);
-  }, [screen, isMultiplayer, state?.meta.bot_thinking]);
+  // WebSocket: receive bot moves and state updates in single-player mode (server push).
+  // Replaces the previous /api/run-bots polling interval.
+  useGameWebSocket({
+    gameId: screen === 'game' && !isMultiplayer ? activeGameId : null,
+    token: authToken,
+    onStateUpdate: (gs, _mask) => {
+      setState(prev => {
+        if (
+          prev &&
+          gs.history.length === prev.history.length &&
+          gs.meta.active_player === prev.meta.active_player
+        ) return prev;
+        return gs;
+      });
+    },
+    onGameEnded: () => {
+      apiFetch(`${BACKEND}/api/final-score`)
+        .then(r => r.json())
+        .then(setFinalScores)
+        .catch(() => {});
+    },
+    onPlayerDisconnected: () => {
+      // single-player에서는 봇만 있으므로 별도 처리 없음
+    },
+  });
 
   // Polling: refresh lobby every 2.5s when in lobby screen
   useEffect(() => {
     if (screen !== 'lobby') return;
     const interval = setInterval(async () => {
       try {
-        const info: ServerInfo = await fetch(`${BACKEND}/api/server-info`).then(r => r.json());
+        const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
         setLobbyPlayers(info.players ?? []);
         setLobbyHost(info.host);
         if (info.lobby_status === 'playing') {
           const me = info.players?.find(p => p.name === myName);
           if (me?.player_id) setMyPlayerId(me.player_id);
-          const gs = await fetch(`${BACKEND}/api/game-state`).then(r => r.json());
+          const gs = await apiFetch(`${BACKEND}/api/game-state`).then(r => r.json());
           if (gs && gs.meta) {
             setState(gs);
           }
@@ -448,7 +500,7 @@ export default function App() {
     if (!isMultiplayer || !mpKey || !myName) return;
     const interval = setInterval(async () => {
       try {
-        const hb = await fetch(`${BACKEND}/api/heartbeat`, {
+        const hb = await apiFetch(`${BACKEND}/api/heartbeat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key: mpKey, name: myName }),
@@ -477,21 +529,17 @@ export default function App() {
     setScreen(!forceHome && isClient ? 'join' : 'home');
   }
 
-  // Auth logout: fully sign out including Google auth
-  function fullLogout() {
-    logout(true);
-    handleAuthLogout();
-  }
-
   async function handleSinglePlayer() {
+    // "Continue" flow: load existing game state without resetting the session
     try {
-      const res = await fetch(`${BACKEND}/api/set-mode/single`, { method: 'POST' });
-      const data = await res.json();
-      if (data.game_exists) {
-        const gs = await fetch(`${BACKEND}/api/game-state`).then(r => r.json());
+      const gs = await apiFetch(`${BACKEND}/api/game-state`).then(r => r.json());
+      if (gs?.meta) {
         setState(gs);
+        setActiveGameId(gs.meta.game_id ?? null);
+        setScreen('game');
+      } else {
+        setError('진행 중인 게임이 없습니다. 새 게임을 시작해 주세요.');
       }
-      setScreen('game');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed');
     }
@@ -499,8 +547,8 @@ export default function App() {
 
   async function handleStartOffline(numPlayers: number, names: string[], botTypes: string[]) {
     try {
-      await fetch(`${BACKEND}/api/set-mode/single`, { method: 'POST' });
-      const res = await fetch(`${BACKEND}/api/new-game`, {
+      await apiFetch(`${BACKEND}/api/set-mode/single`, { method: 'POST' });
+      const res = await apiFetch(`${BACKEND}/api/new-game`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ num_players: numPlayers, player_names: names }),
@@ -519,7 +567,7 @@ export default function App() {
         if (botType) {
           // Use player_order index directly to avoid matching issues when multiple bots share a display name
           const playerId = data.meta.player_order?.[i] ?? `player_${i}`;
-          const botRes = await fetch(`${BACKEND}/api/bot/set`, {
+          const botRes = await apiFetch(`${BACKEND}/api/bot/set`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ player: playerId, bot_type: botType }),
@@ -531,17 +579,19 @@ export default function App() {
         }
       }
 
-      // Run initial bot turns (in case governor is a bot)
-      const runRes = await fetch(`${BACKEND}/api/run-bots`, { method: 'POST' });
+      // 초기 봇 턴 실행 (거버너가 봇인 경우) — 폴링이 아닌 1회 호출.
+      // 이후 봇 턴은 WebSocket push로 처리됨.
+      const runRes = await apiFetch(`${BACKEND}/api/run-bots`, { method: 'POST' });
       let finalState = data;
       if (runRes.ok) {
         const parsed = await runRes.json();
-        if (parsed && parsed.meta) finalState = parsed;
+        if (parsed?.meta) finalState = parsed;
       }
 
       prevHistoryLenRef.current = finalState.history.length;
       setMyPlayerId(humanPlayerId);
       setState(finalState);
+      setActiveGameId(finalState.meta.game_id ?? null);
       setScreen('game');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed');
@@ -550,7 +600,7 @@ export default function App() {
 
   async function handleMultiplayerInit(hostName: string) {
     try {
-      const res = await fetch(`${BACKEND}/api/multiplayer/init`, {
+      const res = await apiFetch(`${BACKEND}/api/multiplayer/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ host_name: hostName }),
@@ -563,7 +613,7 @@ export default function App() {
       setMpKey(data.session_key);
       setSessionKeyDisplay(data.session_key);
       setIsMultiplayer(true);
-      const info: ServerInfo = await fetch(`${BACKEND}/api/server-info`).then(r => r.json());
+      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
       setLobbyPlayers(info.players ?? []);
       setLobbyHost(info.host);
       setScreen('lobby');
@@ -574,7 +624,7 @@ export default function App() {
 
   async function handleJoin(key: string, name: string, role: 'player' | 'spectator'): Promise<string | null> {
     try {
-      const res = await fetch(`${BACKEND}/api/lobby/join`, {
+      const res = await apiFetch(`${BACKEND}/api/lobby/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, name, role }),
@@ -586,12 +636,12 @@ export default function App() {
       setMyName(name);
       setMpKey(key);
       setIsMultiplayer(true);
-      const info: ServerInfo = await fetch(`${BACKEND}/api/server-info`).then(r => r.json());
+      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
       setLobbyPlayers(info.players ?? []);
       setLobbyHost(info.host);
       if (data.reconnected) {
         if (data.player_id) setMyPlayerId(data.player_id);
-        const gs = await fetch(`${BACKEND}/api/game-state`).then(r => r.json());
+        const gs = await apiFetch(`${BACKEND}/api/game-state`).then(r => r.json());
         setState(gs);
         setScreen('game');
       } else {
@@ -607,13 +657,13 @@ export default function App() {
     if (!mpKey || !myName) return;
     setLobbyError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/lobby/add-bot`, {
+      const res = await apiFetch(`${BACKEND}/api/lobby/add-bot`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: mpKey, host_name: myName, bot_name: botName, bot_type: botType }),
       });
       if (!res.ok) { setLobbyError(await res.text()); return; }
-      const info: ServerInfo = await fetch(`${BACKEND}/api/server-info`).then(r => r.json());
+      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
       if (info.players) setLobbyPlayers(info.players);
     } catch (e) {
       setLobbyError(e instanceof Error ? e.message : 'Failed');
@@ -624,13 +674,13 @@ export default function App() {
     if (!mpKey || !myName) return;
     setLobbyError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/lobby/remove-bot`, {
+      const res = await apiFetch(`${BACKEND}/api/lobby/remove-bot`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: mpKey, host_name: myName, bot_name: botName }),
       });
       if (!res.ok) { setLobbyError(await res.text()); return; }
-      const info: ServerInfo = await fetch(`${BACKEND}/api/server-info`).then(r => r.json());
+      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
       if (info.players) setLobbyPlayers(info.players);
     } catch (e) {
       setLobbyError(e instanceof Error ? e.message : 'Failed');
@@ -641,7 +691,7 @@ export default function App() {
     if (!mpKey || !myName) return;
     setLobbyError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/lobby/start`, {
+      const res = await apiFetch(`${BACKEND}/api/lobby/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: mpKey, name: myName }),
@@ -649,7 +699,7 @@ export default function App() {
       if (!res.ok) { setLobbyError(await res.text()); return; }
       const gs = await res.json();
       setState(gs);
-      const info: ServerInfo = await fetch(`${BACKEND}/api/server-info`).then(r => r.json());
+      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
       const me = info.players?.find(p => p.name === myName);
       if (me?.player_id) setMyPlayerId(me.player_id);
       setScreen('game');
@@ -667,7 +717,7 @@ export default function App() {
     if (notMyTurn()) return;
     setSaving(true);
     try {
-      const res = await fetch(`${BACKEND}/api/action/select-role`, {
+      const res = await apiFetch(`${BACKEND}/api/action/select-role`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ player: state.meta.active_player, role }),
@@ -691,7 +741,7 @@ export default function App() {
     setPassing(true);
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/pass`, { method: 'POST' });
+      const res = await apiFetch(`${BACKEND}/api/action/pass`, { method: 'POST' });
       if (!res.ok) {
         setError(await res.text());
         return;
@@ -708,7 +758,7 @@ export default function App() {
     if (notMyTurn()) return;
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/use-hacienda`, { method: 'POST' });
+      const res = await apiFetch(`${BACKEND}/api/action/use-hacienda`, { method: 'POST' });
       if (!res.ok) { setError(await res.text()); return; }
       setState(await res.json());
     } catch (e: unknown) {
@@ -720,7 +770,7 @@ export default function App() {
     if (!state) return;
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/settle-plantation`, {
+      const res = await apiFetch(`${BACKEND}/api/action/settle-plantation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ player: state.meta.active_player, plantation: type, use_hospice: useHospice }),
@@ -751,30 +801,64 @@ export default function App() {
     doSettlePlantation(type, useHospice);
   }
 
-  async function mayorPlaceColonist(targetType: 'plantation' | 'building', targetIndex: number) {
-    if (!state || notMyTurn()) return;
+  // Mayor 토글 UI 헬퍼
+  function getMayorSlotCapacity(slotIdx: number): number {
+    if (!state) return 0;
+    const player = state.players[state.meta.active_player];
+    if (!player) return 0;
+    if (slotIdx < 12) {
+      // island slot: 해당 인덱스에 plantation이 있으면 capacity=1
+      return slotIdx < player.island.plantations.length ? 1 : 0;
+    } else {
+      // city slot: building의 max_colonists
+      const cityIdx = slotIdx - 12;
+      const building = player.city.buildings[cityIdx];
+      return building ? building.max_colonists : 0;
+    }
+  }
+
+  function toggleMayorSlot(slotIdx: number, delta: 1 | -1) {
+    if (!mayorPending || !state) return;
+    const player = state.players[state.meta.active_player];
+    if (!player) return;
+    const totalColonists = player.city.colonists_unplaced;
+    const totalPending = mayorPending.reduce((a, b) => a + b, 0);
+    const localUnplaced = totalColonists - totalPending;
+    const cap = getMayorSlotCapacity(slotIdx);
+    const cur = mayorPending[slotIdx];
+    if (delta > 0 && (cur >= cap || localUnplaced <= 0)) return;
+    if (delta < 0 && cur <= 0) return;
+    const next = [...mayorPending];
+    next[slotIdx] = cur + delta;
+    setMayorPending(next);
+  }
+
+  async function confirmMayorDistribution() {
+    if (!state || !mayorPending || notMyTurn()) return;
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/mayor-place-colonist`, {
+      const res = await apiFetch(`${BACKEND}/api/action/mayor-distribute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: state.meta.active_player, target_type: targetType, target_index: targetIndex }),
+        body: JSON.stringify({ player: state.meta.active_player, distribution: mayorPending }),
       });
       if (!res.ok) { setError(await res.text()); return; }
+      lastMayorDistRef.current = [...mayorPending];  // 다음 라운드 초기화에 재사용
+      setMayorPending(null);
       setState(await res.json());
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Request failed');
     }
   }
 
-  async function mayorPickupColonist(targetType: 'plantation' | 'building', targetIndex: number) {
+  async function mayorPlaceAmount(amount: number) {
     if (!state || notMyTurn()) return;
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/mayor-pickup-colonist`, {
+      const res = await apiFetch(`${BACKEND}/api/action/mayor-place`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: state.meta.active_player, target_type: targetType, target_index: targetIndex }),
+        body: JSON.stringify({ player: state.meta.active_player, amount }),
       });
       if (!res.ok) { setError(await res.text()); return; }
       setState(await res.json());
@@ -787,7 +871,7 @@ export default function App() {
     if (!state || notMyTurn()) return;
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/mayor-finish-placement`, {
+      const res = await apiFetch(`${BACKEND}/api/action/mayor-finish-placement`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ player: state.meta.active_player }),
@@ -804,7 +888,7 @@ export default function App() {
     setSellingGood(good);
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/sell`, {
+      const res = await apiFetch(`${BACKEND}/api/action/sell`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ good }),
@@ -823,7 +907,7 @@ export default function App() {
     if (notMyTurn()) return;
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/craftsman-privilege`, {
+      const res = await apiFetch(`${BACKEND}/api/action/craftsman-privilege`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ good }),
@@ -850,7 +934,7 @@ export default function App() {
     if (!state || notMyTurn()) return;
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/load-ship`, {
+      const res = await apiFetch(`${BACKEND}/api/action/load-ship`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ player: state.meta.active_player, good, ship_index: shipIndex, use_wharf: useWharf }),
@@ -867,7 +951,7 @@ export default function App() {
     if (!state || notMyTurn()) return;
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/captain-pass`, {
+      const res = await apiFetch(`${BACKEND}/api/action/captain-pass`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ player: state.meta.active_player }),
@@ -884,7 +968,7 @@ export default function App() {
     if (!state) return;
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/discard-goods`, {
+      const res = await apiFetch(`${BACKEND}/api/action/discard-goods`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -911,7 +995,7 @@ export default function App() {
     if (!state || notMyTurn()) return;
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/action/build`, {
+      const res = await apiFetch(`${BACKEND}/api/action/build`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ player: state.meta.active_player, building: buildingName }),
@@ -932,7 +1016,7 @@ export default function App() {
     setNewGameLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${BACKEND}/api/new-game`, {
+      const res = await apiFetch(`${BACKEND}/api/new-game`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ num_players: newGamePlayers, player_names: names }),
@@ -949,7 +1033,7 @@ export default function App() {
           if (botType) {
             // Use player_order index directly to avoid matching issues when multiple bots share a display name
             const playerId = data.meta.player_order?.[i] ?? `player_${i}`;
-            const botRes = await fetch(`${BACKEND}/api/bot/set`, {
+            const botRes = await apiFetch(`${BACKEND}/api/bot/set`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ player: playerId, bot_type: botType }),
@@ -1130,6 +1214,18 @@ export default function App() {
   }
 
   const activeMayorPlayer = isMayorPhase ? state.players[state.meta.active_player] : null;
+  // 토글 모드일 때는 pending 기준으로 남은 이주민과 빈 슬롯을 계산
+  const isMayorToggleMode = isMayorPhase && mayorPending !== null;
+  const mayorTotalColonists = activeMayorPlayer?.city.colonists_unplaced ?? 0;
+  const mayorTotalPending = mayorPending?.reduce((a, b) => a + b, 0) ?? 0;
+  const mayorLocalUnplaced = mayorTotalColonists - mayorTotalPending;
+  const mayorAvailableCapacity = isMayorToggleMode
+    ? Array.from({ length: 24 }, (_, i) => getMayorSlotCapacity(i) - (mayorPending![i] ?? 0))
+        .filter(v => v > 0).length
+    : 0;
+  // 확정 버튼 비활성 조건: 남은 이주민 있고 빈 슬롯도 있을 때
+  const mayorCannotConfirm = mayorLocalUnplaced > 0 && mayorAvailableCapacity > 0;
+  // 순차 모드(봇 or 멀티에서 상대방 화면)용 기존 체크
   const mayorMustPlace = activeMayorPlayer != null
     && activeMayorPlayer.city.colonists_unplaced > 0
     && (
@@ -1485,10 +1581,35 @@ export default function App() {
                 {passing ? t('actions.advancing') : t('actions.next', { phase: t(`phases.${state.meta.phase}`, { defaultValue: state.meta.phase.replace(/_/g, ' ') }) })}
               </button>
             )}
-            {isMayorPhase && (
-              <button onClick={mayorFinishPlacement} disabled={passing || mayorMustPlace || isBlocked} className="pass-btn mayor-finish-btn">
-                {mayorMustPlace ? t('actions.finishMayorWait') : t('actions.finishMayor')}
+            {/* 인간 Mayor 토글 모드: 확정 버튼 */}
+            {isMayorToggleMode && (
+              <button
+                onClick={confirmMayorDistribution}
+                disabled={passing || isBlocked || mayorCannotConfirm}
+                className="pass-btn mayor-finish-btn"
+                title={mayorCannotConfirm ? `이주민 ${mayorLocalUnplaced}명을 더 배치해야 합니다` : undefined}
+              >
+                {mayorCannotConfirm
+                  ? t('actions.finishMayorWait', { defaultValue: `배치 완료 (${mayorLocalUnplaced}명 남음)` })
+                  : t('actions.confirmMayor', { defaultValue: '배치 완료' })}
               </button>
+            )}
+            {/* 순차 모드 (봇 차례 대기 or 멀티에서 상대방 화면) */}
+            {isMayorPhase && !isMayorToggleMode && !notMyTurn() && (
+              <>
+                <button
+                  onClick={() => mayorPlaceAmount(0)}
+                  disabled={passing || isBlocked || !state.meta.mayor_can_skip}
+                  className="pass-btn"
+                  style={{ marginRight: 4 }}
+                  title={!state.meta.mayor_can_skip ? '이 슬롯에는 이주민을 배치해야 합니다' : undefined}
+                >
+                  {t('actions.mayorSkipSlot', { defaultValue: 'Skip Slot' })}
+                </button>
+                <button onClick={mayorFinishPlacement} disabled={passing || mayorMustPlace || isBlocked} className="pass-btn mayor-finish-btn">
+                  {mayorMustPlace ? t('actions.finishMayorWait') : t('actions.finishMayor')}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1730,8 +1851,11 @@ export default function App() {
             player={state.players[id]}
             isActive={id === state.meta.active_player}
             phase={state.meta.phase}
-            onMayorPlace={id === state.meta.active_player ? mayorPlaceColonist : undefined}
-            onMayorPickup={id === state.meta.active_player ? mayorPickupColonist : undefined}
+            mayorPending={id === state.meta.active_player ? mayorPending : null}
+            mayorLocalUnplaced={id === state.meta.active_player ? mayorLocalUnplaced : 0}
+            onMayorToggle={id === state.meta.active_player && isMayorToggleMode ? toggleMayorSlot : undefined}
+            onMayorPlace={id === state.meta.active_player && !isMayorToggleMode ? mayorPlaceAmount : undefined}
+            mayorSlotIdx={id === state.meta.active_player && !isMayorToggleMode ? (state.meta.mayor_slot_idx ?? null) : null}
             highlightLastPlantation={
               isSettlerPhase && id === state.meta.active_player &&
               (state.players[id]?.hacienda_used_this_phase ?? false)

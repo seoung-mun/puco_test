@@ -20,7 +20,7 @@ router = APIRouter()
 @router.post("/multiplayer/init")
 def multiplayer_init(body: MultiplayerInitBody, _=Depends(require_internal_key)):
     key = session.init_multiplayer(body.host_name)
-    return {"key": key, **session.server_info}
+    return {"session_key": key, **session.server_info}
 
 
 @router.post("/lobby/join")

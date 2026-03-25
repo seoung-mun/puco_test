@@ -13,6 +13,8 @@ from .schemas import (
     SettlePlantationBody,
     MayorColonistBody,
     MayorFinishBody,
+    MayorPlaceAmountBody,
+    MayorDistributeBody,
     SellBody,
     CraftsmanPrivBody,
     LoadShipBody,
@@ -109,9 +111,103 @@ def action_mayor_pickup(body: MayorColonistBody, _=Depends(require_internal_key)
 
 @router.post("/mayor-finish-placement")
 def action_mayor_finish(body: MayorFinishBody, _=Depends(require_internal_key)):
+    """Mayor 배치 종료 — 남은 슬롯을 모두 0으로 자동 스킵한다.
+    Mayor 페이즈에서 pass(15)는 금지됨. 대신 action 69(현재 슬롯에 0 배치)를
+    반복하여 자연스럽게 페이즈를 종료시킨다.
+    """
     _require_game()
-    _step(tr.pass_action())
+    from configs.constants import Phase
+
+    original_player_idx = session.game.env.game.current_player_idx
+    MAX_ITER = 30  # 슬롯 최대 24개 + 여유
+    for _ in range(MAX_ITER):
+        if session.game_over:
+            break
+        game = session.game.env.game
+        if game.current_phase != Phase.MAYOR:
+            break  # Mayor 페이즈 종료
+        if game.current_player_idx != original_player_idx:
+            break  # 다음 플레이어 차례 — 봇이 처리
+        mask = session.game.get_action_mask()
+        if not mask[69]:
+            # min_place > 0: 반드시 이주민을 배치해야 하는 슬롯
+            raise HTTPException(
+                status_code=400,
+                detail="현재 슬롯에 이주민을 배치해야 합니다. 배치 없이 종료할 수 없습니다."
+            )
+        result = session.game.step(69)  # 현재 슬롯에 0 배치 → 다음 슬롯으로
+        if result.get("terminated", result["done"]):
+            session.game_over = True
+            break
+
     session.add_history("mayor_finish_placement", {"player": body.player})
+    _run_pending_bots()
+    return serialize_game_state(session)
+
+
+@router.post("/mayor-place")
+def action_mayor_place_amount(body: MayorPlaceAmountBody, _=Depends(require_internal_key)):
+    """Mayor 순차 배치 — 현재 슬롯에 N개 이주민을 배치한다 (amount: 0-3).
+    amount=0: 현재 슬롯 스킵, amount=1: 1명 배치, etc.
+    """
+    _require_game()
+    player_name = _current_player_name()
+    if not (0 <= body.amount <= 3):
+        raise HTTPException(status_code=400, detail="amount must be 0-3")
+    action = 69 + body.amount
+    _step(action)
+    session.add_history("mayor_place", {"player": player_name, "amount": body.amount})
+    _run_pending_bots()
+    return serialize_game_state(session)
+
+
+@router.post("/mayor-distribute")
+def action_mayor_distribute(body: MayorDistributeBody, _=Depends(require_internal_key)):
+    """인간 플레이어 Mayor 토글 UI — 24슬롯 배치 확정.
+    distribution[i]: 슬롯 i에 배치할 이주민 수 (0-3).
+    인덱스 0-11=island, 12-23=city(index-12).
+    """
+    _require_game()
+    from configs.constants import Phase
+
+    if len(body.distribution) != 24:
+        raise HTTPException(status_code=400, detail="distribution 길이는 정확히 24여야 합니다.")
+    if any(v < 0 or v > 3 for v in body.distribution):
+        raise HTTPException(status_code=400, detail="각 슬롯 값은 0-3 범위여야 합니다.")
+
+    game = session.game.env.game
+    if game.current_phase != Phase.MAYOR:
+        raise HTTPException(status_code=400, detail="Mayor 페이즈가 아닙니다.")
+
+    original_player_idx = game.current_player_idx
+    player_name = (
+        session.player_names[original_player_idx]
+        if original_player_idx < len(session.player_names)
+        else f"player_{original_player_idx}"
+    )
+
+    for slot_i, amount in enumerate(body.distribution):
+        if session.game_over:
+            break
+        game = session.game.env.game
+        if game.current_phase != Phase.MAYOR:
+            break
+        if game.current_player_idx != original_player_idx:
+            break
+        mask = session.game.get_action_mask()
+        action = 69 + amount
+        if action >= len(mask) or not mask[action]:
+            valid_amounts = [a - 69 for a in range(69, 73) if a < len(mask) and mask[a]]
+            raise HTTPException(
+                status_code=400,
+                detail=f"슬롯 {slot_i}: {amount}명 배치 불가. 유효한 값: {valid_amounts}"
+            )
+        result = session.game.step(action)
+        if result.get("terminated", result["done"]):
+            session.game_over = True
+            break
+
+    session.add_history("mayor_distribute", {"player": player_name, "distribution": body.distribution})
     _run_pending_bots()
     return serialize_game_state(session)
 

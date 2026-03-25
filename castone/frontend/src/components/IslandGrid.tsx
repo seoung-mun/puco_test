@@ -3,8 +3,13 @@ import type { Island } from '../types/gameState';
 
 interface Props {
   island: Island;
-  onPlace?: (index: number) => void;
-  onPickup?: (index: number) => void;
+  // 토글 모드 (인간)
+  mayorPending?: number[] | null;          // 슬롯별 pending 값 [0..11]
+  mayorLocalUnplaced?: number;
+  onMayorToggle?: (slotIdx: number, delta: 1 | -1) => void;
+  // 순차 모드 (봇 대기)
+  currentMayorSlot?: number | null;
+  onMayorPlace?: (amount: number) => void;
   hasUnplacedColonists?: boolean;
   highlightLastTile?: boolean;
 }
@@ -23,7 +28,8 @@ const TILE_W = 72;
 const TILE_H = 64;
 const GAP = 8;
 
-export default function IslandGrid({ island, onPlace, onPickup, hasUnplacedColonists, highlightLastTile }: Props) {
+export default function IslandGrid({ island, mayorPending, mayorLocalUnplaced = 0, onMayorToggle, currentMayorSlot, onMayorPlace, hasUnplacedColonists, highlightLastTile }: Props) {
+  const isToggleMode = mayorPending !== null && mayorPending !== undefined;
   const { t } = useTranslation();
   const totalSlots = island.total_spaces;
   const slots: (typeof island.plantations[0] | null)[] = [...island.plantations];
@@ -98,22 +104,57 @@ export default function IslandGrid({ island, onPlace, onPickup, hasUnplacedColon
                   style={{ pointerEvents: 'none' }}
                 />
               )}
-              {/* Colonist slot — always shown, interactive during Mayor */}
+              {/* Colonist slot — toggle mode (human) or sequential mode (bot) */}
               {(() => {
                 const cx = x + TILE_W - 12;
                 const cy = y + 12;
-                const canPlace = !colonized && !!onPlace && !!hasUnplacedColonists;
-                const canPickup = colonized && !!onPickup;
-                const interactive = canPlace || canPickup;
+
+                if (isToggleMode) {
+                  const pending = mayorPending?.[i] ?? 0;
+                  const isPending = pending > 0;
+                  const canAdd = !colonized && !isPending && (mayorLocalUnplaced ?? 0) > 0;
+                  const canRemove = !colonized && isPending;
+                  return (
+                    <g
+                      onClick={canAdd ? () => onMayorToggle!(i, 1) : canRemove ? () => onMayorToggle!(i, -1) : undefined}
+                      style={{ cursor: (canAdd || canRemove) ? 'pointer' : 'default' }}
+                    >
+                      <circle cx={cx} cy={cy} r={8}
+                        fill={colonized ? '#f5deb3' : isPending ? '#ffe066bb' : '#00000033'}
+                        stroke={colonized ? '#8b4513' : isPending ? '#ffe066' : '#ffffff22'}
+                        strokeWidth={isPending ? 2 : 1.5}
+                      />
+                      {(colonized || isPending) && (
+                        <text x={cx} y={cy}
+                          textAnchor="middle" dominantBaseline="middle"
+                          fontSize={9} style={{ userSelect: 'none' }}>
+                          👤
+                        </text>
+                      )}
+                      {canAdd && (
+                        <text x={cx} y={cy}
+                          textAnchor="middle" dominantBaseline="middle"
+                          fontSize={12} fill="#ffe066" fontWeight="bold" style={{ userSelect: 'none' }}>
+                          +
+                        </text>
+                      )}
+                    </g>
+                  );
+                }
+
+                // Sequential mode
+                const isCurrent = currentMayorSlot === i;
+                const canPlace = isCurrent && !!onMayorPlace && !!hasUnplacedColonists;
+                const canSkip = isCurrent && !!onMayorPlace && !hasUnplacedColonists;
                 return (
                   <g
-                    onClick={canPlace ? () => onPlace!(i) : canPickup ? () => onPickup!(i) : undefined}
-                    style={{ cursor: interactive ? 'pointer' : 'default' }}
+                    onClick={canPlace ? () => onMayorPlace!(1) : canSkip ? () => onMayorPlace!(0) : undefined}
+                    style={{ cursor: (canPlace || canSkip) ? 'pointer' : 'default' }}
                   >
                     <circle cx={cx} cy={cy} r={8}
-                      fill={colonized ? '#f5deb3' : canPlace ? '#ffffff33' : '#00000033'}
-                      stroke={colonized ? '#8b4513' : canPlace ? '#ffffffaa' : '#ffffff22'}
-                      strokeWidth={1.5}
+                      fill={colonized ? '#f5deb3' : isCurrent ? '#ffe06644' : '#00000033'}
+                      stroke={colonized ? '#8b4513' : isCurrent ? '#ffe066' : '#ffffff22'}
+                      strokeWidth={isCurrent ? 2 : 1.5}
                     />
                     {colonized && (
                       <text x={cx} y={cy}
@@ -125,8 +166,15 @@ export default function IslandGrid({ island, onPlace, onPickup, hasUnplacedColon
                     {canPlace && (
                       <text x={cx} y={cy}
                         textAnchor="middle" dominantBaseline="middle"
-                        fontSize={12} fill="#ffffffbb" fontWeight="bold" style={{ userSelect: 'none' }}>
+                        fontSize={12} fill="#ffe066" fontWeight="bold" style={{ userSelect: 'none' }}>
                         +
+                      </text>
+                    )}
+                    {canSkip && (
+                      <text x={cx} y={cy}
+                        textAnchor="middle" dominantBaseline="middle"
+                        fontSize={9} fill="#ffffff66" style={{ userSelect: 'none' }}>
+                        —
                       </text>
                     )}
                   </g>
