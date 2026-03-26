@@ -194,6 +194,13 @@
       "craftsman_privilege":  "{{player}} ha scelto {{good}} come privilegio dell'artigiano",
       "sell":                 "{{player}} ha venduto {{good}} per {{price}} dobloni",
       "load_ship":            "{{player}} ha caricato {{quantity}} {{good}} sulla nave (+{{vp}} VP)",
+      "pass":                  "{{player}} ha passato",
+      "use_hacienda":          "{{player}} ha usato l'hacienda",
+      "mayor_toggle_island":   "{{player}} ha spostato un colono sull'isola (slot {{slot}})",
+      "mayor_toggle_city":     "{{player}} ha spostato un colono nell'edificio (slot {{slot}})",
+      "store_windrose":        "{{player}} ha conservato {{good}} (rosa dei venti)",
+      "store_warehouse":       "{{player}} ha conservato {{good}} nel magazzino",
+      "mayor_finish_placement":"{{player}} ha completato il posizionamento dei coloni",
       "discard":              "{{player}} ha scartato le merci in eccesso",
       "round_end":            "Fine round {{round}}"
     }

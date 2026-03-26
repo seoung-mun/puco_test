@@ -198,6 +198,10 @@
       "captain_pass":          "{{player}} passed captain phase",
       "pass":                  "{{player}} passed",
       "use_hacienda":          "{{player}} used hacienda",
+      "mayor_toggle_island":   "{{player}} toggled colonist on island slot {{slot}}",
+      "mayor_toggle_city":     "{{player}} toggled colonist on building slot {{slot}}",
+      "store_windrose":        "{{player}} stored {{good}} (windrose)",
+      "store_warehouse":       "{{player}} stored {{good}} in warehouse",
       "mayor_finish_placement":"{{player}} finished colonist placement",
       "discard_goods":         "{{player}} discarded remaining goods",
       "round_end":             "End of round {{round}}"

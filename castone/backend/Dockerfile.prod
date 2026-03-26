@@ -11,16 +11,23 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 WORKDIR /app
 
 # 의존성만 먼저 복사 → 레이어 캐시 최적화
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN uv pip install --system --no-cache -r requirements.txt
+
+# PuCo_RL 게임 엔진 + 모델
+COPY PuCo_RL /PuCo_RL
+
+# 백엔드 앱 코드
+COPY backend/ /app/
 
 RUN useradd -m appuser
 
-COPY entrypoint.sh /entrypoint.sh
+COPY backend/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# App code (volume mount in dev, COPY in prod)
-COPY . /app/
+USER appuser
+
+ENV PYTHONPATH=/app:/PuCo_RL
 
 EXPOSE 8000
 

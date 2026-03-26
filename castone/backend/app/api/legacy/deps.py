@@ -144,8 +144,28 @@ def _action_to_history(action: int, game, sess) -> tuple:
             "quantity": str(qty),
         }
 
+    elif action <= 68:         # store_windrose (64-68)
+        good = Good(action - 64)
+        return "store_windrose", {"player": player_name, "good": good.name.lower()}
+
+    elif action <= 80:         # mayor_island (69-80, slot 0-11)
+        slot_idx = action - 69
+        return "mayor_toggle_island", {"player": player_name, "slot": str(slot_idx)}
+
+    elif action <= 92:         # mayor_city (81-92, slot 0-11)
+        slot_idx = action - 81
+        return "mayor_toggle_city", {"player": player_name, "slot": str(slot_idx)}
+
+    elif action <= 97:         # craftsman_privilege (93-97)
+        good = Good(action - 93)
+        return "craftsman_privilege", {"player": player_name, "good": good.name.lower()}
+
     elif action == 105:        # hacienda_draw
         return "use_hacienda", {"player": player_name}
+
+    elif action <= 110:        # store_warehouse (106-110)
+        good = Good(action - 106)
+        return "store_warehouse", {"player": player_name, "good": good.name.lower()}
 
     else:
         return "pass", {"player": player_name}

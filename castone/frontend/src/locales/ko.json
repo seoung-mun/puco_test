@@ -198,6 +198,10 @@
       "captain_pass":         "{{player}}님이 선장 페이즈를 패스함",
       "pass":                 "{{player}}님이 패스함",
       "use_hacienda":         "{{player}}님이 하시엔다를 사용함",
+      "mayor_toggle_island":  "{{player}}님이 섬 슬롯 {{slot}}에 일꾼 배치/회수함",
+      "mayor_toggle_city":    "{{player}}님이 건물 슬롯 {{slot}}에 일꾼 배치/회수함",
+      "store_windrose":       "{{player}}님이 {{good}}을(를) 보관함 (나침반)",
+      "store_warehouse":      "{{player}}님이 {{good}}을(를) 창고에 보관함",
       "mayor_finish_placement":"{{player}}님이 이주민 배치를 완료함",
       "round_end":            "{{round}} 라운드 종료"
     }
