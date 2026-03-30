@@ -17,6 +17,7 @@ class LobbyPlayerInfo:
     is_spectator: bool
     is_bot: bool
     connected: bool
+    bot_type: str = "random"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -182,6 +183,7 @@ class SessionManager:
                 is_spectator=False,
                 is_bot=True,
                 connected=True,
+                bot_type=bot_type,
             )
         )
         return True
@@ -198,7 +200,7 @@ class SessionManager:
             raise ValueError("Invalid key")
         self.player_names = [p.name for p in self.lobby_players if not p.is_spectator]
         self.bot_players = {
-            i: "random"
+            i: p.bot_type
             for i, p in enumerate(self.lobby_players)
             if p.is_bot and not p.is_spectator
         }

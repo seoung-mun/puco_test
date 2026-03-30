@@ -8,8 +8,10 @@ from fastapi import APIRouter
 from .game import router as _game_router
 from .lobby import router as _lobby_router
 from .actions import router as _actions_router
+from .events import router as _events_router
 
 router = APIRouter()
 router.include_router(_game_router)
 router.include_router(_lobby_router)
 router.include_router(_actions_router)
+router.include_router(_events_router)

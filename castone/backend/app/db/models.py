@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey, Index
+from sqlalchemy import Column, Integer, Float, String, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.sql import func
@@ -28,7 +28,9 @@ class GameSession(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String)
     status = Column(String, index=True)  # WAITING, PROGRESS, FINISHED
-    num_players = Column(Integer)
+    num_players = Column(Integer, default=3)
+    is_private = Column(Boolean, default=False, nullable=False)
+    password = Column(String(4), nullable=True)
     players = Column(JSONB, default=list)
     model_versions = Column(JSONB, default=dict)
     winner_id = Column(String, nullable=True)

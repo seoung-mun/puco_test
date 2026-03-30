@@ -38,7 +38,7 @@ class TestSyncToRedisWithTTL:
         game_id = uuid.uuid4()
         state = {"round": 1, "phase": "role_selection"}
 
-        service._sync_to_redis(game_id, state, action_mask=[1, 0, 1], finished=False)
+        service._sync_to_redis(game_id, state, finished=False)
 
         # The SET call must include ex=900
         mock_redis.set.assert_called_once()
@@ -53,7 +53,7 @@ class TestSyncToRedisWithTTL:
         game_id = uuid.uuid4()
         state = {"round": 5, "phase": "game_over"}
 
-        service._sync_to_redis(game_id, state, action_mask=[], finished=True)
+        service._sync_to_redis(game_id, state, finished=True)
 
         mock_redis.set.assert_called_once()
         call_kwargs = mock_redis.set.call_args
@@ -87,12 +87,11 @@ class TestSyncToRedisWithTTL:
         service, mock_redis = game_service
         game_id = uuid.uuid4()
 
-        service._sync_to_redis(game_id, {"round": 1}, action_mask=[1], finished=False)
+        service._sync_to_redis(game_id, {"round": 1}, finished=False)
 
         published_msg = json.loads(mock_redis.publish.call_args.args[1])
         assert published_msg["type"] == "STATE_UPDATE"
         assert "data" in published_msg
-        assert "action_mask" in published_msg
 
     def test_redis_failure_does_not_raise(self, game_service):
         """Redis failure must be swallowed and not crash the game."""

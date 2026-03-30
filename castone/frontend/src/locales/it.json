@@ -201,6 +201,8 @@
       "store_windrose":        "{{player}} ha conservato {{good}} (rosa dei venti)",
       "store_warehouse":       "{{player}} ha conservato {{good}} nel magazzino",
       "mayor_finish_placement":"{{player}} ha completato il posizionamento dei coloni",
+      "mayor_distribute":      "{{player}} ha completato il posizionamento dei coloni",
+      "mayor_place_done":      "{{player}} ha completato il posizionamento dei coloni",
       "discard":              "{{player}} ha scartato le merci in eccesso",
       "round_end":            "Fine round {{round}}"
     }
@@ -311,7 +313,8 @@
     "enterHostName":     "Inserisci il tuo nome per ospitare la sessione:",
     "yourName":          "Il tuo nome",
     "startMultiplayer":  "Crea sessione",
-    "back":              "← Indietro"
+    "back":              "← Indietro",
+    "logout":            "Disconnetti"
   },
 
   "join": {

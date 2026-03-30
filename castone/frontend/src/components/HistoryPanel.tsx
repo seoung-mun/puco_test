@@ -14,6 +14,30 @@ function formatTs(ts: number): string {
   return `${h}:${m}:${s}`;
 }
 
+const MAYOR_TOGGLE_ACTIONS = new Set(['mayor_toggle_island', 'mayor_toggle_city']);
+
+/** 같은 플레이어의 연속된 mayor toggle 항목을 단일 'mayor_place_done' 항목으로 합친다. */
+function collapseHistory(entries: HistoryEntry[]): HistoryEntry[] {
+  const result: HistoryEntry[] = [];
+  let i = 0;
+  while (i < entries.length) {
+    const e = entries[i];
+    if (MAYOR_TOGGLE_ACTIONS.has(e.action)) {
+      const player = e.params.player as string;
+      let j = i + 1;
+      while (j < entries.length && MAYOR_TOGGLE_ACTIONS.has(entries[j].action) && entries[j].params.player === player) {
+        j++;
+      }
+      result.push({ action: 'mayor_place_done', params: { player }, ts: entries[j - 1].ts });
+      i = j;
+    } else {
+      result.push(e);
+      i++;
+    }
+  }
+  return result;
+}
+
 export default function HistoryPanel({ history }: Props) {
   const { t } = useTranslation();
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -36,7 +60,7 @@ export default function HistoryPanel({ history }: Props) {
       {history.length === 0 && (
         <div style={{ color: '#555', fontStyle: 'italic' }}>{t('history.empty')}</div>
       )}
-      {history.map((e, i) => {
+      {collapseHistory(history).map((e, i) => {
         const isRoundEnd = e.action === 'round_end';
         const params = { ...e.params };
         if (params.role)         params.role         = t(`roles.${params.role}`,         { defaultValue: params.role });

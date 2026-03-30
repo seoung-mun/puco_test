@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameWebSocket } from './hooks/useGameWebSocket';
+import { useGameSSE } from './hooks/useGameSSE';
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import type { GameState } from './types/gameState';
@@ -14,7 +15,7 @@ import HomeScreen from './components/HomeScreen';
 import JoinScreen from './components/JoinScreen';
 import LobbyScreen from './components/LobbyScreen';
 import LoginScreen from './components/LoginScreen';
-import type { LobbyPlayer, ServerInfo } from './types/gameState';
+import type { LobbyPlayer } from './types/gameState';
 import './App.css';
 
 type Advantage = { label: string; tooltip: string; cls: string };
@@ -71,6 +72,27 @@ const BUILDING_ADVANTAGE_META: Record<string, { cls: string; phases: string[] }>
 const BACKEND = '';
 const _INTERNAL_KEY = (import.meta.env.VITE_INTERNAL_API_KEY as string) || '';
 
+/** API 오류 응답을 한 줄 메시지로 파싱한다. */
+async function parseApiError(res: Response): Promise<string> {
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text) as { detail?: unknown };
+    const detail = data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (typeof detail === 'object' && detail !== null) {
+      const d = detail as Record<string, unknown>;
+      const parts: string[] = [];
+      if (typeof d.message === 'string') parts.push(d.message);
+      if (d.slot_info !== undefined) parts.push(`슬롯: ${d.slot_info}`);
+      if (d.slot_capacity !== undefined) parts.push(`용량: ${d.slot_capacity}`);
+      if (Array.isArray(d.valid_amounts)) parts.push(`가능한 배치: [${(d.valid_amounts as number[]).join(', ')}]`);
+      if (d.unplaced_colonists !== undefined) parts.push(`미배치: ${d.unplaced_colonists}명`);
+      return parts.length > 0 ? parts.join(' | ') : text;
+    }
+  } catch { /* ignore parse error */ }
+  return text;
+}
+
 /** Legacy API 호출 래퍼: INTERNAL_API_KEY 헤더를 자동으로 포함 */
 function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers as HeadersInit);
@@ -78,20 +100,30 @@ function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   return fetch(url, { ...options, headers });
 }
 
+/** Good name → Good enum value (matches PuCo_RL configs/constants.py) */
+const GOOD_VALUE: Record<string, number> = {
+  coffee: 0, tobacco: 1, corn: 2, sugar: 3, indigo: 4,
+};
+
+/** Channel API action_index helpers */
+const channelActionIndex = {
+  sell: (good: string): number => 39 + (GOOD_VALUE[good] ?? 0),
+  loadShip: (good: string, shipIndex: number): number => 44 + shipIndex * 5 + (GOOD_VALUE[good] ?? 0),
+  loadWharf: (good: string): number => 59 + (GOOD_VALUE[good] ?? 0),
+  craftsmanPriv: (good: string): number => 93 + (GOOD_VALUE[good] ?? 0),
+  mayorIsland: (slotIndex: number): number => 69 + slotIndex,
+  mayorCity: (slotIndex: number): number => 81 + slotIndex,
+  storeWindrose: (good: string): number => 64 + (GOOD_VALUE[good] ?? 0),
+  storeWarehouse: (good: string): number => 106 + (GOOD_VALUE[good] ?? 0),
+};
+
 export default function App() {
   const { t } = useTranslation();
   const isAdmin = new URLSearchParams(window.location.search).has('admin');
   const [state, setState] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [showNewGame, setShowNewGame] = useState(false);
   const [buildConfirm, setBuildConfirm] = useState<{ name: string; cost: number; vp: number } | null>(null);
-  const [newGamePlayers, setNewGamePlayers] = useState(3);
-  const [newGameNames, setNewGameNames] = useState(['', '', '', '', '']);
-  const [newGameBotTypes, setNewGameBotTypes] = useState(['', 'random', 'random', 'random', 'random']);
-  const [botAgents, setBotAgents] = useState<{type: string; name: string}[]>([]);
-  const [newGameLoading, setNewGameLoading] = useState(false);
-  const [homeGameExists, setHomeGameExists] = useState(false);
   const [passing, setPassing] = useState(false);
   const [pendingSettlement, setPendingSettlement] = useState<string | null>(null);
   const [sellingGood, setSellingGood] = useState<string | null>(null);
@@ -116,7 +148,7 @@ export default function App() {
 
   // --- Multiplayer / screen routing ---
   const [screen, setScreen] = useState<'loading' | 'login' | 'home' | 'join' | 'lobby' | 'game'>('loading');
-  const [activeGameId, setActiveGameId] = useState<string | null>(null);
+  const [gameId, setGameId] = useState<string | null>(null);
   const [myName, setMyName] = useState<string | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [isMultiplayer, setIsMultiplayer] = useState(false);
@@ -167,12 +199,6 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.meta.phase, state?.meta.active_player]);
 
-  useEffect(() => {
-    apiFetch(`${BACKEND}/api/bot-types`)
-      .then(r => r.json())
-      .then((data: {type: string; name: string}[]) => setBotAgents(data))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!state) return;
@@ -290,8 +316,10 @@ export default function App() {
   }, [state?.history?.length]);
 
   useEffect(() => {
-    if (!state?.meta.end_game_triggered) return;
-    apiFetch(`${BACKEND}/api/final-score`)
+    if (!state?.meta.end_game_triggered || !gameId || !authToken) return;
+    fetch(`${BACKEND}/api/puco/game/${gameId}/final-score`, {
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    })
       .then(r => r.json())
       .then(setFinalScores)
       .catch(() => {});
@@ -372,87 +400,24 @@ export default function App() {
       return;
     }
 
-    try {
-      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
-
-      if (info.mode === 'idle') {
-        setHomeGameExists(info.game_exists ?? false);
-        setScreen('home');
-        return;
-      }
-
-      if (info.mode === 'single') {
-        if (info.game_exists) {
-          const gs = await apiFetch(`${BACKEND}/api/game-state`).then(r => r.json());
-          setState(gs);
-        }
-        setScreen('game');
-        return;
-      }
-
-      // multiplayer
-      const savedKey = localStorage.getItem('mp_key');
-      const savedName = localStorage.getItem('mp_name');
-      if (savedKey && savedName) {
-        const hb = await apiFetch(`${BACKEND}/api/heartbeat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: savedKey, name: savedName }),
-        });
-        if (hb.ok) {
-          const hbData = await hb.json();
-          setMyName(savedName);
-          setMpKey(savedKey);
-          setIsMultiplayer(true);
-          if (hbData.player_id) setMyPlayerId(hbData.player_id);
-          const info2: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
-          setLobbyPlayers(info2.players ?? []);
-          setLobbyHost(info2.host);
-          if (hbData.lobby_status === 'playing') {
-            const gs = await apiFetch(`${BACKEND}/api/game-state`).then(r => r.json());
-            setState(gs);
-            setScreen('game');
-          } else {
-            setScreen('lobby');
-          }
-          return;
-        }
-        localStorage.removeItem('mp_key');
-        localStorage.removeItem('mp_name');
-      }
-      setScreen('join');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to connect to server');
-      setScreen('home');
-    }
+    // Channel mode: always go to home after auth (no legacy server-info needed)
+    setScreen('home');
   }
 
-  // Polling: fetch game state in multiplayer game mode.
-  // Poll faster (800ms) while a Gemini bot is thinking.
-  useEffect(() => {
-    if (screen !== 'game' || !isMultiplayer) return;
-    const ms = state?.meta.bot_thinking ? 800 : 2500;
-    const interval = setInterval(async () => {
-      try {
-        const [gs, info] = await Promise.all([
-          apiFetch(`${BACKEND}/api/game-state`).then(r => r.json()),
-          apiFetch(`${BACKEND}/api/server-info`).then(r => r.json()),
-        ]);
-        if (gs && gs.meta) {
-          setState(gs);
-        }
-        setLobbyPlayers((info as ServerInfo).players ?? []);
-      } catch { /* ignore */ }
-    }, ms);
-    return () => clearInterval(interval);
-  }, [screen, isMultiplayer, state?.meta.bot_thinking]);
+  // SSE: Channel 전환으로 비활성화 (sessionKey=null → 연결 안 함)
+  useGameSSE({
+    sessionKey: null,
+    playerName: myName,
+    backend: BACKEND,
+    onStateUpdate: () => {},
+    onLobbyUpdate: () => {},
+  });
 
-  // WebSocket: receive bot moves and state updates in single-player mode (server push).
-  // Replaces the previous /api/run-bots polling interval.
+  // Channel WebSocket: game 화면에서 gameId가 있을 때 실시간 상태 수신
   useGameWebSocket({
-    gameId: screen === 'game' && !isMultiplayer ? activeGameId : null,
+    gameId: screen === 'game' ? gameId : null,
     token: authToken,
-    onStateUpdate: (gs, _mask) => {
+    onStateUpdate: (gs) => {
       setState(prev => {
         if (
           prev &&
@@ -462,57 +427,11 @@ export default function App() {
         return gs;
       });
     },
-    onGameEnded: () => {
-      apiFetch(`${BACKEND}/api/final-score`)
-        .then(r => r.json())
-        .then(setFinalScores)
-        .catch(() => {});
-    },
-    onPlayerDisconnected: () => {
-      // single-player에서는 봇만 있으므로 별도 처리 없음
-    },
+    onGameEnded: () => {},
+    onPlayerDisconnected: () => {},
   });
 
-  // Polling: refresh lobby every 2.5s when in lobby screen
-  useEffect(() => {
-    if (screen !== 'lobby') return;
-    const interval = setInterval(async () => {
-      try {
-        const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
-        setLobbyPlayers(info.players ?? []);
-        setLobbyHost(info.host);
-        if (info.lobby_status === 'playing') {
-          const me = info.players?.find(p => p.name === myName);
-          if (me?.player_id) setMyPlayerId(me.player_id);
-          const gs = await apiFetch(`${BACKEND}/api/game-state`).then(r => r.json());
-          if (gs && gs.meta) {
-            setState(gs);
-          }
-          setScreen('game');
-        }
-      } catch { /* ignore */ }
-    }, 2500);
-    return () => clearInterval(interval);
-  }, [screen, myName]);
-
-  // Heartbeat: keep-alive every 5s in multiplayer
-  useEffect(() => {
-    if (!isMultiplayer || !mpKey || !myName) return;
-    const interval = setInterval(async () => {
-      try {
-        const hb = await apiFetch(`${BACKEND}/api/heartbeat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: mpKey, name: myName }),
-        });
-        if (hb.ok) {
-          const data = await hb.json();
-          if (data.player_id && !myPlayerId) setMyPlayerId(data.player_id);
-        }
-      } catch { /* ignore */ }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [isMultiplayer, mpKey, myName, myPlayerId]);
+  // Channel mode: lobby 및 heartbeat 폴링 불필요 — WebSocket이 실시간 상태 전달
 
   function logout(forceHome = false) {
     const isClient = isMultiplayer && myName !== lobbyHost;
@@ -526,182 +445,119 @@ export default function App() {
     setLobbyPlayers([]);
     setLobbyHost(null);
     setState(null);
+    setGameId(null);
     setScreen(!forceHome && isClient ? 'join' : 'home');
   }
 
-  async function handleSinglePlayer() {
-    // "Continue" flow: load existing game state without resetting the session
+  /** Channel API: 단일 action_index로 모든 게임 액션을 처리 */
+  async function channelAction(actionIndex: number): Promise<void> {
+    if (!gameId || !authToken) return;
+    setSaving(true);
+    setError(null);
     try {
-      const gs = await apiFetch(`${BACKEND}/api/game-state`).then(r => r.json());
-      if (gs?.meta) {
-        setState(gs);
-        setActiveGameId(gs.meta.game_id ?? null);
-        setScreen('game');
-      } else {
-        setError('진행 중인 게임이 없습니다. 새 게임을 시작해 주세요.');
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed');
-    }
-  }
-
-  async function handleStartOffline(numPlayers: number, names: string[], botTypes: string[]) {
-    try {
-      await apiFetch(`${BACKEND}/api/set-mode/single`, { method: 'POST' });
-      const res = await apiFetch(`${BACKEND}/api/new-game`, {
+      const res = await fetch(`${BACKEND}/api/puco/game/${gameId}/action`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ num_players: numPlayers, player_names: names }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ payload: { action_index: actionIndex } }),
       });
-      if (!res.ok) { setError(await res.text()); return; }
-      const data: GameState = await res.json();
-
-      // Find and save the human player's ID before registering bots
-      const humanIdx = botTypes.findIndex(bt => !bt);
-      const humanPlayerId = humanIdx >= 0
-        ? Object.entries(data.players).find(([, p]) => p.display_name === names[humanIdx])?.[0] ?? null
-        : null;
-
-      for (let i = 0; i < names.length; i++) {
-        const botType = botTypes[i];
-        if (botType) {
-          // Use player_order index directly to avoid matching issues when multiple bots share a display name
-          const playerId = data.meta.player_order?.[i] ?? `player_${i}`;
-          const botRes = await apiFetch(`${BACKEND}/api/bot/set`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ player: playerId, bot_type: botType }),
-          });
-          if (!botRes.ok) {
-            setError(await botRes.text());
-            return;
-          }
-        }
+      if (!res.ok) {
+        setError(await parseApiError(res));
+        return;
       }
-
-      // 초기 봇 턴 실행 (거버너가 봇인 경우) — 폴링이 아닌 1회 호출.
-      // 이후 봇 턴은 WebSocket push로 처리됨.
-      const runRes = await apiFetch(`${BACKEND}/api/run-bots`, { method: 'POST' });
-      let finalState = data;
-      if (runRes.ok) {
-        const parsed = await runRes.json();
-        if (parsed?.meta) finalState = parsed;
-      }
-
-      prevHistoryLenRef.current = finalState.history.length;
-      setMyPlayerId(humanPlayerId);
-      setState(finalState);
-      setActiveGameId(finalState.meta.game_id ?? null);
-      setScreen('game');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed');
-    }
-  }
-
-  async function handleMultiplayerInit(hostName: string) {
-    try {
-      const res = await apiFetch(`${BACKEND}/api/multiplayer/init`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ host_name: hostName }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
       const data = await res.json();
-      localStorage.setItem('mp_key', data.session_key);
-      localStorage.setItem('mp_name', hostName);
+      if (data.state) setState(data.state as GameState);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Request failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /** Channel: 방 생성 (호스트) */
+  async function handleMultiplayerInit(hostName: string) {
+    if (!authToken) return;
+    setError(null);
+    try {
+      const res = await fetch(`${BACKEND}/api/puco/rooms/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ title: `${hostName}'s Room`, max_players: 3 }),
+      });
+      if (!res.ok) { setError(await parseApiError(res)); return; }
+      const room = await res.json();
+      const gid: string = room.id;
+      setGameId(gid);
       setMyName(hostName);
-      setMpKey(data.session_key);
-      setSessionKeyDisplay(data.session_key);
+      setMpKey(gid);
+      setSessionKeyDisplay(gid);
       setIsMultiplayer(true);
-      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
-      setLobbyPlayers(info.players ?? []);
-      setLobbyHost(info.host);
+      setLobbyHost(hostName);
+      const myEntry = authUser ? `${authUser.nickname ?? authUser.id}` : hostName;
+      setLobbyPlayers([{ name: myEntry, player_id: authUser?.id ?? '' }]);
       setScreen('lobby');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed');
     }
   }
 
+  /** Channel: 방 참가 (게임 ID로 직접) */
   async function handleJoin(key: string, name: string, role: 'player' | 'spectator'): Promise<string | null> {
+    void role; // spectator mode not yet supported in channel API
+    if (!authToken) return 'Not logged in';
     try {
-      const res = await apiFetch(`${BACKEND}/api/lobby/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, name, role }),
-      });
-      if (!res.ok) return await res.text();
-      const data = await res.json();
-      localStorage.setItem('mp_key', key);
-      localStorage.setItem('mp_name', name);
+      // key is game_id in channel mode
+      setGameId(key);
       setMyName(name);
       setMpKey(key);
       setIsMultiplayer(true);
-      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
-      setLobbyPlayers(info.players ?? []);
-      setLobbyHost(info.host);
-      if (data.reconnected) {
-        if (data.player_id) setMyPlayerId(data.player_id);
-        const gs = await apiFetch(`${BACKEND}/api/game-state`).then(r => r.json());
-        setState(gs);
-        setScreen('game');
-      } else {
-        setScreen('lobby');
-      }
+      setScreen('lobby');
       return null;
     } catch (e) {
       return e instanceof Error ? e.message : 'Failed';
     }
   }
 
-  async function handleAddBot(botName: string, botType: string) {
-    if (!mpKey || !myName) return;
+  /** Channel: 봇 추가 */
+  async function handleAddBot(_botName: string, botType: string) {
+    if (!gameId || !authToken) return;
     setLobbyError(null);
     try {
-      const res = await apiFetch(`${BACKEND}/api/lobby/add-bot`, {
+      const res = await fetch(`${BACKEND}/api/puco/game/${gameId}/add-bot`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: mpKey, host_name: myName, bot_name: botName, bot_type: botType }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ bot_type: botType }),
       });
       if (!res.ok) { setLobbyError(await res.text()); return; }
-      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
-      if (info.players) setLobbyPlayers(info.players);
+      const data = await res.json();
+      setLobbyPlayers(prev => [...prev, { name: `Bot (${data.bot_type})`, role: 'player', player_id: `BOT_${data.bot_type}` }]);
     } catch (e) {
       setLobbyError(e instanceof Error ? e.message : 'Failed');
     }
   }
 
+  /** Channel: 봇 제거 — 현재 channel API에서 미지원, 로컬 상태만 갱신 */
   async function handleRemoveBot(botName: string) {
-    if (!mpKey || !myName) return;
-    setLobbyError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/lobby/remove-bot`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: mpKey, host_name: myName, bot_name: botName }),
-      });
-      if (!res.ok) { setLobbyError(await res.text()); return; }
-      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
-      if (info.players) setLobbyPlayers(info.players);
-    } catch (e) {
-      setLobbyError(e instanceof Error ? e.message : 'Failed');
-    }
+    setLobbyPlayers(prev => prev.filter(p => p.name !== botName));
   }
 
+  /** Channel: 게임 시작 */
   async function handleLobbyStart() {
-    if (!mpKey || !myName) return;
+    if (!gameId || !authToken) return;
     setLobbyError(null);
     try {
-      const res = await apiFetch(`${BACKEND}/api/lobby/start`, {
+      const res = await fetch(`${BACKEND}/api/puco/game/${gameId}/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: mpKey, name: myName }),
+        headers: { 'Authorization': `Bearer ${authToken}` },
       });
-      if (!res.ok) { setLobbyError(await res.text()); return; }
-      const gs = await res.json();
+      if (!res.ok) { setLobbyError(await parseApiError(res)); return; }
+      const data = await res.json();
+      const gs = data.state as GameState;
       setState(gs);
-      const info: ServerInfo = await apiFetch(`${BACKEND}/api/server-info`).then(r => r.json());
-      const me = info.players?.find(p => p.name === myName);
-      if (me?.player_id) setMyPlayerId(me.player_id);
+      const humanEntry = Object.entries(gs.players).find(([, p]) => p.display_name === myName);
+      if (humanEntry) setMyPlayerId(humanEntry[0]);
       setScreen('game');
     } catch (e) {
       setLobbyError(e instanceof Error ? e.message : 'Failed');
@@ -713,73 +569,33 @@ export default function App() {
   }
 
   async function selectRole(role: string) {
-    if (!state) return;
-    if (notMyTurn()) return;
-    setSaving(true);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/select-role`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: state.meta.active_player, role }),
-      });
-      if (!res.ok) {
-        const msg = await res.text();
-        setError(msg);
-        return;
-      }
-      const saved = await res.json();
-      setState(saved);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Save failed');
-    } finally {
-      setSaving(false);
-    }
+    if (!state || notMyTurn()) return;
+    const roleData = state.common_board.roles[role as import('./types/gameState').RoleName];
+    if (!roleData || roleData.action_index === undefined) return;
+    await channelAction(roleData.action_index);
   }
 
   async function passAction() {
-    if (notMyTurn()) return;
+    if (notMyTurn() || !state) return;
     setPassing(true);
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/pass`, { method: 'POST' });
-      if (!res.ok) {
-        setError(await res.text());
-        return;
-      }
-      setState(await res.json());
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
-    } finally {
-      setPassing(false);
-    }
+    await channelAction(state.meta.pass_action_index ?? 15);
+    setPassing(false);
   }
 
   async function useHacienda() {
-    if (notMyTurn()) return;
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/use-hacienda`, { method: 'POST' });
-      if (!res.ok) { setError(await res.text()); return; }
-      setState(await res.json());
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
-    }
+    if (notMyTurn() || !state) return;
+    await channelAction(state.meta.hacienda_action_index ?? 105);
   }
 
   async function doSettlePlantation(type: string, useHospice: boolean) {
+    void useHospice; // hospice colonist grant handled by engine
     if (!state) return;
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/settle-plantation`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: state.meta.active_player, plantation: type, use_hospice: useHospice }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
-      setState(await res.json());
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
+    if (type === 'quarry') {
+      await channelAction(14);
+      return;
     }
+    const entry = state.common_board.available_plantations.face_up.find(p => p.type === type);
+    if (entry) await channelAction(entry.action_index);
   }
 
   function settlePlantation(type: string) {
@@ -835,88 +651,47 @@ export default function App() {
 
   async function confirmMayorDistribution() {
     if (!state || !mayorPending || notMyTurn()) return;
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/mayor-distribute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: state.meta.active_player, distribution: mayorPending }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
-      lastMayorDistRef.current = [...mayorPending];  // 다음 라운드 초기화에 재사용
-      setMayorPending(null);
-      setState(await res.json());
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
+    // Channel API: send individual slot placements for each slot with colonists
+    // mayorPending[0-11] = island slots, [12-23] = city slots
+    lastMayorDistRef.current = [...mayorPending];
+    setMayorPending(null);
+    // Submit each slot toggle in order; engine will handle placement vs skip
+    for (let i = 0; i < 12; i++) {
+      for (let j = 0; j < mayorPending[i]; j++) {
+        await channelAction(channelActionIndex.mayorIsland(i));
+      }
     }
+    for (let i = 0; i < 12; i++) {
+      for (let j = 0; j < mayorPending[12 + i]; j++) {
+        await channelAction(channelActionIndex.mayorCity(i));
+      }
+    }
+    // Finish with pass
+    await channelAction(15);
   }
 
   async function mayorPlaceAmount(amount: number) {
+    void amount; // Legacy mayor-place: no direct channel equivalent; use pass to finish
     if (!state || notMyTurn()) return;
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/mayor-place`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: state.meta.active_player, amount }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
-      setState(await res.json());
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
-    }
+    await channelAction(15);
   }
 
   async function mayorFinishPlacement() {
     if (!state || notMyTurn()) return;
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/mayor-finish-placement`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: state.meta.active_player }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
-      setState(await res.json());
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
-    }
+    await channelAction(15);
   }
 
   async function sellGood(good: string) {
     if (notMyTurn()) return;
     setSellingGood(good);
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/sell`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ good }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
-      setState(await res.json());
-      scrollToActionCard();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
-    } finally {
-      setSellingGood(null);
-    }
+    await channelAction(channelActionIndex.sell(good));
+    setSellingGood(null);
+    scrollToActionCard();
   }
 
   async function craftsmanPrivilege(good: string) {
     if (notMyTurn()) return;
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/craftsman-privilege`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ good }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
-      setState(await res.json());
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
-    }
+    await channelAction(channelActionIndex.craftsmanPriv(good));
   }
 
   function scrollToActionCard() {
@@ -932,59 +707,32 @@ export default function App() {
 
   async function loadShip(good: string, shipIndex: number | null, useWharf: boolean) {
     if (!state || notMyTurn()) return;
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/load-ship`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: state.meta.active_player, good, ship_index: shipIndex, use_wharf: useWharf }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
-      setState(await res.json());
-      scrollToActionCard();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
-    }
+    const actionIndex = useWharf
+      ? channelActionIndex.loadWharf(good)
+      : channelActionIndex.loadShip(good, shipIndex ?? 0);
+    await channelAction(actionIndex);
+    scrollToActionCard();
   }
 
   async function captainPass() {
     if (!state || notMyTurn()) return;
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/captain-pass`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: state.meta.active_player }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
-      setState(await res.json());
-      scrollToActionCard();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
-    }
+    await channelAction(15);
+    scrollToActionCard();
   }
 
   async function doDiscardGoods() {
     if (!state) return;
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/discard-goods`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          player: state.meta.active_player,
-          protected: discardProtected,
-          single_extra: discardSingleExtra,
-        }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
-      setDiscardProtected([]);
-      setDiscardSingleExtra(null);
-      setState(await res.json());
-      scrollToActionCard();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
+    // Send warehouse stores first, then windrose, then pass
+    for (const good of discardProtected) {
+      await channelAction(channelActionIndex.storeWarehouse(good));
     }
+    if (discardSingleExtra) {
+      await channelAction(channelActionIndex.storeWindrose(discardSingleExtra));
+    }
+    setDiscardProtected([]);
+    setDiscardSingleExtra(null);
+    await channelAction(15);
+    scrollToActionCard();
   }
 
   function requestBuild(name: string, cost: number, vp: number) {
@@ -993,69 +741,11 @@ export default function App() {
 
   async function build(buildingName: string) {
     if (!state || notMyTurn()) return;
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/action/build`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: state.meta.active_player, building: buildingName }),
-      });
-      if (!res.ok) { setError(await res.text()); return; }
-      setState(await res.json());
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Request failed');
-    }
+    const buildingData = state.common_board.available_buildings[buildingName] as { action_index?: number } | undefined;
+    if (!buildingData?.action_index) return;
+    await channelAction(buildingData.action_index);
   }
 
-  async function startNewGame() {
-    const names = newGameNames.slice(0, newGamePlayers).map(n => n.trim());
-    if (names.some(n => n === '')) {
-      setError('Inserisci un nome per ogni giocatore');
-      return;
-    }
-    setNewGameLoading(true);
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND}/api/new-game`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ num_players: newGamePlayers, player_names: names }),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        setError(text);
-      } else {
-        const data: GameState = await res.json();
-        // Configure bot players based on the shuffled order returned by the backend
-        const botTypes = newGameBotTypes.slice(0, newGamePlayers);
-        for (let i = 0; i < names.length; i++) {
-          const botType = botTypes[i];
-          if (botType) {
-            // Use player_order index directly to avoid matching issues when multiple bots share a display name
-            const playerId = data.meta.player_order?.[i] ?? `player_${i}`;
-            const botRes = await apiFetch(`${BACKEND}/api/bot/set`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ player: playerId, bot_type: botType }),
-            });
-            if (!botRes.ok) {
-              const errText = await botRes.text();
-              setError(errText);
-              setNewGameLoading(false);
-              return;
-            }
-          }
-        }
-        setState(data);
-        setShowNewGame(false);
-        setFinalScores(null);
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Errore di rete');
-    } finally {
-      setNewGameLoading(false);
-    }
-  }
 
 
   const isBotTurn = !!(state?.bot_players && state?.decision?.player && state.bot_players[state.decision.player] !== undefined);
@@ -1081,10 +771,14 @@ export default function App() {
   }
   if (screen === 'home') {
     return <HomeScreen
-      gameExists={homeGameExists}
-      onContinue={handleSinglePlayer}
-      onStartOffline={handleStartOffline}
       onMultiplayer={handleMultiplayerInit}
+      onLogout={() => {
+        localStorage.removeItem('access_token');
+        setAuthToken(null);
+        setAuthUser(null);
+        setScreen('login');
+      }}
+      userNickname={authUser?.nickname ?? null}
       error={error}
     />;
   }
@@ -1111,34 +805,10 @@ export default function App() {
         <p style={{ color: '#aab' }}>{t('game.noGame')}</p>
         <button
           style={{ background: '#2a5ab0', color: '#fff', border: 'none', borderRadius: 8, padding: '12px 24px', fontSize: 16, cursor: 'pointer' }}
-          onClick={() => { setError(null); setShowNewGame(true); }}
+          onClick={() => logout(true)}
         >
           {t('game.startNew')}
         </button>
-        {showNewGame && (
-          <div style={{ background: '#0d1117', border: '1px solid #2a2a5a', borderRadius: 8, padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <label style={{ color: '#aab' }}>{t('newGame.numPlayers')}
-              <select value={newGamePlayers} onChange={e => setNewGamePlayers(Number(e.target.value))}
-                style={{ marginLeft: 8, background: '#1a1a2e', color: '#eee', border: '1px solid #444', borderRadius: 4, padding: '4px 8px' }}>
-                {[3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </label>
-            {Array.from({ length: newGamePlayers }, (_, i) => (
-              <input key={i} placeholder={t('newGame.playerName', { n: i + 1 })}
-                value={newGameNames[i]}
-                onChange={e => { const n = [...newGameNames]; n[i] = e.target.value; setNewGameNames(n); }}
-                style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #444', background: '#1a1a2e', color: '#eee' }}
-              />
-            ))}
-            {error && (
-              <div className="new-game-error">{error}</div>
-            )}
-            <button onClick={startNewGame} disabled={newGameLoading}
-              style={{ background: '#2a5ab0', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer' }}>
-              {newGameLoading ? t('newGame.starting') : t('newGame.start')}
-            </button>
-          </div>
-        )}
       </div>
     );
   }
@@ -1337,79 +1007,6 @@ export default function App() {
         );
       })()}
 
-      {showNewGame && (
-        <div className="new-game-overlay" onClick={e => { if (e.target === e.currentTarget) setShowNewGame(false); }}>
-          <div className="new-game-modal">
-            <h2>{t('newGame.title')}</h2>
-
-            <label>
-              {t('newGame.numPlayers')}&nbsp;
-              <select value={newGamePlayers} onChange={e => setNewGamePlayers(Number(e.target.value))}>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-                <option value={5}>5</option>
-              </select>
-            </label>
-
-            <div className="new-game-names">
-              {Array.from({ length: newGamePlayers }, (_, i) => {
-                const isBot = !!newGameBotTypes[i];
-                return (
-                  <div key={i} className="new-game-player-row">
-                    <input
-                      type="text"
-                      placeholder={t('newGame.playerName', { n: i + 1 })}
-                      value={newGameNames[i]}
-                      readOnly={isBot}
-                      onChange={e => {
-                        if (isBot) return;
-                        const updated = [...newGameNames];
-                        updated[i] = e.target.value;
-                        setNewGameNames(updated);
-                      }}
-                      onKeyDown={e => { if (e.key === 'Enter') startNewGame(); }}
-                      style={isBot ? { opacity: 0.5, cursor: 'default' } : undefined}
-                    />
-                    <select
-                      value={newGameBotTypes[i]}
-                      onChange={e => {
-                        const updated = [...newGameBotTypes];
-                        updated[i] = e.target.value;
-                        setNewGameBotTypes(updated);
-                        // Auto-set name from agent config when switching to bot
-                        if (e.target.value) {
-                          const agent = botAgents.find(a => a.type === e.target.value);
-                          const updatedNames = [...newGameNames];
-                          updatedNames[i] = agent?.name ?? e.target.value;
-                          setNewGameNames(updatedNames);
-                        }
-                      }}
-                    >
-                      <option value="">{t('newGame.human')}</option>
-                      {botAgents.map(a => (
-                        <option key={a.type} value={a.type}>{a.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })}
-            </div>
-
-            <p className="new-game-hint">{t('newGame.govNote')}</p>
-
-            {error && (
-              <div className="new-game-error">{error}</div>
-            )}
-
-            <div className="new-game-actions">
-              <button onClick={() => setShowNewGame(false)} className="btn-cancel">{t('newGame.cancel')}</button>
-              <button onClick={startNewGame} disabled={newGameLoading} className="btn-start">
-                {newGameLoading ? t('newGame.starting') : t('newGame.start')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {roundFlash !== null && (
         <div className="round-flash">{t('actions.roundCompleted', { n: roundFlash })}</div>
       )}

@@ -8,7 +8,7 @@ from app.core.security import SECRET_KEY, ALGORITHM
 from app.db.models import User
 
 reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl="/api/puco/auth/login"
+    tokenUrl="/api/puco/auth/google"
 )
 
 

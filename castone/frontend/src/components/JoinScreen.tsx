@@ -1,48 +1,38 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ServerInfo } from '../types/gameState';
+
+// UUID v4 pattern
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface Props {
   backendUrl: string;
   onJoin: (key: string, name: string, role: 'player' | 'spectator') => Promise<string | null>;
 }
 
-export default function JoinScreen({ backendUrl, onJoin }: Props) {
+export default function JoinScreen({ backendUrl: _backendUrl, onJoin }: Props) {
   const { t } = useTranslation();
   const [key, setKey] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<'player' | 'spectator'>('player');
-  const [step, setStep] = useState<'key' | 'reconnect' | 'name'>('key');
-  const [offlinePlayers, setOfflinePlayers] = useState<string[]>([]);
+  const [step, setStep] = useState<'key' | 'name'>('key');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleKeyNext() {
-    setLoading(true);
-    setError(null);
-    try {
-      const info: ServerInfo = await fetch(`${backendUrl}/api/server-info`).then(r => r.json());
-      if (info.lobby_status === 'playing' && info.players) {
-        const offline = info.players.filter(p => !p.connected && !p.is_spectator).map(p => p.name);
-        if (offline.length > 0) {
-          setOfflinePlayers(offline);
-          setName(offline[0]);
-          setStep('reconnect');
-          return;
-        }
-      }
-      setStep('name');
-    } catch {
-      setError('Cannot reach server');
-    } finally {
-      setLoading(false);
+  const keyValid = UUID_PATTERN.test(key.trim());
+
+  function handleKeyNext() {
+    if (!keyValid) {
+      setError(t('join.invalidKey', 'Please enter a valid Game ID (UUID format)'));
+      return;
     }
+    setError(null);
+    setStep('name');
   }
 
   async function handleJoin() {
     setLoading(true);
     setError(null);
-    const err = await onJoin(key.trim().toUpperCase(), name.trim(), role);
+    const err = await onJoin(key.trim(), name.trim(), role);
     setLoading(false);
     if (err) setError(err);
   }
@@ -84,45 +74,21 @@ export default function JoinScreen({ backendUrl, onJoin }: Props) {
       <div style={cardStyle}>
         {step === 'key' && (
           <>
-            <p style={{ color: '#aab', margin: 0 }}>{t('join.enterKey')}</p>
+            <p style={{ color: '#aab', margin: 0 }}>{t('join.enterKey', 'Enter Game ID')}</p>
             <input
               value={key}
-              onChange={e => setKey(e.target.value.toUpperCase())}
-              placeholder="XXXXXX"
-              maxLength={6}
+              onChange={e => setKey(e.target.value.trim())}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
               autoFocus
-              style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #444', background: '#1a1a2e', color: '#f0c040', fontSize: 24, textAlign: 'center', letterSpacing: 6, width: 160, fontFamily: 'monospace' }}
-              onKeyDown={e => e.key === 'Enter' && key.trim().length === 6 && handleKeyNext()}
+              style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #444', background: '#1a1a2e', color: '#f0c040', fontSize: 13, textAlign: 'center', width: '100%', fontFamily: 'monospace', boxSizing: 'border-box' }}
+              onKeyDown={e => e.key === 'Enter' && keyValid && handleKeyNext()}
             />
-            <button style={{ ...btnPrimary, opacity: key.trim().length === 6 && !loading ? 1 : 0.5 }}
+            <button style={{ ...btnPrimary, opacity: keyValid && !loading ? 1 : 0.5 }}
               onClick={handleKeyNext}
-              disabled={key.trim().length !== 6 || loading}>
+              disabled={!keyValid || loading}>
               {loading ? '...' : t('join.next')}
             </button>
             {error && <p style={{ color: '#f66', margin: 0, fontSize: 13 }}>{error}</p>}
-          </>
-        )}
-
-        {step === 'reconnect' && (
-          <>
-            <p style={{ color: '#aab', margin: 0 }}>{t('join.whoAreYou')}</p>
-            <select
-              value={name}
-              onChange={e => setName(e.target.value)}
-              autoFocus
-              style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #444', background: '#1a1a2e', color: '#eee', fontSize: 16, width: '100%' }}
-            >
-              {offlinePlayers.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-            {error && <p style={{ color: '#f66', margin: 0, fontSize: 13 }}>{error}</p>}
-            <button style={{ ...btnPrimary, opacity: !loading ? 1 : 0.5 }}
-              onClick={handleJoin}
-              disabled={loading}>
-              {loading ? '...' : t('join.enter')}
-            </button>
-            <button style={btnLink} onClick={() => { setStep('key'); setError(null); }}>{t('join.back')}</button>
           </>
         )}
 

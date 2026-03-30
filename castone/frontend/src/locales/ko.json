@@ -203,6 +203,8 @@
       "store_windrose":       "{{player}}님이 {{good}}을(를) 보관함 (나침반)",
       "store_warehouse":      "{{player}}님이 {{good}}을(를) 창고에 보관함",
       "mayor_finish_placement":"{{player}}님이 이주민 배치를 완료함",
+      "mayor_distribute":      "{{player}}님이 이주민 배치를 완료함",
+      "mayor_place_done":      "{{player}}님이 이주민 배치를 완료함",
       "round_end":            "{{round}} 라운드 종료"
     }
   },
@@ -312,7 +314,8 @@
     "enterHostName":     "세션을 생성하려면 이름을 입력하세요:",
     "yourName":          "내 이름",
     "startMultiplayer":  "세션 생성",
-    "back":              "← 뒤로"
+    "back":              "← 뒤로",
+    "logout":            "로그아웃"
   },
 
   "join": {

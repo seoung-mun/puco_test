@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { GameState } from '../types/gameState'
 
 const WS_RECONNECT_DELAY_MS = 3000
@@ -33,9 +33,11 @@ export function useGameWebSocket({
   const onStateUpdateRef = useRef(onStateUpdate)
   const onGameEndedRef = useRef(onGameEnded)
   const onPlayerDisconnectedRef = useRef(onPlayerDisconnected)
-  onStateUpdateRef.current = onStateUpdate
-  onGameEndedRef.current = onGameEnded
-  onPlayerDisconnectedRef.current = onPlayerDisconnected
+  useLayoutEffect(() => {
+    onStateUpdateRef.current = onStateUpdate
+    onGameEndedRef.current = onGameEnded
+    onPlayerDisconnectedRef.current = onPlayerDisconnected
+  })
 
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -50,7 +52,7 @@ export function useGameWebSocket({
     function connect() {
       intentionalCloseRef.current = false
 
-      const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/v1/ws/game/${gameId}`
+      const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/puco/ws/${gameId}`
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
 
@@ -67,10 +69,13 @@ export function useGameWebSocket({
         }
 
         if (msg.type === 'STATE_UPDATE') {
-          const stateKey = JSON.stringify({ data: msg.data, mask: msg.action_mask })
+          const richState = msg.data!
+          // action_mask may be embedded in the rich state (channel API) or at top level (legacy)
+          const actionMask: number[] = msg.action_mask ?? (richState as unknown as Record<string, unknown>)['action_mask'] as number[] ?? []
+          const stateKey = JSON.stringify({ data: richState, mask: actionMask })
           if (stateKey === lastStateKeyRef.current) return  // 동일 상태 중복 무시
           lastStateKeyRef.current = stateKey
-          onStateUpdateRef.current(msg.data!, msg.action_mask ?? [])
+          onStateUpdateRef.current(richState, actionMask)
 
         } else if (msg.type === 'GAME_ENDED') {
           onGameEndedRef.current(msg.reason ?? '')

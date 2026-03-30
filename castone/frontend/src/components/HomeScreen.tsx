@@ -1,53 +1,19 @@
 import { useState } from 'react';
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
-interface BotAgent { type: string; name: string; }
-
 interface Props {
-  gameExists: boolean;
-  onContinue: () => void;
-  onStartOffline: (numPlayers: number, names: string[], botTypes: string[]) => Promise<void>;
   onMultiplayer: (hostName: string) => void;
+  onLogout?: () => void;
+  userNickname?: string | null;
   error?: string | null;
 }
 
-type View = 'main' | 'offline_choose' | 'offline_setup' | 'multiplayer';
+type View = 'main' | 'multiplayer';
 
-export default function HomeScreen({ gameExists, onContinue, onStartOffline, onMultiplayer, error }: Props) {
+export default function HomeScreen({ onMultiplayer, onLogout, userNickname, error }: Props) {
   const { t } = useTranslation();
   const [view, setView] = useState<View>('main');
   const [hostName, setHostName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [botAgents, setBotAgents] = useState<BotAgent[]>([]);
-
-  // Offline setup state
-  const [numPlayers, setNumPlayers] = useState(3);
-  const [names, setNames] = useState(['', '', '', '', '']);
-  const [botTypes, setBotTypes] = useState(['', 'random', 'random', 'random', 'random']);
-
-  // Fetch available bot types from backend
-  useEffect(() => {
-    fetch('/api/bot-types')
-      .then(r => r.json())
-      .then((data: BotAgent[]) => {
-        setBotAgents(data);
-        const defaultType = data[0]?.type ?? 'random';
-        setBotTypes(prev => prev.map((bt, i) => i === 0 ? '' : (bt || defaultType)));
-        // Auto-fill bot names from agent config
-        setNames(prev => {
-          const updated = [...prev];
-          for (let i = 1; i < 5; i++) {
-            if (!updated[i].trim()) {
-              const agent = data.find(a => a.type === (botTypes[i] || defaultType));
-              updated[i] = agent?.name ?? defaultType;
-            }
-          }
-          return updated;
-        });
-      })
-      .catch(() => {});
-  }, []);
 
   const cardStyle: React.CSSProperties = {
     background: '#0d1117',
@@ -65,17 +31,6 @@ export default function HomeScreen({ gameExists, onContinue, onStartOffline, onM
     background: '#2a5ab0',
     color: '#fff',
     border: 'none',
-    borderRadius: 8,
-    padding: '12px 32px',
-    fontSize: 16,
-    cursor: 'pointer',
-    width: '100%',
-  };
-
-  const btnSecondary: React.CSSProperties = {
-    background: 'transparent',
-    color: '#8af',
-    border: '1px solid #2a5ab0',
     borderRadius: 8,
     padding: '12px 32px',
     fontSize: 16,
@@ -101,32 +56,6 @@ export default function HomeScreen({ gameExists, onContinue, onStartOffline, onM
     boxSizing: 'border-box',
   };
 
-  const selectStyle: React.CSSProperties = {
-    ...inputStyle,
-    cursor: 'pointer',
-  };
-
-  function handleOfflineClick() {
-    if (gameExists) {
-      setView('offline_choose');
-    } else {
-      setView('offline_setup');
-    }
-  }
-
-  async function handleStart() {
-    const trimmed = names.slice(0, numPlayers).map(n => n.trim());
-    if (trimmed.some(n => n === '')) return;
-    setLoading(true);
-    try {
-      await onStartOffline(numPlayers, trimmed, botTypes.slice(0, numPlayers));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const canStart = names.slice(0, numPlayers).every(n => n.trim() !== '');
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 24 }}>
       <h1 style={{ color: '#f0c040', margin: 0, fontSize: 36 }}>Puerto Rico</h1>
@@ -135,113 +64,9 @@ export default function HomeScreen({ gameExists, onContinue, onStartOffline, onM
 
         {/* MAIN MENU */}
         {view === 'main' && (
-          <>
-            <button style={btnPrimary} onClick={handleOfflineClick}>
-              {t('home.offline')}
-            </button>
-            <button style={btnSecondary} onClick={() => setView('multiplayer')}>
-              {t('home.onlineMultiplayer')}
-            </button>
-          </>
-        )}
-
-        {/* OFFLINE: CONTINUE OR NEW */}
-        {view === 'offline_choose' && (
-          <>
-            <button style={btnPrimary} onClick={onContinue}>
-              {t('home.continueGame')}
-            </button>
-            <button style={btnSecondary} onClick={() => setView('offline_setup')}>
-              {t('home.newGame')}
-            </button>
-            <button style={btnLink} onClick={() => setView('main')}>{t('home.back')}</button>
-          </>
-        )}
-
-        {/* OFFLINE SETUP FORM */}
-        {view === 'offline_setup' && (
-          <>
-            <p style={{ color: '#aab', margin: 0, fontWeight: 600, fontSize: 15 }}>{t('home.newGame')}</p>
-
-            {/* Number of players */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-              <label style={{ color: '#aab', whiteSpace: 'nowrap' }}>{t('newGame.numPlayers')}</label>
-              <select
-                value={numPlayers}
-                onChange={e => {
-                  const n = Number(e.target.value);
-                  setNumPlayers(n);
-                  // Auto-fill names for bot slots that are newly visible
-                  const updatedNames = [...names];
-                  for (let i = 0; i < n; i++) {
-                    if (botTypes[i] && !updatedNames[i].trim()) {
-                      const agent = botAgents.find(a => a.type === botTypes[i]);
-                      updatedNames[i] = agent?.name ?? botTypes[i];
-                    }
-                  }
-                  setNames(updatedNames);
-                }}
-                style={{ ...selectStyle, flex: 1 }}
-              >
-                {[2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-
-            {/* Player rows */}
-            {Array.from({ length: numPlayers }, (_, i) => {
-              const isBot = !!botTypes[i];
-              return (
-                <div key={i} style={{ display: 'flex', gap: 8, width: '100%' }}>
-                  <input
-                    placeholder={t('newGame.playerName', { n: i + 1 })}
-                    value={names[i]}
-                    readOnly={isBot}
-                    onChange={e => { if (!isBot) { const n = [...names]; n[i] = e.target.value; setNames(n); } }}
-                    style={{ ...inputStyle, flex: 2, ...(isBot ? { opacity: 0.6, cursor: 'default' } : {}) }}
-                  />
-                  <select
-                    value={botTypes[i]}
-                    onChange={e => {
-                      const b = [...botTypes]; b[i] = e.target.value; setBotTypes(b);
-                      // Auto-set name from agent config when switching to bot
-                      const n = [...names];
-                      if (e.target.value) {
-                        const agent = botAgents.find(a => a.type === e.target.value);
-                        n[i] = agent?.name ?? e.target.value;
-                      } else {
-                        n[i] = '';
-                      }
-                      setNames(n);
-                    }}
-                    style={{ ...selectStyle, flex: 1 }}
-                  >
-                    <option value="">{t('newGame.human')}</option>
-                    {botAgents.map(a => (
-                      <option key={a.type} value={a.type}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-              );
-            })}
-
-            <p style={{ color: '#668', margin: 0, fontSize: 12 }}>{t('newGame.govNote')}</p>
-
-            <button
-              style={{ ...btnPrimary, opacity: canStart && !loading ? 1 : 0.5 }}
-              onClick={handleStart}
-              disabled={!canStart || loading}
-            >
-              {loading ? t('newGame.starting') : t('newGame.start')}
-            </button>
-            {error && (
-              <div style={{ color: '#f88', background: '#300', border: '1px solid #f44', borderRadius: 6, padding: '8px 14px', fontSize: 13 }}>
-                {error}
-              </div>
-            )}
-            <button style={btnLink} onClick={() => setView(gameExists ? 'offline_choose' : 'main')}>
-              {t('home.back')}
-            </button>
-          </>
+          <button style={btnPrimary} onClick={() => setView('multiplayer')}>
+            {t('home.onlineMultiplayer')}
+          </button>
         )}
 
         {/* MULTIPLAYER: ENTER HOST NAME */}
@@ -267,6 +92,19 @@ export default function HomeScreen({ gameExists, onContinue, onStartOffline, onM
           </>
         )}
 
+      </div>
+
+      {error && (
+        <p style={{ color: '#f66', maxWidth: 400, textAlign: 'center' }}>{error}</p>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+        {userNickname && (
+          <span style={{ color: '#667', fontSize: 13 }}>{userNickname}</span>
+        )}
+        {onLogout && (
+          <button style={btnLink} onClick={onLogout}>{t('home.logout', 'Logout')}</button>
+        )}
       </div>
     </div>
   );

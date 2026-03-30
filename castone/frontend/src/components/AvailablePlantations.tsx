@@ -48,13 +48,14 @@ export default function AvailablePlantations({
     <div>
       <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
         {/* Face-up plantation tiles */}
-        {tiles.map((type, i) => {
-          const cfg = TILE_CONFIG[type] ?? { bg: '#555', icon: '?' };
+        {tiles.map((tile, i) => {
+          const tileType = typeof tile === 'string' ? tile : tile.type;
+          const cfg = TILE_CONFIG[tileType] ?? { bg: '#555', icon: '?' };
           const x = i * (TILE_W + GAP);
           const clickable = !!onPick;
-          const label = t(`plantations.${type}`, { defaultValue: type });
+          const label = t(`plantations.${tileType}`, { defaultValue: tileType });
           return (
-            <g key={i} onClick={clickable ? () => onPick!(type) : undefined}
+            <g key={i} onClick={clickable ? () => onPick!(tileType) : undefined}
               style={{ cursor: clickable ? 'pointer' : 'default' }}>
               <rect x={x} y={0} width={TILE_W} height={TILE_H} rx={6}
                 fill={cfg.bg}

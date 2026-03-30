@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 import uvicorn
 
-from app.api.v1 import room, game, ws, auth
+from app.api.channel import room, game, ws, auth
 from app.api.legacy import router as legacy_router
 from app.dependencies import SessionLocal
 from app.core.redis import async_redis_client

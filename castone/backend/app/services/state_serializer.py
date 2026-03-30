@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from configs.constants import (
     Phase, Role, Good, TileType, BuildingType, BUILDING_DATA
 )
+import app.services.action_translator as _tr
 
 if TYPE_CHECKING:
     from env.engine import PuertoRicoGame
@@ -87,10 +88,16 @@ def _serialize_common_board(game: "PuertoRicoGame") -> Dict[str, Any]:
                 taken_by = f"player_{game.active_role_player}"
             else:
                 taken_by = "taken"
-        roles[ROLE_TO_STR[role]] = {
+        role_entry: Dict[str, Any] = {
             "doubloons_on_role": doubloons,
             "taken_by": taken_by,
         }
+        if taken_by is None:
+            try:
+                role_entry["action_index"] = _tr.select_role(ROLE_TO_STR[role])
+            except (ValueError, KeyError):
+                pass
+        roles[ROLE_TO_STR[role]] = role_entry
 
     trading_house_goods = [GOOD_TO_STR[g] for g in game.trading_house]
 
@@ -105,7 +112,13 @@ def _serialize_common_board(game: "PuertoRicoGame") -> Dict[str, Any]:
         "coffee": draw_counts.get(TileType.COFFEE_PLANTATION, 0),
     }
 
-    face_up = [TILE_TO_STR.get(t, "empty") for t in game.face_up_plantations]
+    face_up = [
+        {
+            "type": TILE_TO_STR.get(t, "empty"),
+            "action_index": 14 if TILE_TO_STR.get(t, "empty") == "quarry" else (8 + i),
+        }
+        for i, t in enumerate(game.face_up_plantations)
+    ]
 
     # Available buildings
     available_buildings: Dict[str, Any] = {}
@@ -117,11 +130,17 @@ def _serialize_common_board(game: "PuertoRicoGame") -> Dict[str, Any]:
         data = BUILDING_DATA.get(bt)
         if data is None:
             continue
-        available_buildings[_building_name(bt)] = {
+        bname = _building_name(bt)
+        try:
+            b_action_idx = _tr.build(bname)
+        except (ValueError, KeyError):
+            b_action_idx = None
+        available_buildings[bname] = {
             "cost": data[0],
             "max_colonists": data[2],
             "vp": data[1],
             "copies_remaining": count,
+            "action_index": b_action_idx,
         }
 
     goods_supply = {GOOD_TO_STR[g]: v for g, v in game.goods_supply.items()}
@@ -390,6 +409,8 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
         "bot_thinking": session.bot_thinking,
         "mayor_slot_idx": mayor_slot_idx,  # 0-11=island slot, 12-23=city slot(idx-12), null if not mayor phase
         "mayor_can_skip": mayor_can_skip,  # True if skip (action 69) is currently valid
+        "pass_action_index": 15,
+        "hacienda_action_index": 105,
     }
 
     decision = {
@@ -412,6 +433,92 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
         "decision": decision,
         "history": session.history,
         "bot_players": bot_players,
+    }
+
+
+def serialize_game_state_from_engine(
+    engine: "EngineWrapper",
+    player_names: List[str],
+    game_id: str = "",
+    bot_players: Optional[Dict[int, str]] = None,
+    history: Optional[List] = None,
+) -> Dict[str, Any]:
+    """
+    EngineWrapper에서 직접 rich GameState JSON을 생성한다.
+    SessionManager 없이 channel WebSocket / 테스트에서 사용한다.
+    """
+    game = engine.env.game
+    if bot_players is None:
+        bot_players = {}
+    if history is None:
+        history = []
+
+    # game_over: any agent terminated or truncated
+    game_over = any(engine.env.terminations.values()) or any(engine.env.truncations.values())
+
+    phase_str = "game_over" if game_over else PHASE_TO_STR.get(game.current_phase, "role_selection")
+
+    player_key = f"player_{game.current_player_idx}"
+    governor_key = f"player_{game.governor_idx}"
+    player_order = [f"player_{i}" for i in range(game.num_players)]
+
+    display_order = compute_display_order(game.governor_idx, game.num_players)
+    players: Dict[str, Any] = {}
+    for i, p in enumerate(game.players):
+        name = player_names[i] if i < len(player_names) else f"Player {i}"
+        players[f"player_{i}"] = _serialize_player(p, game, name, i, display_order[i])
+
+    from configs.constants import Phase as _Phase
+    _in_mayor = game.current_phase == _Phase.MAYOR
+    mayor_slot_idx = game.mayor_placement_idx if _in_mayor else None
+    action_mask = engine.get_action_mask()
+    if _in_mayor and not game_over:
+        mayor_can_skip = bool(action_mask[69]) if len(action_mask) > 69 else False
+    else:
+        mayor_can_skip = False
+
+    meta = {
+        "game_id": game_id,
+        "round": engine._round_count + 1,
+        "num_players": game.num_players,
+        "player_order": player_order,
+        "governor": governor_key,
+        "phase": phase_str,
+        "active_role": ROLE_TO_STR.get(game.active_role) if game.active_role is not None else None,
+        "active_player": player_key,
+        "players_acted_this_phase": [],
+        "end_game_triggered": game_over,
+        "end_game_reason": None,
+        "vp_supply_remaining": game.vp_chips,
+        "captain_consecutive_passes": len(game._captain_passed_players),
+        "bot_thinking": False,
+        "mayor_slot_idx": mayor_slot_idx,
+        "mayor_can_skip": mayor_can_skip,
+        "pass_action_index": 15,
+        "hacienda_action_index": 105,
+    }
+
+    decision = {
+        "type": phase_str,
+        "player": player_key,
+        "note": "",
+    }
+
+    common_board = _serialize_common_board(game)
+
+    bot_players_out = {
+        f"player_{idx}": bot_type
+        for idx, bot_type in bot_players.items()
+    }
+
+    return {
+        "meta": meta,
+        "common_board": common_board,
+        "players": players,
+        "decision": decision,
+        "history": history,
+        "bot_players": bot_players_out,
+        "action_mask": action_mask,
     }
 
 

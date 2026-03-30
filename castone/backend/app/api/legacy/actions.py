@@ -1,11 +1,18 @@
 """
 Legacy API — 게임 액션 엔드포인트.
 """
+import logging
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../PuCo_RL")))
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.services.session_manager import session
 from app.services.state_serializer import serialize_game_state
 import app.services.action_translator as tr
+
+logger = logging.getLogger(__name__)
 
 from .deps import require_internal_key, _require_game, _current_player_name, _step, _run_pending_bots
 from .schemas import (
@@ -186,7 +193,10 @@ def action_mayor_distribute(body: MayorDistributeBody, _=Depends(require_interna
         else f"player_{original_player_idx}"
     )
 
-    for slot_i, amount in enumerate(body.distribution):
+    # 이전 호출에서 일부 슬롯이 처리된 경우(에러 후 재시도), 엔진의 현재 위치에서 재개
+    start_idx = game.mayor_placement_idx
+
+    for slot_i in range(start_idx, len(body.distribution)):
         if session.game_over:
             break
         game = session.game.env.game
@@ -194,13 +204,53 @@ def action_mayor_distribute(body: MayorDistributeBody, _=Depends(require_interna
             break
         if game.current_player_idx != original_player_idx:
             break
+        amount = body.distribution[slot_i]
         mask = session.game.get_action_mask()
         action = 69 + amount
         if action >= len(mask) or not mask[action]:
             valid_amounts = [a - 69 for a in range(69, 73) if a < len(mask) and mask[a]]
+
+            # 진단: 현재 슬롯의 capacity와 내용물 파악
+            from configs.constants import TileType, BuildingType, BUILDING_DATA
+            _idx = game.mayor_placement_idx
+            _is_island = _idx < 12
+            _slot_idx = _idx if _is_island else _idx - 12
+            _p = game.players[original_player_idx]
+            _capacity = 0
+            _slot_info = "none"
+            if _is_island:
+                if _slot_idx < len(_p.island_board):
+                    _tile = _p.island_board[_slot_idx]
+                    _capacity = 0 if _tile.tile_type == TileType.EMPTY else 1
+                    _slot_info = f"island:{_tile.tile_type.name.lower()}"
+                else:
+                    _slot_info = "island:out_of_range"
+            else:
+                if _slot_idx < len(_p.city_board):
+                    _b = _p.city_board[_slot_idx]
+                    _capacity = BUILDING_DATA.get(_b.building_type, (0, 0, 0))[2]
+                    _slot_info = f"city:{_b.building_type.name.lower()}"
+                else:
+                    _slot_info = "city:out_of_range"
+
+            logger.warning(
+                "mayor-distribute 슬롯 검증 실패 | player=%s slot=%d attempted=%d "
+                "valid=%s slot_capacity=%d slot_info=%s unplaced=%d dist=%s",
+                player_name, slot_i, amount, valid_amounts,
+                _capacity, _slot_info, _p.unplaced_colonists, body.distribution,
+            )
             raise HTTPException(
                 status_code=400,
-                detail=f"슬롯 {slot_i}: {amount}명 배치 불가. 유효한 값: {valid_amounts}"
+                detail={
+                    "message": f"슬롯 {slot_i}: {amount}명 배치 불가",
+                    "slot": slot_i,
+                    "attempted": amount,
+                    "valid_amounts": valid_amounts,
+                    "slot_capacity": _capacity,
+                    "slot_info": _slot_info,
+                    "unplaced_colonists": _p.unplaced_colonists,
+                    "distribution_received": body.distribution,
+                },
             )
         result = session.game.step(action)
         if result.get("terminated", result["done"]):

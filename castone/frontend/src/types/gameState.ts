@@ -20,13 +20,17 @@ export interface Meta {
   vp_supply_remaining: number;
   captain_consecutive_passes: number;
   bot_thinking?: boolean;
-  mayor_slot_idx?: number | null; // 0-11=island slot, 12-23=city slot(idx-12), null if not mayor phase
-  mayor_can_skip?: boolean;       // true if skip (place 0) is valid on current slot
+  mayor_slot_idx?: number | null;
+  mayor_can_skip?: boolean;
+  // Channel API action indices
+  pass_action_index?: number;
+  hacienda_action_index?: number;
 }
 
 export interface Role {
   doubloons_on_role: number;
   taken_by: string | null;
+  action_index?: number; // channel API: present when role is available (taken_by === null)
 }
 
 export interface Colonists {
@@ -58,8 +62,13 @@ export interface PlantationDrawPile {
   coffee: number;
 }
 
+export interface FaceUpPlantation {
+  type: string;
+  action_index: number; // channel API: 8-13 for plantation slots, 14 for quarry
+}
+
 export interface AvailablePlantations {
-  face_up: string[];
+  face_up: FaceUpPlantation[]; // channel API returns objects; legacy returned strings
   draw_pile: PlantationDrawPile;
 }
 
@@ -68,6 +77,7 @@ export interface AvailableBuilding {
   max_colonists: number;
   vp: number;
   copies_remaining: number;
+  action_index?: number; // channel API: 16-38
 }
 
 export interface GoodsSupply {
@@ -175,10 +185,10 @@ export interface Decision {
 export interface LobbyPlayer {
   name: string;
   player_id: string | null;
-  is_host: boolean;
-  is_spectator: boolean;
+  is_host?: boolean;
+  is_spectator?: boolean;
   is_bot?: boolean;
-  connected: boolean;
+  connected?: boolean;
 }
 
 export interface ServerInfo {

@@ -26,6 +26,9 @@ def client():
     mini_app = FastAPI()
     mini_app.include_router(legacy_router, prefix="/api")
     with TestClient(mini_app) as c:
+        api_key = os.getenv("INTERNAL_API_KEY", "")
+        if api_key:
+            c.headers.update({"X-API-Key": api_key})
         yield c
 
 
@@ -33,10 +36,17 @@ def client():
 #  Helper: start a fresh single-player game                           #
 # ------------------------------------------------------------------ #
 
+def _api_key_headers():
+    key = os.getenv("INTERNAL_API_KEY", "")
+    return {"X-API-Key": key} if key else {}
+
+
 def _start_game(client, num_players=3):
-    client.post("/api/set-mode/single")
+    headers = _api_key_headers()
+    client.post("/api/set-mode/single", headers=headers)
     resp = client.post("/api/new-game", json={"num_players": num_players,
-                                               "player_names": [f"P{i}" for i in range(num_players)]})
+                                               "player_names": [f"P{i}" for i in range(num_players)]},
+                       headers=headers)
     assert resp.status_code == 200
     return resp.json()
 
@@ -199,3 +209,136 @@ class TestBotSetValidation:
         _start_game(client, num_players=3)
         res = client.post("/api/bot/set", json={"player": "player_9", "bot_type": "random"})
         assert res.status_code == 400, "Out-of-range player index should return 400"
+
+
+# ================================================================== #
+#  Feature 4: mayor-distribute 에러 응답 구조화                         #
+# ================================================================== #
+
+def _enter_mayor_phase(client):
+    """게임을 시작하고 Mayor 역할을 선택하여 mayor_action 페이즈로 진입.
+    Returns (state_after_mayor_select,) or raises pytest.skip if Mayor not available.
+    """
+    headers = _api_key_headers()
+    _start_game(client, num_players=3)
+    # Role selection: select Mayor (role name = "mayor")
+    # actions router prefix = /action
+    res = client.post("/api/action/select-role", json={"player": "P0", "role": "mayor"}, headers=headers)
+    if res.status_code != 200:
+        import pytest as _pytest
+        _pytest.skip(f"Mayor role selection failed: {res.json()}")
+    state = res.json()
+    if state["meta"]["phase"] != "mayor_action":
+        import pytest as _pytest
+        _pytest.skip(f"Expected mayor_action phase, got {state['meta']['phase']}")
+    return state
+
+
+class TestMayorDistributeErrorFormat:
+    """
+    TDD: mayor-distribute 슬롯 검증 실패 시 응답이 진단 정보를 포함한
+    구조화된 dict 여야 한다.
+
+    현재(RED): detail이 문자열 "슬롯 N: M명 배치 불가. 유효한 값: [...]"
+    목표(GREEN): detail이 dict — slot, attempted, valid_amounts,
+                 slot_capacity, slot_info, unplaced_colonists,
+                 distribution_received 포함
+    """
+
+    def test_slot_capacity_error_returns_400(self, client):
+        """distribution[1]=1 이고 두 번째 섬 슬롯이 없으면(capacity=0) 400 반환."""
+        _enter_mayor_phase(client)
+        distribution = [1] * 24  # 슬롯1은 보통 두 번째 농장 없음 → capacity=0
+        res = client.post("/api/action/mayor-distribute", json={
+            "player": "P0",
+            "distribution": distribution,
+        })
+        assert res.status_code == 400
+
+    def test_slot_capacity_error_detail_is_dict(self, client):
+        """400 응답의 detail은 문자열이 아닌 dict여야 한다."""
+        _enter_mayor_phase(client)
+        distribution = [1] * 24
+        res = client.post("/api/action/mayor-distribute", json={
+            "player": "P0",
+            "distribution": distribution,
+        })
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert isinstance(detail, dict), (
+            f"detail은 진단 정보 dict여야 합니다. 현재 타입: {type(detail).__name__!r}, 값: {detail!r}"
+        )
+
+    def test_slot_capacity_error_detail_has_slot_capacity(self, client):
+        """detail에 slot_capacity 필드가 있어야 한다 (왜 실패했는지 알 수 있음)."""
+        _enter_mayor_phase(client)
+        distribution = [1] * 24
+        res = client.post("/api/action/mayor-distribute", json={
+            "player": "P0",
+            "distribution": distribution,
+        })
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert isinstance(detail, dict), f"detail이 dict가 아님: {detail!r}"
+        assert "slot_capacity" in detail, (
+            f"detail에 slot_capacity 없음. 현재 키: {list(detail.keys()) if isinstance(detail, dict) else 'N/A'}"
+        )
+
+    def test_slot_capacity_error_detail_has_slot_info(self, client):
+        """detail에 slot_info 필드가 있어야 한다 (슬롯에 뭐가 있는지 알 수 있음)."""
+        _enter_mayor_phase(client)
+        distribution = [1] * 24
+        res = client.post("/api/action/mayor-distribute", json={
+            "player": "P0",
+            "distribution": distribution,
+        })
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert isinstance(detail, dict), f"detail이 dict가 아님: {detail!r}"
+        assert "slot_info" in detail, "detail에 slot_info 없음"
+
+    def test_slot_capacity_error_detail_has_distribution_received(self, client):
+        """detail에 distribution_received가 있어야 한다 (무엇을 보냈는지 알 수 있음)."""
+        _enter_mayor_phase(client)
+        distribution = [1] * 24
+        res = client.post("/api/action/mayor-distribute", json={
+            "player": "P0",
+            "distribution": distribution,
+        })
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert isinstance(detail, dict), f"detail이 dict가 아님: {detail!r}"
+        assert "distribution_received" in detail, "detail에 distribution_received 없음"
+        assert detail["distribution_received"] == distribution
+
+    def test_slot_capacity_error_detail_has_unplaced_colonists(self, client):
+        """detail에 unplaced_colonists가 있어야 한다 (이주민 수 확인 가능)."""
+        _enter_mayor_phase(client)
+        distribution = [1] * 24
+        res = client.post("/api/action/mayor-distribute", json={
+            "player": "P0",
+            "distribution": distribution,
+        })
+        assert res.status_code == 400
+        detail = res.json()["detail"]
+        assert isinstance(detail, dict), f"detail이 dict가 아님: {detail!r}"
+        assert "unplaced_colonists" in detail, "detail에 unplaced_colonists 없음"
+
+    def test_valid_all_zero_distribution_completes_mayor(self, client):
+        """이주민이 없는 경우 전부 0인 distribution은 200 반환 (또는 이주민 배치 강제되면 skip)."""
+        state = _enter_mayor_phase(client)
+        active_player = state["meta"]["active_player"]
+        player_data = state["players"][active_player]
+        unplaced = player_data["city"]["colonists_unplaced"]
+
+        if unplaced > 0:
+            # 이주민이 있으면 최소 1개는 배치해야 할 수 있으므로 skip
+            import pytest as _pytest
+            _pytest.skip(f"Player has {unplaced} colonists — all-zero dist may be invalid")
+
+        distribution = [0] * 24
+        res = client.post("/api/action/mayor-distribute", json={
+            "player": "P0",
+            "distribution": distribution,
+        })
+        assert res.status_code == 200

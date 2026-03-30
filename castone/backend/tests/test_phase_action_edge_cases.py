@@ -583,7 +583,7 @@ class TestWrongTurnEdgeCases:
         game = _make_game(db, [str(user0.id), str(user1.id), str(user2.id)])
 
         start_res = _start(client, game.id, _bearer(user0.id))
-        current_player_idx = start_res["state"]["global_state"]["current_player"]
+        current_player_idx = int(start_res["state"]["meta"]["active_player"].split("_")[1])
 
         # Map player index → user
         players = [user0, user1, user2]
@@ -605,7 +605,7 @@ class TestWrongTurnEdgeCases:
         game = _make_game(db, [str(user0.id), str(user1.id), str(user2.id)])
 
         start_res = _start(client, game.id, _bearer(user0.id))
-        current_player_idx = start_res["state"]["global_state"]["current_player"]
+        current_player_idx = int(start_res["state"]["meta"]["active_player"].split("_")[1])
         players = [user0, user1, user2]
         current_user = players[current_player_idx]
 

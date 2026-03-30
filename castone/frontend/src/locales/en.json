@@ -203,6 +203,8 @@
       "store_windrose":        "{{player}} stored {{good}} (windrose)",
       "store_warehouse":       "{{player}} stored {{good}} in warehouse",
       "mayor_finish_placement":"{{player}} finished colonist placement",
+      "mayor_distribute":      "{{player}} finished colonist placement",
+      "mayor_place_done":      "{{player}} finished colonist placement",
       "discard_goods":         "{{player}} discarded remaining goods",
       "round_end":             "End of round {{round}}"
     }
@@ -313,7 +315,8 @@
     "enterHostName":     "Enter your name to host the session:",
     "yourName":          "Your name",
     "startMultiplayer":  "Create Session",
-    "back":              "← Back"
+    "back":              "← Back",
+    "logout":            "Logout"
   },
 
   "join": {

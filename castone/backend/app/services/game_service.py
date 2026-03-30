@@ -7,11 +7,11 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session
 
 from app.core.redis import sync_redis_client as redis_client
-from app.db.models import GameSession, GameLog
+from app.db.models import GameSession, GameLog, User
 from app.engine_wrapper.wrapper import create_game_engine, EngineWrapper
 from app.schemas.game import GameRoomCreate
 from app.services.ws_manager import manager
-from app.services.state_serializer import serialize_compact_summary
+from app.services.state_serializer import serialize_compact_summary, serialize_game_state_from_engine
 
 logger = logging.getLogger(__name__)
 
@@ -34,28 +34,59 @@ class GameService:
         self.db.refresh(room)
         return room
 
+    def _resolve_player_names_and_bots(self, room: GameSession):
+        """room.players 목록에서 player_names 리스트와 bot_players 딕셔너리를 반환한다."""
+        players = room.players or []
+        player_names: List[str] = []
+        bot_players: Dict[int, str] = {}
+        for i, player_id in enumerate(players):
+            pid = str(player_id)
+            if pid.startswith("BOT_"):
+                bot_type = pid.split("_", 1)[1].lower() if "_" in pid else "random"
+                player_names.append(f"Bot ({bot_type})")
+                bot_players[i] = bot_type
+            else:
+                user = self.db.query(User).filter(User.id == player_id).first()
+                name = (user.nickname or user.email or f"Player {i}") if user else f"Player {i}"
+                player_names.append(name)
+        return player_names, bot_players
+
+    def _build_rich_state(self, game_id: UUID, engine: EngineWrapper, room: GameSession) -> Dict:
+        """serialize_game_state_from_engine()으로 rich GameState JSON을 생성한다."""
+        player_names, bot_players = self._resolve_player_names_and_bots(room)
+        return serialize_game_state_from_engine(
+            engine=engine,
+            player_names=player_names,
+            game_id=str(game_id),
+            bot_players=bot_players,
+        )
+
     def start_game(self, game_id: UUID):
         room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
         if not room:
             raise ValueError("Game not found")
-        
-        # Initialize engine
-        engine = create_game_engine(num_players=room.num_players)
+
+        actual_players = len(room.players or [])
+        if actual_players < 3:
+            raise ValueError(f"Need at least 3 players to start, currently {actual_players}")
+
+        # Initialize engine with actual number of players (may differ from room.num_players)
+        engine = create_game_engine(num_players=actual_players)
         GameService.active_engines[game_id] = engine
-        
+
         room.status = "PROGRESS"
         self.db.commit()
-        
-        # Store game metadata and initial state in Redis
-        state = engine.get_state()
-        action_mask = engine.get_action_mask()
+
+        # Build rich state and broadcast
+        rich_state = self._build_rich_state(game_id, engine, room)
+        action_mask = rich_state.get("action_mask", engine.get_action_mask())
         self._store_game_meta(game_id, room)
-        self._sync_to_redis(game_id, state, action_mask)
+        self._sync_to_redis(game_id, rich_state)
 
         # Trigger Bot if first player is a bot
         self._schedule_next_bot_turn_if_needed(game_id, room, engine)
 
-        return {"state": state, "action_mask": action_mask}
+        return {"state": rich_state, "action_mask": action_mask}
 
     def process_action(self, game_id: UUID, actor_id: str, action: int):
         engine = GameService.active_engines.get(game_id)
@@ -83,9 +114,13 @@ class GameService:
         from app.services.ml_logger import MLLogger
         import copy
         
+        # Keep strong references to background logging tasks to prevent GC dropping them
+        if not hasattr(GameService, "_background_log_tasks"):
+            GameService._background_log_tasks = set()
+            
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(
+            task = loop.create_task(
                 MLLogger.log_transition(
                     game_id=game_id,
                     actor_id=actor_id,
@@ -97,6 +132,8 @@ class GameService:
                     info=copy.deepcopy(result["info"])
                 )
             )
+            GameService._background_log_tasks.add(task)
+            task.add_done_callback(GameService._background_log_tasks.discard)
         except RuntimeError:
             pass # No running loop (e.g. synch fallback test scripts)
         
@@ -132,15 +169,19 @@ class GameService:
         self.db.commit()
 
         # Update Redis for WebSocket broadcast (Bot actions are also blasted through this channel)
-        new_action_mask = engine.get_action_mask()
         terminated = result.get("terminated", result["done"])
-        self._sync_to_redis(game_id, result["state_after"], new_action_mask, finished=terminated)
+        if room:
+            rich_state = self._build_rich_state(game_id, engine, room)
+        else:
+            rich_state = result["state_after"]
+        new_action_mask = rich_state.get("action_mask", engine.get_action_mask()) if isinstance(rich_state, dict) else engine.get_action_mask()
+        self._sync_to_redis(game_id, rich_state, finished=terminated)
 
         # Trigger Bot if next player is bot
         if not terminated and room:
             self._schedule_next_bot_turn_if_needed(game_id, room, engine)
 
-        return {"state": result["state_after"], "action_mask": new_action_mask}
+        return {"state": rich_state, "action_mask": new_action_mask}
         
     def _schedule_next_bot_turn_if_needed(self, game_id: UUID, room: GameSession, engine: EngineWrapper):
         next_idx = engine.env.game.current_player_idx
@@ -180,9 +221,9 @@ class GameService:
         except Exception as e:
             logger.warning("Redis meta store failed: %s", e)
 
-    def _sync_to_redis(self, game_id: UUID, state: Dict, action_mask=None, finished: bool = False):
+    def _sync_to_redis(self, game_id: UUID, state: Dict, finished: bool = False):
         ttl = 300 if finished else 900  # 5 min after game end, 15 min during play
-        data = {"type": "STATE_UPDATE", "data": state, "action_mask": action_mask or []}
+        data = {"type": "STATE_UPDATE", "data": state}
         try:
             redis_client.set(f"game:{game_id}:state", json.dumps(state), ex=ttl)
             redis_client.publish(f"game:{game_id}:events", json.dumps(data))

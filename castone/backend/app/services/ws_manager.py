@@ -5,6 +5,7 @@ import asyncio
 import json
 
 from app.core.redis import async_redis_client
+from app.dependencies import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +115,6 @@ class ConnectionManager:
                 return  # Player reconnected
 
             # End the game via database update
-            from app.dependencies import SessionLocal
             from app.db.models import GameSession
 
             with SessionLocal() as db:
