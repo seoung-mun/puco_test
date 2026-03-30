@@ -1,19 +1,14 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
-  onMultiplayer: (hostName: string) => void;
+  onMultiplayer: () => void;
   onLogout?: () => void;
   userNickname?: string | null;
   error?: string | null;
 }
 
-type View = 'main' | 'multiplayer';
-
 export default function HomeScreen({ onMultiplayer, onLogout, userNickname, error }: Props) {
   const { t } = useTranslation();
-  const [view, setView] = useState<View>('main');
-  const [hostName, setHostName] = useState('');
 
   const cardStyle: React.CSSProperties = {
     background: '#0d1117',
@@ -46,52 +41,14 @@ export default function HomeScreen({ onMultiplayer, onLogout, userNickname, erro
     fontSize: 13,
   };
 
-  const inputStyle: React.CSSProperties = {
-    padding: '8px 12px',
-    borderRadius: 6,
-    border: '1px solid #444',
-    background: '#1a1a2e',
-    color: '#eee',
-    fontSize: 15,
-    boxSizing: 'border-box',
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 24 }}>
       <h1 style={{ color: '#f0c040', margin: 0, fontSize: 36 }}>Puerto Rico</h1>
 
       <div style={cardStyle}>
-
-        {/* MAIN MENU */}
-        {view === 'main' && (
-          <button style={btnPrimary} onClick={() => setView('multiplayer')}>
-            {t('home.onlineMultiplayer')}
-          </button>
-        )}
-
-        {/* MULTIPLAYER: ENTER HOST NAME */}
-        {view === 'multiplayer' && (
-          <>
-            <p style={{ color: '#aab', margin: 0 }}>{t('home.enterHostName')}</p>
-            <input
-              value={hostName}
-              onChange={e => setHostName(e.target.value)}
-              placeholder={t('home.yourName')}
-              autoFocus
-              style={{ ...inputStyle, width: '100%' }}
-              onKeyDown={e => e.key === 'Enter' && hostName.trim() && onMultiplayer(hostName.trim())}
-            />
-            <button
-              style={{ ...btnPrimary, opacity: hostName.trim() ? 1 : 0.5 }}
-              onClick={() => hostName.trim() && onMultiplayer(hostName.trim())}
-              disabled={!hostName.trim()}
-            >
-              {t('home.startMultiplayer')}
-            </button>
-            <button style={btnLink} onClick={() => setView('main')}>{t('home.back')}</button>
-          </>
-        )}
-
+        <button style={btnPrimary} onClick={onMultiplayer}>
+          {t('home.onlineMultiplayer')}
+        </button>
       </div>
 
       {error && (

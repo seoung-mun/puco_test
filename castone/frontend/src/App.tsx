@@ -12,6 +12,7 @@ import AdminPanel from './components/AdminPanel';
 import PlayerAdvantages from './components/PlayerAdvantages';
 import HistoryPanel from './components/HistoryPanel';
 import HomeScreen from './components/HomeScreen';
+import RoomListScreen from './components/RoomListScreen';
 import JoinScreen from './components/JoinScreen';
 import LobbyScreen from './components/LobbyScreen';
 import LoginScreen from './components/LoginScreen';
@@ -147,7 +148,7 @@ export default function App() {
   const [nicknameError, setNicknameError] = useState<string | null>(null);
 
   // --- Multiplayer / screen routing ---
-  const [screen, setScreen] = useState<'loading' | 'login' | 'home' | 'join' | 'lobby' | 'game'>('loading');
+  const [screen, setScreen] = useState<'loading' | 'login' | 'home' | 'rooms' | 'join' | 'lobby' | 'game'>('loading');
   const [gameId, setGameId] = useState<string | null>(null);
   const [myName, setMyName] = useState<string | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
@@ -476,31 +477,47 @@ export default function App() {
     }
   }
 
-  /** Channel: 방 생성 (호스트) */
-  async function handleMultiplayerInit(hostName: string) {
-    if (!authToken) return;
-    setError(null);
+  /** 방 목록 화면으로 이동 */
+  function handleGoToRooms() {
+    setScreen('rooms');
+  }
+
+  /** Channel: 방 생성 (RoomListScreen에서 호출) */
+  async function handleCreateRoom(title: string, isPrivate: boolean, password: string | null): Promise<string | null> {
+    if (!authToken) return 'Not logged in';
     try {
       const res = await fetch(`${BACKEND}/api/puco/rooms/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-        body: JSON.stringify({ title: `${hostName}'s Room`, max_players: 3 }),
+        body: JSON.stringify({ title, is_private: isPrivate, password: password ?? undefined }),
       });
-      if (!res.ok) { setError(await parseApiError(res)); return; }
+      if (!res.ok) { return await parseApiError(res); }
       const room = await res.json();
       const gid: string = room.id;
+      const myEntry = authUser?.nickname ?? authUser?.id ?? title;
       setGameId(gid);
-      setMyName(hostName);
+      setMyName(myEntry);
       setMpKey(gid);
       setSessionKeyDisplay(gid);
       setIsMultiplayer(true);
-      setLobbyHost(hostName);
-      const myEntry = authUser ? `${authUser.nickname ?? authUser.id}` : hostName;
+      setLobbyHost(myEntry);
       setLobbyPlayers([{ name: myEntry, player_id: authUser?.id ?? '' }]);
       setScreen('lobby');
+      return null;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed');
+      return e instanceof Error ? e.message : 'Failed';
     }
+  }
+
+  /** Channel: 방 참가 (RoomListScreen에서 API join 후 호출) */
+  function handleJoinRoom(roomId: string) {
+    const myEntry = authUser?.nickname ?? authUser?.id ?? 'Player';
+    setGameId(roomId);
+    setMyName(myEntry);
+    setMpKey(roomId);
+    setIsMultiplayer(true);
+    setLobbyPlayers([{ name: myEntry, player_id: authUser?.id ?? '' }]);
+    setScreen('lobby');
   }
 
   /** Channel: 방 참가 (게임 ID로 직접) */
@@ -771,7 +788,7 @@ export default function App() {
   }
   if (screen === 'home') {
     return <HomeScreen
-      onMultiplayer={handleMultiplayerInit}
+      onMultiplayer={handleGoToRooms}
       onLogout={() => {
         localStorage.removeItem('access_token');
         setAuthToken(null);
@@ -779,6 +796,16 @@ export default function App() {
         setScreen('login');
       }}
       userNickname={authUser?.nickname ?? null}
+      error={error}
+    />;
+  }
+  if (screen === 'rooms') {
+    return <RoomListScreen
+      token={authToken ?? ''}
+      userNickname={authUser?.nickname ?? null}
+      onCreateRoom={handleCreateRoom}
+      onJoinRoom={handleJoinRoom}
+      onLogout={() => logout(true)}
       error={error}
     />;
   }
