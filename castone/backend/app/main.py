@@ -7,10 +7,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 import uvicorn
 
-from app.api.channel import room, game, ws, auth
+from app.api.channel import room, game, ws, auth, lobby_ws
 from app.api.legacy import router as legacy_router
 from app.dependencies import SessionLocal
 from app.core.redis import async_redis_client
+from app.services.startup_cleanup import cleanup_stale_rooms
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,12 @@ async def startup_checks():
     except Exception as e:
         logger.error("Redis connection failed: %s", e)
 
+    try:
+        with SessionLocal() as db:
+            cleanup_stale_rooms(db)
+    except Exception as e:
+        logger.error("Startup room cleanup failed: %s", e)
+
 
 @app.get("/")
 async def root():
@@ -107,6 +114,7 @@ app.include_router(legacy_router, prefix="/api", tags=["legacy"])
 # API Routes
 app.include_router(room.router, prefix="/api/puco/rooms", tags=["rooms"])
 app.include_router(game.router, prefix="/api/puco/game", tags=["game"])
+app.include_router(lobby_ws.router, prefix="/api/puco/ws/lobby", tags=["lobby-ws"])
 app.include_router(ws.router, prefix="/api/puco/ws", tags=["websocket"])
 app.include_router(auth.router, prefix="/api/puco/auth", tags=["auth"])
 

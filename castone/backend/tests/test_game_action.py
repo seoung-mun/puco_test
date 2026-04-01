@@ -16,6 +16,7 @@ def test_game_action_logs_to_db(client, db):
         status="WAITING",
         num_players=3,
         players=[str(user_id), "BOT_random", "BOT_random"],
+        host_id=str(user_id),
     )
     db.add(game)
     db.flush()

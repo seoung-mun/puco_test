@@ -319,6 +319,15 @@
     "logout":            "Logout"
   },
 
+  "rooms": {
+    "createRoom":    "Create Room",
+    "createBotGame": "Bot Game",
+    "refresh":       "Refresh",
+    "full":          "Full",
+    "join":          "Join",
+    "spectating":    "Spectating"
+  },
+
   "join": {
     "enterKey":      "Enter the session key:",
     "next":          "Next →",
@@ -345,7 +354,8 @@
     "logout":            "Disconnect",
     "addBot":            "+ Add Bot",
     "botNamePlaceholder": "Bot name",
-    "botType":           "Type"
+    "botType":           "Type",
+    "back":              "Back to rooms"
   },
 
   "game": {

@@ -30,6 +30,7 @@ def test_perform_action_auth_success(client, db):
         status="WAITING",
         num_players=3,
         players=[str(user_id), "BOT_random", "BOT_random"],
+        host_id=str(user_id),
     )
     db.add(game)
     db.flush()

@@ -8,19 +8,19 @@ interface Props {
   players: LobbyPlayer[];
   host: string;
   myName: string;
-  sessionKey?: string;
   onStart: () => void;
   onLogout: () => void;
   onAddBot?: (name: string, botType: string) => void;
   onRemoveBot?: (name: string) => void;
   error?: string | null;
+  onBack?: () => void;
 }
 
-export default function LobbyScreen({ players, host, myName, sessionKey, onStart, onLogout, onAddBot, onRemoveBot, error }: Props) {
+export default function LobbyScreen({ players, host, myName, onStart, onLogout, onAddBot, onRemoveBot, error, onBack }: Props) {
   const { t } = useTranslation();
   const isHost = myName === host;
   const activePlayers = players.filter(p => !p.is_spectator);
-  const connectedActive = activePlayers.filter(p => p.connected || p.is_bot);
+  const connectedActive = activePlayers.filter(p => p.connected !== false || p.is_bot);
   const canStart = isHost && connectedActive.length >= 3;
   const hostPlayer = players.find(p => p.is_host);
   const hostConnected = hostPlayer?.connected ?? false;
@@ -29,7 +29,7 @@ export default function LobbyScreen({ players, host, myName, sessionKey, onStart
   const [newBotType, setNewBotType] = useState('');
   const [botAgents, setBotAgents] = useState<BotAgent[]>([]);
 
-  const canAddBot = isHost && activePlayers.length < 5;
+  const canAddBot = isHost && activePlayers.length < 3;
 
   useEffect(() => {
     fetch('/api/bot-types')
@@ -60,21 +60,17 @@ export default function LobbyScreen({ players, host, myName, sessionKey, onStart
 
   return (
     <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 20px' }}>
+      {onBack && (
+        <button
+          onClick={onBack}
+          style={{ position: 'absolute', top: 16, left: 16, background: 'none', border: 'none', color: '#aab', cursor: 'pointer', fontSize: 14 }}
+        >
+          ← {t('lobby.back')}
+        </button>
+      )}
       <h1 style={{ color: '#f0c040', textAlign: 'center', marginBottom: 24 }}>
         Puerto Rico — {t('lobby.title')}
       </h1>
-
-      {isHost && sessionKey && (
-        <div style={{ background: '#0d1117', border: '2px solid #f0c040', borderRadius: 10, padding: '20px 24px', marginBottom: 24, textAlign: 'center' }}>
-          <p style={{ color: '#aab', margin: '0 0 8px', fontSize: 13 }}>{t('lobby.shareKey')}</p>
-          <div style={{ fontSize: 36, fontWeight: 'bold', color: '#f0c040', letterSpacing: 10, fontFamily: 'monospace' }}>
-            {sessionKey}
-          </div>
-          <p style={{ color: '#aab', margin: '10px 0 4px', fontSize: 12 }}>
-            {t('lobby.shareUrl')}: <code style={{ color: '#8df', userSelect: 'all' }}>{window.location.origin}</code>
-          </p>
-        </div>
-      )}
 
       {!isHost && !hostConnected && (
         <div style={{ background: '#2a1010', border: '1px solid #f44', borderRadius: 8, padding: 12, marginBottom: 16, color: '#f99', textAlign: 'center' }}>
@@ -84,7 +80,7 @@ export default function LobbyScreen({ players, host, myName, sessionKey, onStart
 
       <div style={{ background: '#0d1117', border: '1px solid #2a2a5a', borderRadius: 8, padding: '16px 20px', marginBottom: 16 }}>
         <div style={{ color: '#aab', fontSize: 12, marginBottom: 10 }}>
-          {t('lobby.players')} ({activePlayers.length}/5)
+          {t('lobby.players')} ({activePlayers.length}/3)
         </div>
         {players.map(p => (
           <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #1a1a3a' }}>

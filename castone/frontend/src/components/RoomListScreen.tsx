@@ -21,11 +21,12 @@ interface Props {
   userNickname?: string | null;
   onJoinRoom: (roomId: string) => void;
   onCreateRoom: (title: string, isPrivate: boolean, password: string | null) => Promise<string | null>;
+  onCreateBotGame?: () => void;
   onLogout: () => void;
   error?: string | null;
 }
 
-export default function RoomListScreen({ token, userNickname, onJoinRoom, onCreateRoom, onLogout, error: externalError }: Props) {
+export default function RoomListScreen({ token, userNickname, onJoinRoom, onCreateRoom, onCreateBotGame, onLogout, error: externalError }: Props) {
   const { t } = useTranslation();
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -153,6 +154,14 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
           >
             + {t('rooms.createRoom', '방 만들기')}
           </button>
+          {onCreateBotGame && (
+            <button
+              onClick={onCreateBotGame}
+              style={{ background: '#1a3a2a', border: '1px solid #2a5a3a', borderRadius: 6, color: '#4f8', cursor: 'pointer', padding: '8px 16px', fontSize: 14 }}
+            >
+              🤖 {t('rooms.createBotGame', '봇전')}
+            </button>
+          )}
           <button onClick={fetchRooms} style={{ background: 'none', border: '1px solid #2a2a5a', borderRadius: 6, color: '#88a', cursor: 'pointer', padding: '7px 14px', fontSize: 13 }}>
             {t('rooms.refresh', '새로고침')}
           </button>

@@ -1,0 +1,124 @@
+# ### Castest Root .gitignore ###
+
+# --- Legacy & Backup ---
+backup/
+backend_rs/
+archive/
+*.bak
+*.tmp
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.stats
+.hypothesis/
+.venv/
+venv/
+ENV/
+env/
+
+# --- Node (Frontend) ---
+node_modules/
+.npm
+dist/
+dist-ssr
+*.local
+.parcel-cache
+.eslintcache
+
+# --- Docker ---
+.docker
+*.log
+
+# --- OS ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Secrets & Credentials (절대 푸쉬 금지) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+credentials.json
+
+# --- Database (로컬 개발 DB 파일) ---
+*.db
+*.sqlite
+*.sqlite3
+test_legacy.db
+
+# --- Alembic (자동 생성 캐시) ---
+# alembic/versions/ 는 커밋 대상 — 여기서 제외하지 않음
+
+# --- ML/RL 모델 (용량이 큰 바이너리) ---
+*.pth
+*.pt
+*.onnx
+*.pkl
+*.h5
+castone/PuCo_RL/agents/trained_models/
+castone/data/logs/*
+!castone/data/logs/.gitkeep
+
+# --- PuCo_RL 개발환경 ---
+castone/PuCo_RL/.venv/
+castone/PuCo_RL/.pytest_cache/
+
+# --- Coverage Reports ---
+htmlcov/
+.coverage.*
+coverage/
+
+# --- 임시 파일 ---
+*.tmp
+*.swp
+*.swo
+
+.claudeignore
+.geminiignore
+GEMINI.md
+.claude
+
+castone/.claude
+
+.claude
+.pytest_cache
+backend_rs/
+backup/
+
+castone/.claude
+castone/.ruff_cache
+castone/mcts.pdf
+
+castone/frontend/.pytest_cache
+castone/frontend/dist
+castone/frontend/node_modules
+
+castone/backend/.mypy_cache
+castone/backend/.pytest_cache
+castone/backend/.ruff_cache
+
+
+castone/PuCo_RL/.venv

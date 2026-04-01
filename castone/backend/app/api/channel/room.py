@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from app.dependencies import get_db
+from app.dependencies import get_db, get_current_user
 from app.schemas.game import GameRoomCreate, GameRoomResponse, JoinRoomRequest, RoomPlayerInfo
 from app.services.game_service import GameService
-from app.api.deps import get_current_user
 from app.db.models import User, GameSession
+from app.services.lobby_manager import lobby_manager, handle_leave
 
 MAX_PLAYERS = 3
 
@@ -51,6 +51,14 @@ async def create_room(
     if room_info.is_private and not room_info.password:
         raise HTTPException(status_code=400, detail="비밀방은 비밀번호가 필요합니다")
 
+    # Block if already hosting a WAITING room
+    existing_host = db.query(GameSession).filter(
+        GameSession.host_id == str(current_user.id),
+        GameSession.status == "WAITING",
+    ).first()
+    if existing_host:
+        raise HTTPException(status_code=409, detail="이미 방장인 방이 있습니다")
+
     # Case-insensitive title uniqueness check among WAITING rooms
     existing = db.query(GameSession).filter(
         func.lower(GameSession.title) == room_info.title.lower(),
@@ -66,6 +74,7 @@ async def create_room(
         is_private=room_info.is_private,
         password=room_info.password if room_info.is_private else None,
         players=[str(current_user.id)],
+        host_id=str(current_user.id),
     )
     db.add(room)
     db.commit()
@@ -110,3 +119,54 @@ async def join_room(
     db.commit()
     db.refresh(room)
     return _to_response(room, db)
+
+
+@router.post("/bot-game")
+async def create_bot_game(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """봇×3 관전 게임 즉시 생성 및 시작. 사용자는 host_id만 가지며 관전자로 참여."""
+    # Block if already hosting a WAITING room
+    existing_host = db.query(GameSession).filter(
+        GameSession.host_id == str(current_user.id),
+        GameSession.status == "WAITING",
+    ).first()
+    if existing_host:
+        raise HTTPException(status_code=409, detail="이미 방장인 방이 있습니다")
+
+    room = GameSession(
+        id=uuid4(),
+        title=f"{current_user.nickname}의 봇전",
+        status="WAITING",
+        num_players=3,
+        is_private=False,
+        players=["BOT_random", "BOT_random", "BOT_random"],
+        host_id=str(current_user.id),
+    )
+    db.add(room)
+    db.commit()
+    db.refresh(room)
+
+    service = GameService(db)
+    try:
+        result = service.start_game(room.id)
+    except ValueError as e:
+        db.delete(room)
+        db.commit()
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"game_id": str(room.id), "state": result["state"]}
+
+
+@router.post("/{room_id}/leave")
+async def leave_room(
+    room_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    room = db.query(GameSession).filter(GameSession.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="방을 찾을 수 없습니다")
+    await handle_leave(str(room_id), str(current_user.id), db, lobby_manager)
+    return {"status": "ok"}

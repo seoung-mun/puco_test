@@ -153,11 +153,12 @@ export default function App() {
   const [myName, setMyName] = useState<string | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [isMultiplayer, setIsMultiplayer] = useState(false);
-  const [mpKey, setMpKey] = useState<string | null>(null);
-  const [sessionKeyDisplay, setSessionKeyDisplay] = useState<string | null>(null);
+  const [isSpectator, setIsSpectator] = useState(false);
   const [lobbyPlayers, setLobbyPlayers] = useState<LobbyPlayer[]>([]);
   const [lobbyHost, setLobbyHost] = useState<string | null>(null);
   const [lobbyError, setLobbyError] = useState<string | null>(null);
+
+  const lobbyWsRef = useRef<WebSocket | null>(null);
 
   // Mayor 토글 모드 (인간 플레이어 전용)
   const [mayorPending, setMayorPending] = useState<number[] | null>(null);
@@ -436,13 +437,13 @@ export default function App() {
 
   function logout(forceHome = false) {
     const isClient = isMultiplayer && myName !== lobbyHost;
+    closeLobbyWs();
     localStorage.removeItem('mp_key');
     localStorage.removeItem('mp_name');
     setMyName(null);
     setMyPlayerId(null);
-    setMpKey(null);
-    setSessionKeyDisplay(null);
     setIsMultiplayer(false);
+    setIsSpectator(false);
     setLobbyPlayers([]);
     setLobbyHost(null);
     setState(null);
@@ -497,15 +498,35 @@ export default function App() {
       const myEntry = authUser?.nickname ?? authUser?.id ?? title;
       setGameId(gid);
       setMyName(myEntry);
-      setMpKey(gid);
-      setSessionKeyDisplay(gid);
       setIsMultiplayer(true);
       setLobbyHost(myEntry);
-      setLobbyPlayers([{ name: myEntry, player_id: authUser?.id ?? '' }]);
+      setLobbyPlayers([{ name: myEntry, player_id: authUser?.id ?? '', connected: true }]);
       setScreen('lobby');
+      connectLobbyWs(gid);
       return null;
     } catch (e) {
       return e instanceof Error ? e.message : 'Failed';
+    }
+  }
+
+  /** Channel: 봇전 생성 — BOT×3 자동 시작, 사용자는 관전자 */
+  async function handleCreateBotGame() {
+    if (!authToken) return;
+    setError(null);
+    try {
+      const res = await fetch(`${BACKEND}/api/puco/rooms/bot-game`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (!res.ok) { setError(await res.text()); return; }
+      const data = await res.json();
+      setState(data.state);
+      setGameId(data.game_id);
+      setIsSpectator(true);
+      setIsMultiplayer(false);
+      setScreen('game');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed');
     }
   }
 
@@ -514,10 +535,10 @@ export default function App() {
     const myEntry = authUser?.nickname ?? authUser?.id ?? 'Player';
     setGameId(roomId);
     setMyName(myEntry);
-    setMpKey(roomId);
     setIsMultiplayer(true);
-    setLobbyPlayers([{ name: myEntry, player_id: authUser?.id ?? '' }]);
+    setLobbyPlayers([{ name: myEntry, player_id: authUser?.id ?? '', connected: true }]);
     setScreen('lobby');
+    connectLobbyWs(roomId);
   }
 
   /** Channel: 방 참가 (게임 ID로 직접) */
@@ -528,7 +549,6 @@ export default function App() {
       // key is game_id in channel mode
       setGameId(key);
       setMyName(name);
-      setMpKey(key);
       setIsMultiplayer(true);
       setScreen('lobby');
       return null;
@@ -549,7 +569,7 @@ export default function App() {
       });
       if (!res.ok) { setLobbyError(await res.text()); return; }
       const data = await res.json();
-      setLobbyPlayers(prev => [...prev, { name: `Bot (${data.bot_type})`, role: 'player', player_id: `BOT_${data.bot_type}` }]);
+      setLobbyPlayers(prev => [...prev, { name: `Bot (${data.bot_type})`, player_id: `BOT_${data.bot_type}`, is_bot: true, connected: true }]);
     } catch (e) {
       setLobbyError(e instanceof Error ? e.message : 'Failed');
     }
@@ -558,6 +578,45 @@ export default function App() {
   /** Channel: 봇 제거 — 현재 channel API에서 미지원, 로컬 상태만 갱신 */
   async function handleRemoveBot(botName: string) {
     setLobbyPlayers(prev => prev.filter(p => p.name !== botName));
+  }
+
+  function connectLobbyWs(roomId: string) {
+    if (lobbyWsRef.current) {
+      lobbyWsRef.current.close();
+    }
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${proto}://${window.location.host}/api/puco/ws/lobby/${roomId}`);
+    lobbyWsRef.current = ws;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ token: authToken }));
+    };
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'LOBBY_STATE' || msg.type === 'LOBBY_UPDATE') {
+        setLobbyPlayers(msg.players ?? []);
+        // Keep isHost working: lobbyHost stores the host's display name
+        const hostPlayer = (msg.players ?? []).find((p: { is_host?: boolean }) => p.is_host);
+        setLobbyHost(hostPlayer?.name ?? null);
+      } else if (msg.type === 'ROOM_DELETED') {
+        closeLobbyWs();
+        setScreen('rooms');
+        setLobbyError('방이 삭제되었습니다.');
+      } else if (msg.type === 'GAME_STARTED') {
+        const gs = msg.state as GameState;
+        setState(gs);
+        const humanEntry = Object.entries(gs.players).find(([, p]) => (p as { display_name?: string }).display_name === myName);
+        if (humanEntry) setMyPlayerId(humanEntry[0]);
+        closeLobbyWs();
+        setScreen('game');
+      }
+    };
+  }
+
+  function closeLobbyWs() {
+    lobbyWsRef.current?.close();
+    lobbyWsRef.current = null;
   }
 
   /** Channel: 게임 시작 */
@@ -575,6 +634,7 @@ export default function App() {
       setState(gs);
       const humanEntry = Object.entries(gs.players).find(([, p]) => p.display_name === myName);
       if (humanEntry) setMyPlayerId(humanEntry[0]);
+      closeLobbyWs();
       setScreen('game');
     } catch (e) {
       setLobbyError(e instanceof Error ? e.message : 'Failed');
@@ -766,9 +826,11 @@ export default function App() {
 
 
   const isBotTurn = !!(state?.bot_players && state?.decision?.player && state.bot_players[state.decision.player] !== undefined);
-  const isMyTurn = !isMultiplayer
-    ? !isBotTurn
-    : (myPlayerId !== null && state?.decision?.player === myPlayerId);
+  const isMyTurn = isSpectator
+    ? false
+    : !isMultiplayer
+      ? !isBotTurn
+      : (myPlayerId !== null && state?.decision?.player === myPlayerId);
   const isBlocked = !!state?.meta.bot_thinking || (!isMultiplayer && isBotTurn);
 
   if (screen === 'loading') {
@@ -804,6 +866,7 @@ export default function App() {
       token={authToken ?? ''}
       userNickname={authUser?.nickname ?? null}
       onCreateRoom={handleCreateRoom}
+      onCreateBotGame={handleCreateBotGame}
       onJoinRoom={handleJoinRoom}
       onLogout={() => logout(true)}
       error={error}
@@ -817,12 +880,34 @@ export default function App() {
       players={lobbyPlayers}
       host={lobbyHost ?? ''}
       myName={myName ?? ''}
-      sessionKey={sessionKeyDisplay ?? undefined}
       onStart={handleLobbyStart}
-      onLogout={() => logout()}
+      onLogout={async () => {
+        if (gameId) {
+          try {
+            await fetch(`/api/puco/rooms/${gameId}/leave`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${authToken}` },
+            });
+          } catch (_) { /* best-effort */ }
+        }
+        closeLobbyWs();
+        setScreen('rooms');
+      }}
       onAddBot={handleAddBot}
       onRemoveBot={handleRemoveBot}
       error={lobbyError}
+      onBack={async () => {
+        if (gameId) {
+          try {
+            await fetch(`/api/puco/rooms/${gameId}/leave`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${authToken}` },
+            });
+          } catch (_) { /* best-effort */ }
+        }
+        closeLobbyWs();
+        setScreen('rooms');
+      }}
     />;
   }
   // screen === 'game' — need state from here on
@@ -972,7 +1057,17 @@ export default function App() {
         >
           {t('langToggle')}
         </button>
-            {isMultiplayer && (
+            {isSpectator && (
+              <span style={{ background: '#1a3a2a', border: '1px solid #2a5a3a', borderRadius: 4, color: '#4f8', padding: '2px 8px', fontSize: 12 }}>
+                👁 {t('rooms.spectating', '관전 중')}
+              </span>
+            )}
+            {isSpectator && (
+              <button onClick={() => { setIsSpectator(false); logout(true); }} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12 }}>
+                {t('lobby.logout')}
+              </button>
+            )}
+            {isMultiplayer && !isSpectator && (
               <button onClick={() => logout()} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12 }}>
                 {t('lobby.logout')}
               </button>
@@ -1135,16 +1230,21 @@ export default function App() {
       {/* Sticky bar */}
       <div className="sticky-bar">
         <div className="sticky-bar__main">
-          {isMultiplayer && myName && (
+          {isSpectator && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 8, flexShrink: 0 }}>
+              <span style={{ background: '#1a3a2a', border: '1px solid #2a5a3a', borderRadius: 4, color: '#4f8', padding: '2px 8px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                👁 {t('rooms.spectating', '관전 중')}
+              </span>
+              <button onClick={() => { setIsSpectator(false); logout(true); }} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                {t('lobby.logout')}
+              </button>
+            </span>
+          )}
+          {isMultiplayer && !isSpectator && myName && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 8, flexShrink: 0 }}>
               <span style={{ color: '#f0c040', fontWeight: 'bold', fontSize: 13, whiteSpace: 'nowrap' }}>
                 👤 {myName}
               </span>
-              {mpKey && (
-                <span style={{ color: '#667', fontSize: 12, whiteSpace: 'nowrap' }}>
-                  🔑 <span style={{ fontFamily: 'monospace', letterSpacing: 2 }}>{mpKey}</span>
-                </span>
-              )}
               <button onClick={() => logout()} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12, whiteSpace: 'nowrap' }}>
                 {t('lobby.logout')}
               </button>

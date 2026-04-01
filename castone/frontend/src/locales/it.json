@@ -317,6 +317,15 @@
     "logout":            "Disconnetti"
   },
 
+  "rooms": {
+    "createRoom":    "Crea Stanza",
+    "createBotGame": "Partita Bot",
+    "refresh":       "Aggiorna",
+    "full":          "Piena",
+    "join":          "Entra",
+    "spectating":    "In Osservazione"
+  },
+
   "join": {
     "enterKey":      "Inserisci la chiave della sessione:",
     "next":          "Avanti →",
@@ -343,7 +352,8 @@
     "logout":            "Disconnettiti",
     "addBot":            "+ Aggiungi Bot",
     "botNamePlaceholder": "Nome bot",
-    "botType":           "Tipo"
+    "botType":           "Tipo",
+    "back":              "Torna alle stanze"
   },
 
   "game": {

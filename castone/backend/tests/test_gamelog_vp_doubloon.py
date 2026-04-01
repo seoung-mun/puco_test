@@ -47,6 +47,7 @@ def _setup_game_and_run_actions(client, db, n_actions: int) -> uuid.UUID:
         status="WAITING",
         num_players=3,
         players=[str(user_id), "BOT_random", "BOT_random"],
+        host_id=str(user_id),
     ))
     db.flush()
 

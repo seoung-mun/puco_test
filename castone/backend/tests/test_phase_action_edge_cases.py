@@ -57,6 +57,7 @@ def _make_game(db, players):
         status="WAITING",
         num_players=len(players),
         players=players,
+        host_id=players[0],
     )
     db.add(game)
     db.flush()

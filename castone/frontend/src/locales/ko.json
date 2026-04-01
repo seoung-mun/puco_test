@@ -318,6 +318,15 @@
     "logout":            "로그아웃"
   },
 
+  "rooms": {
+    "createRoom":    "방 만들기",
+    "createBotGame": "봇전",
+    "refresh":       "새로고침",
+    "full":          "정원 초과",
+    "join":          "입장하기",
+    "spectating":    "관전 중"
+  },
+
   "join": {
     "enterKey":      "세션 키를 입력하세요:",
     "next":          "다음 →",
@@ -344,7 +353,8 @@
     "logout":            "나가기",
     "addBot":            "+ 봇 추가",
     "botNamePlaceholder": "봇 이름",
-    "botType":           "유형"
+    "botType":           "유형",
+    "back":              "방 목록으로"
   },
 
   "game": {

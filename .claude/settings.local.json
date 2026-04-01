@@ -8,7 +8,12 @@
       "Bash(curl -s http://localhost:8000/)",
       "Bash(curl -s http://localhost:8000/api/server-info)",
       "Bash(curl -s http://localhost:8000/api/game-state)",
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pip3 show:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker compose:*)"
     ]
   }
 }

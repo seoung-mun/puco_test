@@ -9,6 +9,7 @@ from app.services.game_service import GameService
 from app.api.deps import get_current_user
 from app.db.models import User, GameSession
 from app.services.state_serializer import compute_score_breakdown
+from app.services.lobby_manager import lobby_manager
 from pydantic import BaseModel
 
 
@@ -23,16 +24,20 @@ async def start_game(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # IDOR: verify caller is a player in this game
     room = db.query(GameSession).filter(GameSession.id == game_id).first()
     if not room:
         raise HTTPException(status_code=404, detail="Game not found")
-    if str(current_user.id) not in (room.players or []):
-        raise HTTPException(status_code=403, detail="You are not a player in this game")
+    # Host can start even as spectator (e.g. bot-game); non-host must be a player
+    is_host = str(current_user.id) == str(room.host_id)
+    if not is_host:
+        if str(current_user.id) not in (room.players or []):
+            raise HTTPException(status_code=403, detail="You are not a player in this game")
+        raise HTTPException(status_code=403, detail="Only the host can start the game")
 
     service = GameService(db)
     try:
         result = service.start_game(game_id)
+        await lobby_manager.broadcast_game_started(str(game_id), result["state"])
         return {"status": "started", "state": result["state"], "action_mask": result["action_mask"]}
     except ValueError as e:
         msg = str(e)
@@ -90,6 +95,10 @@ async def add_bot(
     room.players = players
     db.commit()
     db.refresh(room)
+
+    from app.services.lobby_manager import _build_lobby_payload
+    lobby_payload = _build_lobby_payload(room, db)
+    await lobby_manager.broadcast(str(game_id), {"type": "LOBBY_UPDATE", **lobby_payload})
 
     return {"status": "ok", "slot_index": slot_index, "bot_type": bot_type}
 

@@ -34,6 +34,7 @@ class GameSession(Base):
     players = Column(JSONB, default=list)
     model_versions = Column(JSONB, default=dict)
     winner_id = Column(String, nullable=True)
+    host_id = Column(String, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
