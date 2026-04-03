@@ -82,8 +82,8 @@ export default function LobbyScreen({ players, host, myName, onStart, onLogout, 
         <div style={{ color: '#aab', fontSize: 12, marginBottom: 10 }}>
           {t('lobby.players')} ({activePlayers.length}/3)
         </div>
-        {players.map(p => (
-          <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #1a1a3a' }}>
+        {players.map((p, idx) => (
+          <div key={p.player_id ?? `player-${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #1a1a3a' }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: (p.is_bot || p.connected) ? '#3d3' : '#c33', flexShrink: 0, display: 'inline-block' }} />
             <span style={{ color: p.name === myName ? '#f0c040' : '#dde', fontWeight: p.name === myName ? 'bold' : 'normal', flex: 1 }}>
               {p.is_bot && <span style={{ marginRight: 4 }}>🤖</span>}

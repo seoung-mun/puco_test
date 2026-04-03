@@ -420,12 +420,19 @@ export default function App() {
     gameId: screen === 'game' ? gameId : null,
     token: authToken,
     onStateUpdate: (gs) => {
+      console.warn('[STATE_TRACE] frontend_set_state_before', {
+        active_player: gs.meta.active_player,
+        bot_thinking: gs.meta.bot_thinking,
+        phase: gs.meta.phase,
+        history_length: gs.history.length,
+      });
       setState(prev => {
-        if (
-          prev &&
-          gs.history.length === prev.history.length &&
-          gs.meta.active_player === prev.meta.active_player
-        ) return prev;
+        console.warn('[STATE_TRACE] frontend_set_state_applied', {
+          prev_active_player: prev?.meta.active_player ?? null,
+          next_active_player: gs.meta.active_player,
+          next_bot_thinking: gs.meta.bot_thinking,
+          next_phase: gs.meta.phase,
+        });
         return gs;
       });
     },
@@ -434,6 +441,30 @@ export default function App() {
   });
 
   // Channel mode: lobby 및 heartbeat 폴링 불필요 — WebSocket이 실시간 상태 전달
+
+  useEffect(() => {
+    if (!state) return;
+    console.warn('[STATE_TRACE] frontend_render_state', {
+      active_player: state.meta.active_player,
+      bot_thinking: state.meta.bot_thinking,
+      phase: state.meta.phase,
+      game_id: state.meta.game_id,
+    });
+  }, [state?.meta.active_player, state?.meta.bot_thinking, state?.meta.phase, state?.meta.game_id]);
+
+  useEffect(() => {
+    if (!state) return;
+    const isBotTurn = !!state.bot_players?.[state.meta.active_player];
+    const isBlocked = !!state.meta.bot_thinking || isBotTurn;
+    console.warn('[STATE_TRACE] frontend_ui_block_state', {
+      game_id: state.meta.game_id,
+      active_player: state.meta.active_player,
+      bot_thinking: state.meta.bot_thinking,
+      isBotTurn,
+      isBlocked,
+      phase: state.meta.phase,
+    });
+  }, [state?.meta.active_player, state?.meta.bot_thinking, state?.meta.phase, state?.meta.game_id, state?.bot_players]);
 
   function logout(forceHome = false) {
     const isClient = isMultiplayer && myName !== lobbyHost;
@@ -568,8 +599,8 @@ export default function App() {
         body: JSON.stringify({ bot_type: botType }),
       });
       if (!res.ok) { setLobbyError(await res.text()); return; }
-      const data = await res.json();
-      setLobbyPlayers(prev => [...prev, { name: `Bot (${data.bot_type})`, player_id: `BOT_${data.bot_type}`, is_bot: true, connected: true }]);
+      // 로컬 상태 업데이트 제거 — Lobby WebSocket LOBBY_UPDATE가 서버의 정확한 목록을 브로드캐스트함
+      await res.json();
     } catch (e) {
       setLobbyError(e instanceof Error ? e.message : 'Failed');
     }

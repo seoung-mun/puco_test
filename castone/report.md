@@ -1,70 +1,64 @@
 # 에이전트 시스템 아키텍처 개선 및 버그 해결 설계 보고서 (TDD Edition)
 
 **날짜:** 2026-04-01
-**상태:** 최종 (TDD 가이드 포함)
-**목표:** 에이전트 모델 아키텍처 불일치 해결 및 TDD 기반의 견고한 서빙 구조 구축
+**상태:** 최종 (MLOps & Governor Fix 통합)
+**목표:** 관측 스키마 불일치 해결, 페이즈 인덱스 오류 방지, 주지사 랜덤 배정 및 TDD 기반 견고한 서빙 구조 구축
 
 ---
 
 ## 1. 이해 관계 요약 (Understanding Summary)
 
-*   **문제 핵심:** 모델 아키텍처 불일치로 인한 봇 기능 마비 및 유지보수 어려운 구조.
-*   **해결 전략:** 백엔드(Serving) 레이어에서 래퍼(Wrapper)와 팩토리(Factory)를 통해 모델을 추상화하고, MLOps 관점의 메타데이터 검증 도입.
-*   **TDD 접근:** 모든 핵심 컴포넌트는 "실패하는 테스트"를 먼저 작성하여 요구사항을 정의하고 구현함.
+*   **문제 핵심:** 
+    1.  **Schema Drift:** 학습(210차원)과 서빙(211차원) 환경 불일치로 PPO 모델 크래시.
+    2.  **Phase ID Out of Bounds:** `phase_id=9` 입력 시 임베딩 레이어 인덱스 에러.
+    3.  **Fixed Governor:** 방장이 항상 주지사가 되는 로직으로 게임 공정성 저해.
+*   **해결 전략:** 
+    1.  **EngineWrapper Adapter:** `PuCo_RL`을 수정하지 않고 `backend/app/engine_wrapper/wrapper.py`에서 관측값(211→210) 및 페이즈(0~8)를 정제하여 에이전트에 전달.
+    2.  **Service-level Shuffle:** `GameService.start_game` 시 플레이어 리스트를 무작위로 섞어 주지사 배정을 랜덤화.
+*   **제약 조건:** `PuCo_RL/` 내부 코드는 절대 수정하지 않음.
 
 ## 2. 엣지 케이스 분석 (Edge Case Analysis)
 
-구현 시 반드시 고려해야 할 예외 상황들입니다.
-
 | 상황 (Scenario) | 예상되는 문제 | 대응 전략 (Strategy) |
 |-----------------|---------------|----------------------|
-| **메타데이터 부재** | 모델 아키텍처를 알 수 없음 | 하위 호환을 위해 `legacy_ppo`로 간주하되 경고 로그 출력 |
-| **차원(Dimension) 불일치** | 가중치 로드 시 Shape mismatch 에러 | Pydantic으로 로드 전 검증, 실패 시 `RandomAgent`로 폴백 |
-| **가중치 파일(.pth) 손상** | `torch.load` 실패 | 예외 캡처 후 `RandomAgent`로 폴백하여 게임 세션 유지 |
-| **액션 마스크 불능** | 모든 액션이 0(유효 액션 없음)인 경우 | 엔진의 `pass` 액션(인덱스 15)을 강제 선택하거나 에러 처리 |
-| **디바이스 미지원** | CUDA 설정인데 GPU가 없는 환경 | `Auto Device` 로직으로 `cpu` 자동 전환 |
-| **런타임 모델 교체** | 게임 중 환경변수 변경 | 팩토리 내 싱글톤/캐싱 로직을 통해 안정적인 인스턴스 관리 |
+| **211차원 관측값 수입** | 구형 모델(210차원) 추론 시 행렬 연산 에러 | `idx 42 (vp_chips)`를 제거하여 210차원으로 강제 변환 |
+| **Phase ID = 9 (Fallback)** | `IndexError` 발생 | `min(max(0, phase_id), 8)` 로 클램핑하여 안전한 값 전달 |
+| **플레이어 3인 미만** | 게임 시작 불가 | `start_game` 도입부에서 검증 후 예외 처리 |
+| **액션 마스크 All Zeros** | 유효 액션 없음 (NaN 발생 가능) | `pass (15)` 액션을 강제로 활성화하여 세션 유지 |
 
 ---
 
 ## 3. 상세 설계 및 TDD 전략
 
-### A. 모델 식별 및 로딩 (Step 1-3)
-*   **Test Case:** `test_factory_returns_random_on_invalid_path`
-    *   *Red:* 존재하지 않는 경로 입력 시 예외 발생.
-    *   *Green:* `RandomAgentWrapper`를 반환하도록 수정.
-*   **Test Case:** `test_legacy_ppo_strict_load`
-    *   *Red:* 기존 `ppo_agent_update_100.pth` 로드 시 키 불일치 에러.
-    *   *Green:* `LegacyPPOAgent` 클래스 구현으로 `strict=True` 성공.
+### A. EngineWrapper 어댑터 고도화 (MLOps Fix)
+*   **Test Case:** `test_observation_dim_reduction`
+    *   *Goal:* 211차원 입력을 주었을 때 `get_safe_observation(210)`이 정확히 210차원을 반환하는지 확인.
+*   **Test Case:** `test_phase_id_clamping`
+    *   *Goal:* `phase_id=9`를 입력했을 때 `get_safe_phase_id()`가 `8`을 반환하는지 확인.
 
-### B. 액션 결정 및 인터페이스 (Step 4)
-*   **Test Case:** `test_wrapper_act_respects_mask`
-    *   *Red:* 마스크가 0인 인덱스를 봇이 선택함.
-    *   *Green:* `act()` 내부에서 마스킹 로직(Logits manipulation) 검증.
+### B. 주지사 랜덤 배정 (Logic Fix)
+*   **Test Case:** `test_governor_is_randomized`
+    *   *Goal:* 동일한 플레이어 세트로 게임을 여러 번 시작했을 때, 주지사(0번 인덱스)가 통계적으로 고르게 배정되는지 확인.
 
 ---
 
-## 4. 구현 계획 (Concise Planning) - [TDD FINAL]
+## 4. 구현 계획 (Concise Planning)
 
-- [ ] **Phase 1: 인프라 및 레거시 검증 (Red-Green)**
-    - [ ] `backend/app/services/agents/` 디렉토리 구성.
-    - [ ] `legacy_models.py` 구현 및 `ppo_agent_update_100.pth` 로드 테스트 통과.
-- [ ] **Phase 2: 래퍼 및 팩토리 고도화 (Edge Case Handling)**
-    - [ ] `wrappers.py` 구현: `RandomAgent` 포함 3종 래퍼 완성.
-    - [ ] `factory.py` 구현: Pydantic 검증 로직 및 `Safe Loading` (폴백) 로직 추가.
-    - [ ] **Model Caching:** `factory.py` 내 모델 캐싱(Singleton) 로직 구현으로 중복 로딩 방지.
-    - [ ] **Advanced Logging:** 폴백 발생 시 상세 원인(Exception chain) 로깅 기능 추가.
-    - [ ] **Edge Case Test:** 잘못된 JSON 형식을 주었을 때 `RandomAgent`가 나오는지 확인.
-
-
-- [ ] **Phase 3: 서비스 통합 및 최종 검증**
-    - [ ] `BotService` 리팩토링: `AgentFactory` 주입 및 딜레이 조정.
-    - [ ] **Integration Test:** 실제 게임 루프에서 봇이 2.0s~3.0s 간격으로 유효한 액션을 수행하는지 확인.
+- [ ] **Phase 1: EngineWrapper 강화 (MLOps Defense)**
+    - [ ] `backend/app/engine_wrapper/wrapper.py` 수정: `get_safe_observation`, `get_safe_phase_id` 메서드 추가.
+    - [ ] `bot_service.py`에서 위 메서드들을 호출하여 모델에 안전한 데이터 주입.
+- [ ] **Phase 2: GameService 로직 수정 (Governor Fix)**
+    - [ ] `backend/app/services/game_service.py`의 `start_game` 메서드에 `random.shuffle(room.players)` 적용.
+    - [ ] 셔플된 플레이어 리스트가 DB와 엔진에 일관되게 반영되는지 확인.
+- [ ] **Phase 3: 통합 검증 및 테스트**
+    - [ ] `tests/test_agent_compatibility.py`: 차원 및 페이즈 변환 통합 테스트.
+    - [ ] `tests/test_governor_randomization.py`: 주지사 무작위 배정 테스트.
+    - [ ] 실제 봇전 실행을 통한 동작 확인.
 
 ---
 
 ## 5. 주요 가정 및 제약 (Assumptions & Constraints)
 
-*   `RandomAgent` 폴백은 "게임이 멈추는 것보다 무작위로라도 진행되는 것이 낫다"는 원칙에 따름.
-*   모든 모델 가중치는 `backend/app/engine_wrapper/models/` 또는 지정된 경로에 보관됨.
-*   TDD 환경을 위해 Pytest를 사용하며, 비동기 테스트를 지원함.
+*   `PuCo_RL`은 외부 라이브러리로 간주하며, 모든 변환 로직은 `backend/` 영역에 국한함.
+*   주지사 랜덤화는 게임의 재미와 공정성을 위해 필수적이며, 방장의 권한은 유지하되 게임 내 순서만 섞음.
+*   변환 로직으로 인한 지연 시간(Latency)은 1ms 미만으로 유지함.

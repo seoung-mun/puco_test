@@ -53,42 +53,66 @@ export function useGameWebSocket({
       intentionalCloseRef.current = false
 
       const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/puco/ws/${gameId}`
+      console.warn('[WS_TRACE] frontend_ws_connect_attempt', { gameId, wsUrl })
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
 
       ws.onopen = () => {
+        console.warn('[WS_TRACE] frontend_ws_onopen', { gameId })
+        console.warn('[WS_TRACE] frontend_ws_auth_send', { gameId })
         ws.send(JSON.stringify({ token }))
       }
 
       ws.onmessage = (event) => {
+        console.warn('[WS_TRACE] frontend_ws_onmessage_raw', { gameId, data: event.data })
         let msg: { type: string; data?: GameState; action_mask?: number[]; reason?: string; player_id?: string }
         try {
           msg = JSON.parse(event.data as string)
         } catch {
+          console.warn('[WS_TRACE] frontend_ws_onmessage_parse_error', { gameId })
           return  // 잘못된 JSON은 조용히 무시
         }
+        console.warn('[WS_TRACE] frontend_ws_message_type', { gameId, messageType: msg.type })
 
         if (msg.type === 'STATE_UPDATE') {
           const richState = msg.data!
           // action_mask may be embedded in the rich state (channel API) or at top level (legacy)
           const actionMask: number[] = msg.action_mask ?? (richState as unknown as Record<string, unknown>)['action_mask'] as number[] ?? []
+          console.warn('[STATE_TRACE] frontend_state_update_received', {
+            gameId,
+            active_player: richState.meta.active_player,
+            bot_thinking: richState.meta.bot_thinking,
+            phase: richState.meta.phase,
+            actionMaskLength: actionMask.length,
+          })
           const stateKey = JSON.stringify({ data: richState, mask: actionMask })
-          if (stateKey === lastStateKeyRef.current) return  // 동일 상태 중복 무시
+          if (stateKey === lastStateKeyRef.current) {
+            console.warn('[STATE_TRACE] frontend_state_update_deduped', { gameId })
+            return  // 동일 상태 중복 무시
+          }
           lastStateKeyRef.current = stateKey
           onStateUpdateRef.current(richState, actionMask)
 
         } else if (msg.type === 'GAME_ENDED') {
+          console.warn('[WS_TRACE] frontend_game_ended_received', { gameId, reason: msg.reason ?? '' })
           onGameEndedRef.current(msg.reason ?? '')
 
         } else if (msg.type === 'PLAYER_DISCONNECTED') {
+          console.warn('[WS_TRACE] frontend_player_disconnected_received', { gameId, playerId: msg.player_id ?? '' })
           onPlayerDisconnectedRef.current(msg.player_id ?? '')
         }
       }
 
+      ws.onerror = (event) => {
+        console.warn('[WS_TRACE] frontend_ws_onerror', { gameId, event })
+      }
+
       ws.onclose = () => {
+        console.warn('[WS_TRACE] frontend_ws_onclose', { gameId, intentional: intentionalCloseRef.current })
         if (intentionalCloseRef.current) return  // 의도적 종료는 재연결 안 함
 
         reconnectTimerRef.current = setTimeout(() => {
+          console.warn('[WS_TRACE] frontend_ws_reconnect', { gameId, delayMs: WS_RECONNECT_DELAY_MS })
           if (!intentionalCloseRef.current) connect()
         }, WS_RECONNECT_DELAY_MS)
       }

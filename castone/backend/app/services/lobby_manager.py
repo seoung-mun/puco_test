@@ -61,13 +61,13 @@ def _count_humans(players: list[str]) -> int:
 def _build_lobby_payload(room: GameSession, db: Session) -> dict:
     from app.db.models import User
     players_out = []
-    for raw_pid in (room.players or []):
+    for idx, raw_pid in enumerate(room.players or []):
         pid = str(raw_pid)
         if pid.startswith("BOT_"):
             bot_type = pid[4:]
             players_out.append({
                 "name": f"Bot ({bot_type})",
-                "player_id": None,
+                "player_id": f"BOT_{bot_type}_{idx}",
                 "is_bot": True,
                 "is_host": False,
                 "connected": True,
@@ -101,6 +101,10 @@ async def handle_leave(
     if room is None:
         return
 
+    # 게임이 진행 중이면 로비 떠남 처리를 하지 않음 (lobby WS disconnect는 게임 시작 시 정상적으로 발생)
+    if room.status != "WAITING":
+        return
+
     players = [str(p) for p in (room.players or [])]
     if player_id not in players:
         return  # idempotent
@@ -115,7 +119,7 @@ async def handle_leave(
 
     # 1. If no humans left, delete room
     # 2. If host leaves a WAITING room, delete it (prevents ghost rooms)
-    if human_count == 0 or (is_host_leaving and room.status == "WAITING"):
+    if human_count == 0 or is_host_leaving:
         db.delete(room)
         db.commit()
         await manager.close_all(room_id)

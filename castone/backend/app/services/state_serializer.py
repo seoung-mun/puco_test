@@ -60,18 +60,41 @@ def _building_name(bt: BuildingType) -> str:
     return bt.name.lower()
 
 
+def _safe_get(obj: Any, *names: str, default: Any = None) -> Any:
+    """Return the first existing attribute/key from a drift-prone engine object."""
+    for name in names:
+        if isinstance(obj, dict) and name in obj:
+            value = obj[name]
+            return default if value is None else value
+        if hasattr(obj, name):
+            value = getattr(obj, name)
+            return default if value is None else value
+    return default
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 # ------------------------------------------------------------------ #
 #  Sub-serializers                                                     #
 # ------------------------------------------------------------------ #
 
 def _serialize_cargo_ship(ship) -> Dict[str, Any]:
+    capacity = _safe_int(_safe_get(ship, "capacity", default=0))
+    current_load = _safe_int(_safe_get(ship, "current_load", "filled", default=0))
+    is_full = bool(_safe_get(ship, "is_full", default=current_load >= capacity if capacity else False))
+    is_empty = bool(_safe_get(ship, "is_empty", default=current_load == 0))
     return {
-        "capacity": ship.capacity,
-        "good": GOOD_TO_STR.get(ship.good_type) if ship.good_type is not None else None,
-        "d_filled": ship.current_load,
-        "d_remaining_space": ship.capacity - ship.current_load,
-        "d_is_full": ship.is_full,
-        "d_is_empty": ship.is_empty,
+        "capacity": capacity,
+        "good": GOOD_TO_STR.get(_safe_get(ship, "good_type", "good")) if _safe_get(ship, "good_type", "good") is not None else None,
+        "d_filled": current_load,
+        "d_remaining_space": max(0, capacity - current_load),
+        "d_is_full": is_full,
+        "d_is_empty": is_empty,
     }
 
 
@@ -170,16 +193,16 @@ def _serialize_common_board(game: "PuertoRicoGame") -> Dict[str, Any]:
 
 def _compute_production(player, game: "PuertoRicoGame") -> Dict[str, Any]:
     """Compute production potential for a player (same logic as engine craftsman phase)."""
-    corn = sum(1 for t in player.island_board if t.tile_type == TileType.CORN_PLANTATION and t.is_occupied)
-    raw_indigo = sum(1 for t in player.island_board if t.tile_type == TileType.INDIGO_PLANTATION and t.is_occupied)
-    raw_sugar = sum(1 for t in player.island_board if t.tile_type == TileType.SUGAR_PLANTATION and t.is_occupied)
-    raw_tobacco = sum(1 for t in player.island_board if t.tile_type == TileType.TOBACCO_PLANTATION and t.is_occupied)
-    raw_coffee = sum(1 for t in player.island_board if t.tile_type == TileType.COFFEE_PLANTATION and t.is_occupied)
+    corn = sum(1 for t in player.island_board if _safe_get(t, "tile_type") == TileType.CORN_PLANTATION and _safe_get(t, "is_occupied", "occupied", default=False))
+    raw_indigo = sum(1 for t in player.island_board if _safe_get(t, "tile_type") == TileType.INDIGO_PLANTATION and _safe_get(t, "is_occupied", "occupied", default=False))
+    raw_sugar = sum(1 for t in player.island_board if _safe_get(t, "tile_type") == TileType.SUGAR_PLANTATION and _safe_get(t, "is_occupied", "occupied", default=False))
+    raw_tobacco = sum(1 for t in player.island_board if _safe_get(t, "tile_type") == TileType.TOBACCO_PLANTATION and _safe_get(t, "is_occupied", "occupied", default=False))
+    raw_coffee = sum(1 for t in player.island_board if _safe_get(t, "tile_type") == TileType.COFFEE_PLANTATION and _safe_get(t, "is_occupied", "occupied", default=False))
 
-    cap_indigo = sum(b.colonists for b in player.city_board if b.building_type in (BuildingType.SMALL_INDIGO_PLANT, BuildingType.INDIGO_PLANT))
-    cap_sugar = sum(b.colonists for b in player.city_board if b.building_type in (BuildingType.SMALL_SUGAR_MILL, BuildingType.SUGAR_MILL))
-    cap_tobacco = sum(b.colonists for b in player.city_board if b.building_type == BuildingType.TOBACCO_STORAGE)
-    cap_coffee = sum(b.colonists for b in player.city_board if b.building_type == BuildingType.COFFEE_ROASTER)
+    cap_indigo = sum(_safe_int(_safe_get(b, "colonists", "worker_count", default=0)) for b in player.city_board if _safe_get(b, "building_type") in (BuildingType.SMALL_INDIGO_PLANT, BuildingType.INDIGO_PLANT))
+    cap_sugar = sum(_safe_int(_safe_get(b, "colonists", "worker_count", default=0)) for b in player.city_board if _safe_get(b, "building_type") in (BuildingType.SMALL_SUGAR_MILL, BuildingType.SUGAR_MILL))
+    cap_tobacco = sum(_safe_int(_safe_get(b, "colonists", "worker_count", default=0)) for b in player.city_board if _safe_get(b, "building_type") == BuildingType.TOBACCO_STORAGE)
+    cap_coffee = sum(_safe_int(_safe_get(b, "colonists", "worker_count", default=0)) for b in player.city_board if _safe_get(b, "building_type") == BuildingType.COFFEE_ROASTER)
 
     amounts = {
         "corn": corn,
@@ -205,8 +228,8 @@ def _serialize_player(
     # Island
     plantations = [
         {
-            "type": TILE_TO_STR.get(t.tile_type, "empty"),
-            "colonized": t.is_occupied,
+            "type": TILE_TO_STR.get(_safe_get(t, "tile_type"), "empty"),
+            "colonized": bool(_safe_get(t, "is_occupied", "occupied", default=False)),
         }
         for t in player.island_board
     ]
@@ -216,7 +239,7 @@ def _serialize_player(
         "d_empty_spaces": player.empty_island_spaces,
         "d_active_quarries": sum(
             1 for t in player.island_board
-            if t.tile_type == TileType.QUARRY and t.is_occupied
+            if _safe_get(t, "tile_type") == TileType.QUARRY and _safe_get(t, "is_occupied", "occupied", default=False)
         ),
         "plantations": plantations,
     }
@@ -234,9 +257,9 @@ def _serialize_player(
         buildings_data.append({
             "name": _building_name(bt),
             "max_colonists": max_col,
-            "current_colonists": b.colonists,
-            "empty_slots": max(0, max_col - b.colonists),
-            "is_active": b.colonists > 0,
+            "current_colonists": _safe_int(_safe_get(b, "colonists", "worker_count", default=0)),
+            "empty_slots": max(0, max_col - _safe_int(_safe_get(b, "colonists", "worker_count", default=0))),
+            "is_active": _safe_int(_safe_get(b, "colonists", "worker_count", default=0)) > 0,
             "vp": bdata[1],
         })
 
@@ -244,15 +267,15 @@ def _serialize_player(
         "total_spaces": 12,
         "d_used_spaces": len(player.city_board),
         "d_empty_spaces": player.empty_city_spaces,
-        "colonists_unplaced": player.unplaced_colonists,
+        "colonists_unplaced": _safe_int(_safe_get(player, "unplaced_colonists", "colonists", default=0)),
         "d_quarry_discount": sum(
             1 for b in player.city_board
-            if b.building_type == BuildingType.CONSTRUCTION_HUT and b.colonists > 0
+            if _safe_get(b, "building_type") == BuildingType.CONSTRUCTION_HUT and _safe_int(_safe_get(b, "colonists", "worker_count", default=0)) > 0
         ),
         "d_total_empty_colonist_slots": sum(
-            max(0, BUILDING_DATA.get(b.building_type, (0, 0, 0))[2] - b.colonists)
+            max(0, BUILDING_DATA.get(_safe_get(b, "building_type"), (0, 0, 0))[2] - _safe_int(_safe_get(b, "colonists", "worker_count", default=0)))
             for b in player.city_board
-            if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE)
+            if _safe_get(b, "building_type") not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE)
         ),
         "buildings": buildings_data,
     }

@@ -3,6 +3,7 @@ from fastapi import WebSocket
 from typing import Dict, Optional, Set
 import asyncio
 import json
+from itertools import count
 
 from app.core.redis import async_redis_client
 from app.dependencies import SessionLocal
@@ -20,13 +21,25 @@ class ConnectionManager:
         self.player_connections: Dict[str, Dict[str, WebSocket]] = {}
         # Track disconnect timers per game:player
         self._disconnect_timers: Dict[str, asyncio.Task] = {}
+        self._conn_ids: Dict[int, str] = {}
+        self._conn_seq = count(1)
+
+    def _get_connection_id(self, websocket: WebSocket) -> str:
+        ws_key = id(websocket)
+        existing = self._conn_ids.get(ws_key)
+        if existing:
+            return existing
+        conn_id = f"ws-{next(self._conn_seq)}"
+        self._conn_ids[ws_key] = conn_id
+        return conn_id
 
     async def connect(self, game_id: str, websocket: WebSocket, player_id: Optional[str] = None):
-        await websocket.accept()
-        logger.info("WS connected: game=%s player=%s", game_id, player_id)
+        conn_id = self._get_connection_id(websocket)
+        logger.warning("[WS_TRACE] ws_connect game=%s connection_id=%s user_id=%s", game_id, conn_id, player_id)
 
         if game_id not in self.active_connections:
             self.active_connections[game_id] = set()
+            logger.warning("[WS_TRACE] ws_subscribe game_id=%s connection_id=%s user_id=%s", game_id, conn_id, player_id)
             asyncio.create_task(self._redis_listener(game_id))
         self.active_connections[game_id].add(websocket)
 
@@ -47,12 +60,14 @@ class ConnectionManager:
                 logger.info("Player reconnected, timer cancelled: game=%s player=%s", game_id, player_id)
 
     async def disconnect(self, game_id: str, websocket: WebSocket, player_id: Optional[str] = None):
-        logger.info("WS disconnected: game=%s player=%s", game_id, player_id)
+        conn_id = self._get_connection_id(websocket)
+        logger.warning("[WS_TRACE] ws_disconnect game=%s connection_id=%s user_id=%s", game_id, conn_id, player_id)
 
         if game_id in self.active_connections:
             self.active_connections[game_id].discard(websocket)
             if not self.active_connections[game_id]:
                 del self.active_connections[game_id]
+        self._conn_ids.pop(id(websocket), None)
 
         # Update player status and handle disconnect logic
         if player_id:
@@ -143,6 +158,12 @@ class ConnectionManager:
     async def handle_client_message(self, game_id: str, player_id: str, message: dict):
         """Handle incoming WebSocket messages from clients."""
         msg_type = message.get("type")
+        logger.warning(
+            "[WS_TRACE] ws_receive game=%s user_id=%s message_type=%s",
+            game_id,
+            player_id,
+            msg_type,
+        )
 
         if msg_type == "END_GAME_REQUEST":
             # Player requested to end the game immediately
@@ -175,10 +196,13 @@ class ConnectionManager:
     async def _redis_listener(self, game_id: str):
         pubsub = self.redis.pubsub()
         await pubsub.subscribe(f"game:{game_id}:events")
+        logger.warning("[WS_TRACE] redis_listener_subscribed game_id=%s", game_id)
         try:
             async for message in pubsub.listen():
                 if message["type"] == "message":
                     data = message["data"].decode("utf-8")
+                    logger.warning("[WS_TRACE] redis_listener_message_received game_id=%s", game_id)
+                    logger.warning("[WS_TRACE] redis_listener_broadcast_dispatch game_id=%s", game_id)
                     await self._broadcast(game_id, data)
                 if game_id not in self.active_connections:
                     break
@@ -190,15 +214,44 @@ class ConnectionManager:
 
     async def broadcast_to_game(self, game_id: str, message: dict):
         """Directly broadcast a message without Redis (Fallback)"""
+        message_type = message.get("type") if isinstance(message, dict) else None
+        logger.warning("[WS_TRACE] ws_broadcast_start game_id=%s source=direct message_type=%s", game_id, message_type)
         await self._broadcast(game_id, json.dumps(message))
+        logger.warning(
+            "[WS_TRACE] ws_broadcast_end game_id=%s source=direct message_type=%s connection_count=%d",
+            game_id,
+            message_type,
+            len(self.active_connections.get(game_id, set())),
+        )
 
     async def _broadcast(self, game_id: str, message: str):
+        message_type = None
+        try:
+            parsed = json.loads(message)
+            if isinstance(parsed, dict):
+                message_type = parsed.get("type")
+        except Exception:
+            pass
         if game_id in self.active_connections:
+            logger.warning(
+                "[WS_TRACE] ws_broadcast_start game_id=%s source=manager message_type=%s connection_count=%d",
+                game_id,
+                message_type,
+                len(self.active_connections[game_id]),
+            )
             for connection in self.active_connections[game_id]:
                 try:
                     await connection.send_text(message)
                 except Exception:
-                    pass
+                    logger.warning("[WS_TRACE] ws_broadcast_error game_id=%s message_type=%s error=send_failed", game_id, message_type, exc_info=True)
+            logger.warning(
+                "[WS_TRACE] ws_broadcast_end game_id=%s source=manager message_type=%s connection_count=%d",
+                game_id,
+                message_type,
+                len(self.active_connections[game_id]),
+            )
+        else:
+            logger.warning("[WS_TRACE] ws_broadcast_end game_id=%s source=manager message_type=%s connection_count=0", game_id, message_type)
 
 
 manager = ConnectionManager()

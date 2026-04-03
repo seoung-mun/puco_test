@@ -1,239 +1,383 @@
-# 버그 해결 설계도
+# Castone 봇 장애 해결 설계도
 
-**날짜:** 2026-04-01
-**대상 에러:** error.md `# 현재 발생중인 에러` 섹션 1, 2
-
----
-
-## 에러 1 — 봇 모델 아키텍처 불일치 (봇 액션 불가)
-
-### 증상
-
-```
-strict=True load failed for ppo_agent_update_100.pth:
-  Missing keys: embed.*, shared_trunk.*, actor_head.*, critic_head.*
-  Unexpected keys: critic.0~4, actor.0~4
-  → retrying strict=False
-```
-
-봇이 액션을 하지 않거나 항상 같은 (유효하지 않은) 액션만 선택한다.
-
-- 나중에 더 많은 알고리즘으로 에이전트가 추가될 예정이라 인터페이스 클래스를 만들어야함
-- PuCo_RL의 base_agent.py 파일을 읽고 그에 맞춰 아키텍쳐를 설계하고, 환경을 맞출것
-- **서빙/훈련 환경을 일치 시켜야함**
-- **mlopsp-engineer의 관점에서 실제로 훈련된 모델이 실상황에서 사용될 때도 훈련된 가중치를 정확하게 사용할 수 있어야함**
-
+**날짜:** 2026-04-02
+**원칙:** PuCo_RL은 블랙박스. 모든 수정은 `backend/` 래퍼 계층에서 흡수한다.
 
 ---
 
-### 근본 원인 분석
+## Phase 1~3 완료 요약
 
-체크포인트 파일(`ppo_agent_update_100.pth`)과 현재 코드의 `Agent` 클래스 아키텍처가 **완전히 다르다.**
+| Phase | 대상 파일 | 해결 내용 | 상태 |
+|-------|----------|----------|------|
+| 1 | `wrappers.py` | Mayor 페이즈 Empty Mask 폴백을 69(place 0)로 수정 | **완료** |
+| 2 | `bot_service.py` | callback 실패 시 fallback 재시도 + `_extract_phase_id` 강화 | **완료** |
+| 3 | `game_service.py` | `_bot_tasks` set으로 asyncio 태스크 참조 보존 | **완료** |
 
-| 구분 | 체크포인트 (구버전) | 현재 `Agent` 클래스 (신버전) |
-|------|-------------------|--------------------------|
-| 레이어 구조 | `actor/critic` 각 3-Linear (Tanh 활성화) | `embed → shared_trunk(ResidualBlock×3) → actor_head/critic_head` |
-| obs_dim | 210 | 210 (동일) |
-| hidden | 256 | 512 |
-| actor 출력 키 | `actor.0/2/4.weight/bias` | `actor_head.0~3.*` |
-| critic 출력 키 | `critic.0/2/4.weight/bias` | `critic_head.0~3.*` |
-
-`strict=False` 폴백으로 가중치를 로드하지만, **레이어 shape가 전혀 맞지 않아** 실질적으로 무작위 초기화와 동일하게 동작한다.
-
-```
-체크포인트 actor.0.weight: (256, 210)  ← 구버전 레이어
-현재 embed.0.weight:       (512, 210)  ← 신버전 레이어
-→ 어떤 키도 실제로 로드되지 않음
-```
+**단위 테스트 전부 통과. 그러나 Docker 통합 테스트에서 봇이 여전히 미작동.**
 
 ---
 
-### 해결 방안
+## Phase 4 -- 잔여 버그 해결 설계
 
-**방안 A (권장): `LegacyPPOAgent` 클래스 추가** — 구버전 체크포인트 호환
+### 현재 증상
 
-구버전 아키텍처 클래스를 `ppo_agent.py`에 추가하고, `MODEL_TYPE=legacy_ppo` 환경변수로 선택 가능하게 한다.
+1. **모든 봇**(random, ppo, hppo)이 **첫 역할 선택**에서 액션 미수행
+2. 방장이 첫 주지사를 잡지 못함
+3. `401 Unauthorized` on `/api/puco/auth/me` (프론트엔드 인증 -- 봇 무관)
+
+### 핵심 추론
+
+**Random 봇마저 작동하지 않는다** = 모델/obs_dim/Mayor 폴백 문제가 **아님**.
+스케줄링 자체가 발동하지 않거나, `run_bot_turn` 초입에서 침묵 실패 중.
+
+---
+
+## 결함 분석
+
+### 결함 A: `run_bot_turn` 최상위 try-except 누락 (P0)
+
+`run_bot_turn`이 `asyncio.create_task()`로 실행되므로,
+코루틴 내부에서 catch되지 않는 예외 발생 시 **태스크가 로그 없이 소멸**.
+
+현재 보호되지 않은 영역:
 
 ```python
-# castone/PuCo_RL/agents/ppo_agent.py 에 추가
-
-class LegacyPPOAgent(nn.Module):
-    """
-    구버전 CleanRL 스타일 PPO 아키텍처.
-    ppo_agent_update_*.pth 체크포인트 호환용.
-
-    구조: Linear(obs→256) → Tanh → Linear(256→256) → Tanh → Linear(256→action)
-    """
-    def __init__(self, obs_dim: int, action_dim: int = 200):
-        super().__init__()
-        self.critic = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, 256)),
-            nn.Tanh(),
-            layer_init(nn.Linear(256, 256)),
-            nn.Tanh(),
-            layer_init(nn.Linear(256, 1), std=1.0),
-        )
-        self.actor = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, 256)),
-            nn.Tanh(),
-            layer_init(nn.Linear(256, 256)),
-            nn.Tanh(),
-            layer_init(nn.Linear(256, action_dim), std=0.01),
-        )
-
-    def get_value(self, x):
-        return self.critic(x)
-
-    def get_action_and_value(self, x, action_mask, action=None):
-        logits = self.actor(x)
-        huge_negative = torch.tensor(-1e8, dtype=logits.dtype, device=logits.device)
-        masked_logits = torch.where(action_mask > 0.5, logits, huge_negative)
-        probs = Categorical(logits=masked_logits)
-        if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action), probs.entropy(), self.critic(x)
-```
-
-**`bot_service.py` 변경 포인트:**
-
-```python
-# MODEL_TYPE 환경변수에 "legacy_ppo" 추가
-
-if model_type == "hppo":
-    ...
-elif model_type == "legacy_ppo":
-    cls._model_type = "legacy_ppo"
-    agent = LegacyPPOAgent(obs_dim=cls._obs_dim, action_dim=200).to(device)
-    model_filename = os.getenv("PPO_MODEL_FILENAME", "ppo_agent_update_100.pth")
-else:  # 기본값: ppo (신버전)
-    ...
-
-# BotService.get_action() 내부 — legacy_ppo는 표준 PPO와 동일하게 처리
-if BotService._model_type in ("ppo", "legacy_ppo"):
-    action_sample, _, _, _ = agent.get_action_and_value(obs_tensor, mask_tensor)
-```
-
-**환경변수 설정 (docker-compose 또는 .env):**
-```env
-MODEL_TYPE=legacy_ppo
-PPO_MODEL_FILENAME=ppo_agent_update_100.pth
-```
-
-**방안 B (차선): 신버전 아키텍처로 재학습 후 체크포인트 교체**
-
-학교 GPU 환경에서 현재 `Agent` 클래스(embed + shared_trunk + actor_head/critic_head)로 재학습하여 새 체크포인트를 생성. 단, 재학습 완료 전까지 방안 A를 임시 적용.
-
----
-
-### TDD 구현 순서
-
-```
-RED:    test_legacy_ppo_loads_checkpoint() — strict=True로 로드 성공 테스트
-RED:    test_legacy_ppo_outputs_valid_action() — 유효한 액션 범위(0~199) 출력 테스트
-GREEN:  LegacyPPOAgent 클래스 구현
-GREEN:  bot_service.py에 MODEL_TYPE=legacy_ppo 분기 추가
-REFACTOR: LegacyPPOAgent 네이밍 및 docstring 정리
-```
-
-**테스트 파일 위치:** `castone/PuCo_RL/tests/test_legacy_ppo.py`
-
-```python
-def test_legacy_ppo_loads_ppo_update_100_checkpoint():
-    """ppo_agent_update_100.pth가 strict=True로 로드되어야 한다."""
-    agent = LegacyPPOAgent(obs_dim=210, action_dim=200)
-    ckpt = torch.load("models/ppo_agent_update_100.pth", map_location="cpu", weights_only=True)
-    state = ckpt.get("model_state_dict", ckpt)
-    agent.load_state_dict(state, strict=True)  # 예외 없어야 함
-
-def test_legacy_ppo_produces_valid_action():
-    """유효한 액션을 선택해야 한다 (0~199 범위, 마스크 내)."""
-    agent = LegacyPPOAgent(obs_dim=210)
-    obs = torch.zeros(1, 210)
-    mask = torch.zeros(1, 200)
-    mask[0, 15] = 1.0  # pass 액션만 유효
-    action, *_ = agent.get_action_and_value(obs, mask)
-    assert action.item() == 15
-```
-
----
-
-## 에러 2 — 봇 액션 속도 (사람이 볼 수 있게 딜레이 조절)
-
-### 현황 분석
-
-`bot_service.py:186-188`에 딜레이가 **이미 구현되어 있다:**
-
-```python
-delay = 2.0 if is_role_selection else 1.0
-await asyncio.sleep(delay)
-```
-
-그러나 봇이 액션을 하지 않는 이유(에러 1)로 인해 딜레이 효과를 체감하지 못하는 상황이다.
-
-에러 1을 해결한 후, 딜레이를 사용자 요구에 맞게 조정한다.
-
----
-
-### 설계
-
-**딜레이 설정 (에러 1 해결 후 적용):**
-
-```python
-# bot_service.py run_bot_turn()
-
-# 역할 선택 페이즈: 사용자가 봇의 전략적 선택을 볼 수 있도록 길게
+# bot_service.py:104~116 -- try-except 바깥
+mask = engine.get_action_mask()         # 예외 시 -> 코루틴 즉사
+is_role_selection = any(mask[0:8])
 delay = 3.0 if is_role_selection else 2.0
+await asyncio.sleep(delay)
+current_phase = _extract_phase_id(engine.last_obs)  # 예외 시 -> 코루틴 즉사
+game_context = { ... }
 ```
 
-| 상황 | 현재 | 변경 후 |
-|------|------|---------|
-| 역할 선택 (Role Selection) | 2.0s | 3.0s |
-| 일반 액션 | 1.0s | 2.0s |
+`get_action()`과 `process_action_callback()`은 각각 try-except 안이지만,
+**그 바깥 코드는 무방비**. 여기서 어떤 예외라도 발생하면 로그 0줄, 게임 고착.
 
-**프론트엔드 "봇 생각 중" 인디케이터 추가 (선택사항):**
+### 결함 B: 진단 로그 부족 (P0)
 
-현재 프론트엔드에 봇이 액션 중임을 표시하는 UI가 없다. 게임 상태에서 현재 플레이어가 봇인 경우 "🤖 생각 중..." 표시를 추가하면 UX가 개선된다.
+현재 `_schedule_next_bot_turn_if_needed`에 로그가 전혀 없음.
+스케줄링이 호출되었는지, 어떤 플레이어에게 트리거되었는지 추적 불가.
 
-```tsx
-// GameScreen 내부 (해당 컴포넌트 확인 후 정확한 위치 결정)
-const currentPlayer = state.players[state.current_player_id];
-const isBotTurn = currentPlayer?.is_bot === true;
+`run_bot_turn` 시작 시 로그도 `logger.debug` (기본 레벨 INFO에서 안 보임).
 
-{isBotTurn && (
-  <div style={{ color: '#aaf', textAlign: 'center', padding: 8 }}>
-    🤖 {currentPlayer.display_name} 생각 중...
-  </div>
-)}
+### 결함 C: 주지사 배정 불일치 (P1)
+
+`engine.py:65`에서 `governor_idx = random.randint(0, num_players - 1)`.
+방장이 항상 `room.players[0]`이지만, 엔진 주지사는 랜덤.
+UI에서 "방장 = 주지사"를 기대하면 불일치.
+
+---
+
+## 수정 대상 파일
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `backend/app/services/bot_service.py` | `run_bot_turn` 전체를 try-except로 감싸기 + INFO 로그 강화 |
+| 2 | `backend/app/services/game_service.py` | `_schedule_next_bot_turn_if_needed`에 INFO 로그 추가 |
+| 3 | `backend/app/engine_wrapper/wrapper.py` | 주지사를 player_0으로 고정 (reset 반복 방식) |
+
+---
+
+## 4-A. `bot_service.py` -- `run_bot_turn` 전면 수정
+
+**목표:** 어떤 예외에서도 로그를 남기고, 코루틴이 조용히 죽지 않게 한다.
+
+```python
+@staticmethod
+async def run_bot_turn(game_id, engine, actor_id, process_action_callback):
+    """Background task to execute a bot's turn with UX delay."""
+    logger.info("[BOT] turn start game=%s actor=%s", game_id, actor_id)
+    try:
+        mask = engine.get_action_mask()
+        valid_count = sum(1 for v in mask if v)
+        logger.info("[BOT] game=%s valid_actions=%d", game_id, valid_count)
+
+        is_role_selection = any(mask[0:8])
+        delay = 3.0 if is_role_selection else 2.0
+        await asyncio.sleep(delay)
+
+        current_phase = _extract_phase_id(engine.last_obs)
+        game_context = {
+            "vector_obs": engine.last_obs,
+            "action_mask": mask,
+            "phase_id": current_phase,
+        }
+
+        # 1. Model Inference
+        try:
+            action_int = BotService.get_action(game_context)
+            logger.info("[BOT] game=%s action=%d phase=%d", game_id, action_int, current_phase)
+        except Exception as e:
+            logger.exception("[BOT] inference failed game=%s", game_id)
+            valid_indices = [i for i, v in enumerate(mask) if v > 0.5]
+            action_int = int(np.random.choice(valid_indices)) if valid_indices else 15
+
+        # 2. Action Application with Retry
+        try:
+            if asyncio.iscoroutinefunction(process_action_callback):
+                await process_action_callback(game_id, actor_id, action_int)
+            else:
+                process_action_callback(game_id, actor_id, action_int)
+            logger.info("[BOT] game=%s action=%d applied OK", game_id, action_int)
+        except Exception as e:
+            logger.error("[BOT] action %d REJECTED game=%s: %s", action_int, game_id, e)
+            try:
+                retry_mask = engine.get_action_mask()
+                valid = [i for i, v in enumerate(retry_mask) if v > 0.5 and i != action_int]
+                if valid:
+                    fallback = int(np.random.choice(valid))
+                    logger.warning("[BOT] retry game=%s fallback=%d", game_id, fallback)
+                    if asyncio.iscoroutinefunction(process_action_callback):
+                        await process_action_callback(game_id, actor_id, fallback)
+                    else:
+                        process_action_callback(game_id, actor_id, fallback)
+                else:
+                    logger.critical("[BOT] no valid fallback game=%s", game_id)
+            except Exception as retry_err:
+                logger.critical("[BOT] fallback FAILED game=%s: %s", game_id, retry_err)
+
+    except Exception as e:
+        logger.critical(
+            "[BOT] UNHANDLED ERROR game=%s actor=%s: %s",
+            game_id, actor_id, e, exc_info=True
+        )
+```
+
+**변경 포인트:**
+
+- 전체 로직을 최상위 `try-except`로 감쌈
+- `logger.debug` -> `logger.info`로 승격 (Docker에서 보이도록)
+- `[BOT]` 태그로 통일하여 `grep` 추적 용이
+
+---
+
+## 4-B. `game_service.py` -- 스케줄링 로그 추가
+
+```python
+def _schedule_next_bot_turn_if_needed(self, game_id, room, engine):
+    next_idx = engine.env.game.current_player_idx
+    players = room.players or []
+    logger.info("[SCHEDULE] game=%s next_idx=%d players=%s", game_id, next_idx, players)
+
+    if not players or next_idx >= len(players):
+        logger.warning("[SCHEDULE] game=%s abort: idx %d out of range (len=%d)",
+                        game_id, next_idx, len(players))
+        return
+
+    next_actor = players[next_idx]
+    if str(next_actor).startswith("BOT_"):
+        logger.info("[SCHEDULE] game=%s -> bot turn for %s (idx=%d)",
+                     game_id, next_actor, next_idx)
+        from app.services.bot_service import BotService
+        from app.dependencies import SessionLocal
+
+        def sync_callback(bg_game_id, bg_actor_id, bg_action):
+            with SessionLocal() as bg_db:
+                bg_service = GameService(bg_db)
+                bg_service.process_action(bg_game_id, bg_actor_id, bg_action)
+
+        task = asyncio.create_task(
+            BotService.run_bot_turn(
+                game_id=game_id,
+                engine=engine,
+                actor_id=next_actor,
+                process_action_callback=sync_callback
+            )
+        )
+        GameService._bot_tasks.add(task)
+        task.add_done_callback(GameService._bot_tasks.discard)
+    else:
+        logger.info("[SCHEDULE] game=%s -> human turn for %s (idx=%d)",
+                     game_id, next_actor, next_idx)
+```
+
+**변경 포인트:**
+
+- 스케줄링 호출 시 `next_idx`, `players` 목록, 대상 actor 전부 INFO 로그
+- 인덱스 범위 초과 시 WARNING 로그
+- 사람 차례일 때도 로그 남겨서 흐름 추적
+
+---
+
+## 4-C. `engine_wrapper/wrapper.py` -- 주지사 player_0 고정
+
+`engine.py:65`에서 `governor_idx = random.randint(...)` -> `_setup_players()`가 이 값 기준으로 초기 plantation 배분.
+`reset()` 후 단순히 `governor_idx = 0`으로 바꾸면 plantation 배분과 불일치.
+
+**안전한 방법: `reset()`을 governor가 0이 될 때까지 반복 호출.**
+
+```python
+class EngineWrapper:
+    def __init__(self, num_players=3, max_game_steps=1200):
+        if PuertoRicoEnv is None:
+            raise RuntimeError("PuertoRicoEnv could not be imported.")
+        self.env = PuertoRicoEnv(num_players=num_players, max_game_steps=max_game_steps)
+
+        # 주지사가 player_0(방장)이 될 때까지 reset 반복
+        # engine.py에서 governor_idx = random.randint(0, n-1)이므로 평균 n번 시도
+        for _ in range(100):
+            self.env.reset()
+            if self.env.game.governor_idx == 0:
+                break
+        else:
+            # 100번 안에 못 맞추면(확률적으로 불가능) 강제 설정
+            self.env.game.governor_idx = 0
+            self.env.game.current_player_idx = 0
+
+        obs_dict = self.env.observe(self.env.agent_selection)
+        self.last_obs = obs_dict["observation"]
+        self.last_info = self.env.infos[self.env.agent_selection]
+        self.last_action_mask = obs_dict["action_mask"]
+        self._step_count = 0
+        self._round_count = 0
+        self._last_governor = self.env.game.governor_idx
+```
+
+**장점:** `reset()`이 `start_game()` -> `_setup_players()` -> plantation 배분을 포함하므로,
+`governor_idx=0`일 때의 reset 결과는 **완전히 정합적**. 엔진 내부 수정 없음.
+
+**비용:** 평균 `num_players`(=3)회 reset. 게임 시작 시 1회만 발생하므로 무시 가능.
+
+---
+
+## TDD 테스트
+
+### 테스트 1: `run_bot_turn` 최상위 예외 방어
+
+**파일:** `backend/tests/test_bot_service_safety.py` (기존 파일에 추가)
+
+```python
+class TestRunBotTurnTopLevelSafety:
+    """run_bot_turn 최상위에서 예외가 발생해도 crash하지 않아야 한다."""
+
+    @pytest.mark.asyncio
+    async def test_engine_get_action_mask_error_caught(self):
+        """engine.get_action_mask() 실패해도 코루틴이 예외 없이 종료."""
+        engine = MagicMock()
+        engine.get_action_mask.side_effect = RuntimeError("Engine corrupt")
+        callback = MagicMock()
+
+        # 예외가 전파되지 않아야 한다
+        await BotService.run_bot_turn(
+            game_id="test-game",
+            engine=engine,
+            actor_id="BOT_random",
+            process_action_callback=callback,
+        )
+        callback.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_engine_last_obs_none_caught(self):
+        """engine.last_obs가 None이어도 코루틴이 예외 없이 종료."""
+        engine = MagicMock()
+        engine.get_action_mask.return_value = [0]*200
+        engine.last_obs = None
+        callback = MagicMock()
+
+        await BotService.run_bot_turn(
+            game_id="test-game",
+            engine=engine,
+            actor_id="BOT_ppo",
+            process_action_callback=callback,
+        )
+        # crash만 안 하면 됨
+```
+
+### 테스트 2: 주지사 player_0 고정
+
+**파일:** `backend/tests/test_governor_assignment.py` (신규)
+
+```python
+import pytest
+from app.engine_wrapper.wrapper import EngineWrapper
+
+
+def test_governor_is_always_player_0():
+    """EngineWrapper 생성 시 주지사가 항상 player_0이어야 한다."""
+    for _ in range(10):
+        engine = EngineWrapper(num_players=3)
+        assert engine.env.game.governor_idx == 0
+        assert engine.env.game.current_player_idx == 0
+
+
+def test_initial_plantation_consistent_with_governor_0():
+    """governor가 0일 때 player_0이 인디고를 받아야 한다."""
+    engine = EngineWrapper(num_players=3)
+    game = engine.env.game
+    p0 = game.players[0]
+
+    from configs.constants import TileType
+    has_indigo = any(t.tile_type == TileType.INDIGO_PLANTATION for t in p0.island_board)
+    assert has_indigo
 ```
 
 ---
 
-### TDD 구현 순서 (에러 2)
+## 구현 순서
 
 ```
-RED:    test_bot_delay_role_selection() — 역할 선택 시 delay >= 3.0 검증
-RED:    test_bot_delay_normal_action()  — 일반 액션 시 delay >= 2.0 검증
-GREEN:  bot_service.py 딜레이 값 수정
+4-A (즉시)              4-B (즉시)              4-C (즉시)
++------------------+   +------------------+   +------------------+
+| bot_service.py   |   | game_service.py  |   | wrapper.py       |
+| 최상위 try-      |   | [SCHEDULE] 로그  |   | governor=0 고정  |
+| except + 로그    |   | 추가             |   | (reset 반복)     |
++------------------+   +------------------+   +------------------+
+         |                      |                      |
+         v                      v                      v
+  test_bot_service_    test_bot_task_         test_governor_
+  safety.py 추가       reference.py 추가     assignment.py 신규
 ```
+
+**4-A + 4-B 먼저 배포 -> Docker 로그에서 정확한 실패 지점 확인 -> 4-C 적용**
 
 ---
 
-## 전체 구현 우선순위
+## 검증 체크리스트
 
-| 순서 | 작업 | 파일 | 중요도 |
-|------|------|------|--------|
-| 1 | `LegacyPPOAgent` 클래스 추가 | `PuCo_RL/agents/ppo_agent.py` | **필수** |
-| 2 | `bot_service.py` `MODEL_TYPE=legacy_ppo` 분기 추가 | `backend/app/services/bot_service.py` | **필수** |
-| 3 | 환경변수 설정 `MODEL_TYPE=legacy_ppo` | `docker-compose.yml` 또는 `.env` | **필수** |
-| 4 | 봇 딜레이 조정 (1.0→2.0, 2.0→3.0) | `backend/app/services/bot_service.py` | 권장 |
-| 5 | 프론트엔드 "봇 생각 중" 인디케이터 | `frontend/src/` (게임 화면 컴포넌트) | 선택 |
+### 단위 테스트
 
----
+- [ ] `test_engine_get_action_mask_error_caught` -- 최상위 예외 방어
+- [ ] `test_engine_last_obs_none_caught` -- last_obs None 방어
+- [ ] `test_governor_is_always_player_0` -- 주지사 고정
+- [ ] `test_initial_plantation_consistent_with_governor_0` -- plantation 정합성
+- [ ] 기존 Phase 1~3 테스트 전부 회귀 없음
 
-## 요약
+### Docker 통합 테스트
 
-**에러 1의 핵심:**
-`ppo_agent_update_100.pth`는 **구버전 CleanRL 아키텍처** (actor/critic 각 3-Linear)로 학습된 모델이고, 현재 서빙 코드의 `Agent` 클래스는 **신버전 ResidualMLP 아키텍처**다. `strict=False` 폴백이 있지만 레이어 shape가 달라 실질적으로 가중치가 전혀 로드되지 않으므로 봇이 무작위(또는 고장 상태)로 동작한다.
+- [ ] 로그에 `[SCHEDULE]` 태그 출력 확인
+- [ ] 로그에 `[BOT] turn start` 태그 출력 확인
+- [ ] 봇 3인전 시작 -> 첫 역할 선택 -> 봇이 액션 수행
+- [ ] 방장(player_0)이 첫 주지사로 표시
+- [ ] 게임 완주(종료까지 고착 없이 진행)
 
-**해결의 핵심:**
-`LegacyPPOAgent` 추가 + `MODEL_TYPE=legacy_ppo` 환경변수 설정으로 **구버전 체크포인트를 올바르게 로드**하면 봇이 정상 작동하고, 에러 2(딜레이)는 그 이후에 확인 및 조정하면 된다.
+
+
+puco_backend   | INFO:     127.0.0.1:60172 - "GET /health HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:46808 - "GET /api/puco/auth/me HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:46814 - "GET /api/puco/auth/me HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:46818 - "GET /api/puco/rooms/ HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:46826 - "GET /api/puco/rooms/ HTTP/1.1" 200 OK
+puco_backend   | INFO:     127.0.0.1:60178 - "GET /health HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:54094 - "POST /api/puco/rooms/ HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:54110 - "GET /api/bot-types HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:54122 - "GET /api/bot-types HTTP/1.1" 200 OK
+puco_backend   | INFO:     127.0.0.1:43020 - "GET /health HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:54132 - "POST /api/puco/game/32f2597d-0202-4263-9135-3520288ea3c9/add-bot HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:54144 - "POST /api/puco/game/32f2597d-0202-4263-9135-3520288ea3c9/add-bot HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:54160 - "POST /api/puco/game/32f2597d-0202-4263-9135-3520288ea3c9/start HTTP/1.1" 200 OK
+puco_backend   | INFO:     127.0.0.1:43030 - "GET /health HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:53902 - "POST /api/puco/game/32f2597d-0202-4263-9135-3520288ea3c9/action HTTP/1.1" 200 OK
+puco_backend   | INFO:     172.18.0.3:53918 - "POST /api/puco/game/32f2597d-0202-4263-9135-3520288ea3c9/action HTTP/1.1" 200 OK
+테스트 결과 아직도 봇이 행동을 안하고, 이번엔 주지사가 방장에게 고정되고 있어 주지사는 3명의 플레이어(봇 포함) 중 랜덤으로 배정되게 해줘  
+예전에 봇의 행동을 2~3초 정도 늦추는 로직을 작성한적이 있는데 그것 때문인지도 봐줘 
+
+기존에 너가 수정하기 전에는 방장 플레이어는 첫 주지사를 받을 수 없는 버그가 있었고 너가 수정한 후(지금)은 방장만 첫 주지사를 받는 버그가 발생해
+내가 원하는 점은 첫 주지사는 플레이어 3명 중 랜덤으로 배정되는거야
+
+수정 전 옛날 로직의 버그 : 첫 주지사가 방장을 제외한 다른 2명의 플레이어에게만 배정되었다
+현재 버그 : 첫 주지사가 오직 방장에게만 배정된다
+**내가 원하는 방향 : 첫 주지사가 방장을 포함한 플레이어 중 랜덤으로 배정되는것** 
+
+
+또한 첫 봇 턴에서 스케줄 한다고 하는데 애초에 봇이 처음 턴이든 아니면 나중 턴이든 행동 자체를 안하고 있어 백엔들 로그 상은 저 위의 로그만 나오고, 프론트 부분에서는 Bot 님의 차롈르 기다리는 중... 이러면서 아무런 행동도 하지 않아 
