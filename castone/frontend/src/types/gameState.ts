@@ -102,6 +102,8 @@ export interface CommonBoard {
 export interface Plantation {
   type: string;
   colonized: boolean;
+  slot_id?: string;
+  capacity?: number;
 }
 
 export interface PlayerBuilding {
@@ -111,6 +113,8 @@ export interface PlayerBuilding {
   empty_slots: number;
   is_active: boolean;
   vp: number;
+  slot_id?: string;
+  capacity?: number;
 }
 
 export interface GoodsStock {

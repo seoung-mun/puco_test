@@ -4,13 +4,14 @@ from typing import Optional
 from uuid import UUID
 
 from app.dependencies import get_db
-from app.schemas.game import GameAction
+from app.schemas.game import GameAction, MayorDistributeRequest
 from app.services.game_service import GameService
 from app.api.deps import get_current_user
 from app.db.models import User, GameSession
 from app.services.state_serializer import compute_score_breakdown
 from app.services.lobby_manager import lobby_manager
 from pydantic import BaseModel
+from app.services.mayor_orchestrator import MayorPlacement
 
 
 class AddBotRequest(BaseModel):
@@ -66,6 +67,29 @@ async def perform_action(
             raise HTTPException(status_code=400, detail="action_index is required in payload")
 
         result = service.process_action(game_id, actor_id, action_int)
+        return {"status": "success", "state": result["state"], "action_mask": result["action_mask"]}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{game_id}/mayor-distribute")
+async def perform_mayor_distribution(
+    game_id: UUID,
+    body: MayorDistributeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    room = db.query(GameSession).filter(GameSession.id == game_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Game not found")
+    if str(current_user.id) not in (room.players or []):
+        raise HTTPException(status_code=403, detail="You are not a player in this game")
+
+    actor_id = str(current_user.id)
+    service = GameService(db)
+    try:
+        placements = [MayorPlacement(slot_id=item.slot_id, count=item.count) for item in body.placements]
+        result = service.process_mayor_distribution(game_id, actor_id, placements)
         return {"status": "success", "state": result["state"], "action_mask": result["action_mask"]}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

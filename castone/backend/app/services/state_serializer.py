@@ -12,6 +12,7 @@ from configs.constants import (
     Phase, Role, Good, TileType, BuildingType, BUILDING_DATA
 )
 import app.services.action_translator as _tr
+from app.services.mayor_orchestrator import make_city_slot_id, make_island_slot_id
 
 if TYPE_CHECKING:
     from env.engine import PuertoRicoGame
@@ -230,8 +231,10 @@ def _serialize_player(
         {
             "type": TILE_TO_STR.get(_safe_get(t, "tile_type"), "empty"),
             "colonized": bool(_safe_get(t, "is_occupied", "occupied", default=False)),
+            "slot_id": make_island_slot_id(TILE_TO_STR.get(_safe_get(t, "tile_type"), "empty"), idx),
+            "capacity": 1,
         }
-        for t in player.island_board
+        for idx, t in enumerate(player.island_board)
     ]
     island = {
         "total_spaces": 12,
@@ -246,7 +249,7 @@ def _serialize_player(
 
     # City
     buildings_data = []
-    for b in player.city_board:
+    for idx, b in enumerate(player.city_board):
         bt = b.building_type
         if bt in (BuildingType.OCCUPIED_SPACE,):
             continue
@@ -261,6 +264,8 @@ def _serialize_player(
             "empty_slots": max(0, max_col - _safe_int(_safe_get(b, "colonists", "worker_count", default=0))),
             "is_active": _safe_int(_safe_get(b, "colonists", "worker_count", default=0)) > 0,
             "vp": bdata[1],
+            "slot_id": make_city_slot_id(_building_name(bt), idx),
+            "capacity": max_col,
         })
 
     city = {

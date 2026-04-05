@@ -10,6 +10,15 @@ class GameAction(BaseModel):
     payload: Dict[str, Any]
 
 
+class MayorPlacementItem(BaseModel):
+    slot_id: str
+    count: int = Field(ge=0, le=3)
+
+
+class MayorDistributeRequest(BaseModel):
+    placements: List[MayorPlacementItem]
+
+
 class ActionLog(BaseModel):
     game_id: UUID
     round: int

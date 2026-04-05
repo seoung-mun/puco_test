@@ -12,6 +12,7 @@ from app.engine_wrapper.wrapper import create_game_engine, EngineWrapper
 from app.schemas.game import GameRoomCreate
 from app.services.ws_manager import manager
 from app.services.state_serializer import serialize_compact_summary, serialize_game_state_from_engine
+from app.services.mayor_orchestrator import MayorPlacement, apply_distribution_plan
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class GameService:
     active_engines: Dict[UUID, EngineWrapper] = {}
     _bot_tasks = set()
     _bot_stall_watchdogs: Dict[str, asyncio.Task] = {}
+    game_session_model = GameSession
 
     def __init__(self, db: Session):
         self.db = db
@@ -231,6 +233,9 @@ class GameService:
             getattr(engine.env, "agent_selection", None),
         )
         return {"state": rich_state, "action_mask": new_action_mask}
+
+    def process_mayor_distribution(self, game_id: UUID, actor_id: str, placements: List[MayorPlacement]):
+        return apply_distribution_plan(self, game_id, actor_id, placements)
 
     def _schedule_next_bot_turn_if_needed(self, game_id: UUID, room: GameSession, engine: EngineWrapper):
         next_idx = engine.env.game.current_player_idx

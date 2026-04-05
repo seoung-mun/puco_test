@@ -94,6 +94,27 @@ async function parseApiError(res: Response): Promise<string> {
   return text;
 }
 
+function buildMayorPlacements(state: GameState, mayorPending: number[]) {
+  const player = state.players[state.meta.active_player];
+  const placements: Array<{ slot_id: string; count: number }> = [];
+
+  player.island.plantations.forEach((plantation, idx) => {
+    const count = mayorPending[idx] ?? 0;
+    if (count > 0 && plantation.slot_id) {
+      placements.push({ slot_id: plantation.slot_id, count });
+    }
+  });
+
+  player.city.buildings.forEach((building, idx) => {
+    const count = mayorPending[12 + idx] ?? 0;
+    if (count > 0 && building.slot_id) {
+      placements.push({ slot_id: building.slot_id, count });
+    }
+  });
+
+  return placements;
+}
+
 /** Legacy API 호출 래퍼: INTERNAL_API_KEY 헤더를 자동으로 포함 */
 function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers as HeadersInit);
@@ -759,23 +780,33 @@ export default function App() {
 
   async function confirmMayorDistribution() {
     if (!state || !mayorPending || notMyTurn()) return;
-    // Channel API: send individual slot placements for each slot with colonists
-    // mayorPending[0-11] = island slots, [12-23] = city slots
+    if (!gameId || !authToken) return;
+    const placements = buildMayorPlacements(state, mayorPending);
     lastMayorDistRef.current = [...mayorPending];
-    setMayorPending(null);
-    // Submit each slot toggle in order; engine will handle placement vs skip
-    for (let i = 0; i < 12; i++) {
-      for (let j = 0; j < mayorPending[i]; j++) {
-        await channelAction(channelActionIndex.mayorIsland(i));
+
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${BACKEND}/api/puco/game/${gameId}/mayor-distribute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ placements }),
+      });
+      if (!res.ok) {
+        setError(await parseApiError(res));
+        return;
       }
+      const data = await res.json();
+      if (data.state) setState(data.state as GameState);
+      setMayorPending(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Request failed');
+    } finally {
+      setSaving(false);
     }
-    for (let i = 0; i < 12; i++) {
-      for (let j = 0; j < mayorPending[12 + i]; j++) {
-        await channelAction(channelActionIndex.mayorCity(i));
-      }
-    }
-    // Finish with pass
-    await channelAction(15);
   }
 
   async function mayorPlaceAmount(amount: number) {
