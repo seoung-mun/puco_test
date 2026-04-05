@@ -277,6 +277,9 @@
 
   "endGame": {
     "title":       "🏁 게임 종료 — {{reason}}",
+    "titleNoReason":"🏁 게임 종료",
+    "loading":     "점수 집계 중...",
+    "returnToRooms":"방 목록으로 돌아가기",
     "vpChips":     "VP 칩",
     "buildings":   "건물",
     "guildHall":   "동업 조합",

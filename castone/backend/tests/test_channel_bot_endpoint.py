@@ -36,6 +36,7 @@ def _make_room(db, host_id, num_players=3, status="WAITING", players=None):
         status=status,
         num_players=num_players,
         players=players,
+        host_id=str(host_id),
     )
     db.add(room)
     db.flush()
@@ -70,6 +71,23 @@ class TestAddBotAuth:
             headers=_auth(stranger_id),
         )
         assert res.status_code == 403, f"expected 403, got {res.status_code}"
+
+    def test_add_bot_requires_host_privileges(self, client, db):
+        """방 참가자여도 방장이 아니면 봇을 추가할 수 없어야 한다."""
+        host_id = _make_user(db, "Host")
+        member_id = _make_user(db, "Member")
+        gid = _make_room(
+            db,
+            host_id,
+            players=[str(host_id), str(member_id)],
+        )
+        res = client.post(
+            f"/api/puco/game/{gid}/add-bot",
+            json={"bot_type": "random"},
+            headers=_auth(member_id),
+        )
+        assert res.status_code == 403, f"expected 403, got {res.status_code}: {res.text}"
+        assert "host" in res.json()["detail"].lower()
 
 
 # ------------------------------------------------------------------ #

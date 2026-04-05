@@ -101,10 +101,6 @@ async def handle_leave(
     if room is None:
         return
 
-    # 게임이 진행 중이면 로비 떠남 처리를 하지 않음 (lobby WS disconnect는 게임 시작 시 정상적으로 발생)
-    if room.status != "WAITING":
-        return
-
     players = [str(p) for p in (room.players or [])]
     if player_id not in players:
         return  # idempotent
@@ -116,6 +112,14 @@ async def handle_leave(
     room.players = players
 
     human_count = _count_humans(players)
+
+    if room.status != "WAITING":
+        if human_count == 0:
+            db.delete(room)
+        elif is_host_leaving:
+            room.host_id = next((p for p in players if not p.startswith("BOT_")), None)
+        db.commit()
+        return
 
     # 1. If no humans left, delete room
     # 2. If host leaves a WAITING room, delete it (prevents ghost rooms)

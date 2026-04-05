@@ -30,6 +30,7 @@ JSONL만 있는 경우:
 ```bash
 python vis/render_lineage_report.py \
   --jsonl data/logs/games/YOUR_GAME_ID.jsonl \
+  --lang ko \
   --output vis/output/lineage.md
 ```
 
@@ -40,6 +41,7 @@ DATABASE_URL="postgresql+psycopg://user:pass@localhost:5432/castone" \
 python vis/render_storage_report.py \
   --game-id YOUR_GAME_ID \
   --jsonl data/logs/games/YOUR_GAME_ID.jsonl \
+  --lang ko \
   --output vis/output/storage.md
 ```
 
@@ -48,6 +50,7 @@ python vis/render_storage_report.py \
 ```bash
 python vis/render_behavior_report.py \
   --jsonl data/logs/games/YOUR_GAME_ID.jsonl \
+  --lang ko \
   --output vis/output/behavior.md
 ```
 
@@ -56,6 +59,7 @@ python vis/render_behavior_report.py \
 ```bash
 python vis/render_audit_requirements.py \
   --jsonl data/logs/games/YOUR_GAME_ID.jsonl \
+  --lang ko \
   --output vis/output/audit.md
 ```
 

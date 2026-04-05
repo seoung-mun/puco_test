@@ -455,6 +455,7 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
         f"player_{idx}": bot_type
         for idx, bot_type in session.bot_players.items()
     }
+    result_summary = compute_score_breakdown(game, session.player_names) if session.game_over else None
 
     return {
         "meta": meta,
@@ -463,6 +464,7 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
         "decision": decision,
         "history": session.history,
         "bot_players": bot_players,
+        "result_summary": result_summary,
     }
 
 
@@ -542,6 +544,7 @@ def serialize_game_state_from_engine(
         f"player_{idx}": bot_type
         for idx, bot_type in bot_players.items()
     }
+    result_summary = compute_score_breakdown(game, player_names) if game_over else None
 
     return {
         "meta": meta,
@@ -550,6 +553,7 @@ def serialize_game_state_from_engine(
         "decision": decision,
         "history": history,
         "bot_players": bot_players_out,
+        "result_summary": result_summary,
         "action_mask": action_mask,
     }
 

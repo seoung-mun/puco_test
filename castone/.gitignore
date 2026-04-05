@@ -1,124 +1,100 @@
-# ### Castest Root .gitignore ###
-
-# --- Legacy & Backup ---
-backup/
-backend_rs/
-archive/
-*.bak
-*.tmp
-
-# --- Python ---
-__pycache__/
-*.py[cod]
-*$py.class
-.pytest_cache/
-.tox/
-.nox/
-.coverage
-.cache
-nosetests.xml
-coverage.xml
-*.stats
-.hypothesis/
-.venv/
-venv/
-ENV/
-env/
-
-# --- Node (Frontend) ---
-node_modules/
-.npm
-dist/
-dist-ssr
-*.local
-.parcel-cache
-.eslintcache
-
-# --- Docker ---
-.docker
-*.log
-
-# --- OS ---
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# --- IDE ---
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# --- Secrets & Credentials (절대 푸쉬 금지) ---
+# --- Environments & Secrets ---
 .env
 .env.*
 !.env.example
+frontend/.env
 *.pem
 *.key
 *.p12
 secrets/
 credentials.json
 
-# --- Database (로컬 개발 DB 파일) ---
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.venv/
+venv/
+env/
+ENV/
+
+# --- Node / Frontend ---
+node_modules/
+dist/
+dist-ssr/
+.npm
+.parcel-cache/
+.eslintcache
+
+# --- Coverage & Test Outputs ---
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+nosetests.xml
+coverage.xml
+*.stats
+test_legacy.db
 *.db
 *.sqlite
 *.sqlite3
-test_legacy.db
+*.bak
+*.tmp
 
-# --- Alembic (자동 생성 캐시) ---
-# alembic/versions/ 는 커밋 대상 — 여기서 제외하지 않음
+# --- Logs & Runtime Data ---
+*.log
+data/logs/
+!data/logs/.gitkeep
+vis/output/
 
-# --- ML/RL 모델 (용량이 큰 바이너리) ---
+# --- Legacy / Backup Trees ---
+archive/
+backup/
+
+# --- Model Artifacts ---
 *.pth
 *.pt
 *.onnx
 *.pkl
 *.h5
-castone/PuCo_RL/agents/trained_models/
-castone/data/logs/*
-!castone/data/logs/.gitkeep
+PuCo_RL/models/**/*.json
+!PuCo_RL/models/**/*.md
 
-# --- PuCo_RL 개발환경 ---
-castone/PuCo_RL/.venv/
-castone/PuCo_RL/.pytest_cache/
-
-# --- Coverage Reports ---
-htmlcov/
-.coverage.*
-coverage/
-
-# --- 임시 파일 ---
-*.tmp
+# --- IDE / OS ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+.idea/
+.vscode/
 *.swp
 *.swo
 
+# --- Local Agent Tooling ---
+.claude
 .claudeignore
 .geminiignore
 GEMINI.md
-.claude
 
-castone/.claude
-
-.claude
-.pytest_cache
-backend_rs/
-backup/
-
-castone/.claude
-castone/.ruff_cache
-castone/mcts.pdf
-
-castone/frontend/.pytest_cache
-castone/frontend/dist
-castone/frontend/node_modules
-
-castone/backend/.mypy_cache
-castone/backend/.pytest_cache
-castone/backend/.ruff_cache
-
-
-castone/PuCo_RL/.venv
+# --- Ad-hoc Reports To Keep Out Of Merge ---
+error_report/
+TODO.md
+audit.md
+design.md
+design_*.md
+desing_error.md
+error*.md
+frontend_architecture_for_debugging.md
+prompt.md
+report.md
+search.md
+PuCo_Change_report.md

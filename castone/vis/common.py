@@ -75,6 +75,12 @@ def build_parser(description: str) -> argparse.ArgumentParser:
         default=12,
         help="Maximum number of step rows to render in detailed sections.",
     )
+    parser.add_argument(
+        "--lang",
+        choices=("en", "ko"),
+        default=os.getenv("VIS_LANG", "en"),
+        help="Report language. Supported: en, ko.",
+    )
     return parser
 
 
@@ -464,9 +470,9 @@ def count_chain_breaks(
     return len(breaks), breaks
 
 
-def bullet_list(items: Iterable[str]) -> str:
+def bullet_list(items: Iterable[str], empty_label: str = "none") -> str:
     values = [f"- {item}" for item in items if item]
-    return "\n".join(values) if values else "- none"
+    return "\n".join(values) if values else f"- {empty_label}"
 
 
 def model_snapshot_rows(room: GameSessionSnapshot | None) -> list[list[Any]]:
@@ -488,16 +494,16 @@ def model_snapshot_rows(room: GameSessionSnapshot | None) -> list[list[Any]]:
     return rows
 
 
-def coverage_badge(count: int, total: int) -> str:
+def coverage_badge(count: int, total: int, lang: str = "en") -> str:
     if total <= 0:
         return "0/0"
     ratio = count / total
     if ratio == 1.0:
-        status = "OK"
+        status = "정상" if lang == "ko" else "OK"
     elif ratio > 0:
-        status = "PARTIAL"
+        status = "부분" if lang == "ko" else "PARTIAL"
     else:
-        status = "MISSING"
+        status = "누락" if lang == "ko" else "MISSING"
     return f"{count}/{total} ({status})"
 
 

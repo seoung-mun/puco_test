@@ -6,6 +6,16 @@ from uuid import uuid4
 
 from app.services.ml_logger import MLLogger
 
+
+@pytest.fixture(autouse=True)
+def isolate_ml_log_dir(tmp_path, monkeypatch):
+    log_dir = tmp_path / "logs"
+    game_dir = log_dir / "games"
+    game_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("app.services.ml_logger.LOG_DIR", str(log_dir))
+    monkeypatch.setattr("app.services.ml_logger.GAME_LOG_DIR", str(game_dir))
+
+
 @pytest.mark.asyncio
 async def test_log_transition_concurrency():
     """Test that multiple concurrent logs do not interleave or corrupt data."""
@@ -108,4 +118,4 @@ def test_get_log_file_path_uses_per_game_jsonl_layout():
     game_id = uuid4()
     log_path = MLLogger.get_log_file_path(game_id)
 
-    assert log_path.endswith(f"/data/logs/games/{game_id}.jsonl")
+    assert log_path.endswith(f"/games/{game_id}.jsonl")

@@ -276,6 +276,9 @@
 
   "endGame": {
     "title":       "🏁 Partita terminata — {{reason}}",
+    "titleNoReason":"🏁 Partita terminata",
+    "loading":     "Calcolo punteggi...",
+    "returnToRooms":"Torna all'elenco stanze",
     "vpChips":     "Gettoni VP",
     "buildings":   "Edifici",
     "guildHall":   "Palazzo corp.",

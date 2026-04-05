@@ -3,7 +3,7 @@ import { useGameWebSocket } from './hooks/useGameWebSocket';
 import { useGameSSE } from './hooks/useGameSSE';
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
-import type { GameState } from './types/gameState';
+import type { FinalScoreSummary, GameState } from './types/gameState';
 import MetaPanel from './components/MetaPanel';
 import CommonBoardPanel from './components/CommonBoardPanel';
 import PlayerPanel from './components/PlayerPanel';
@@ -16,26 +16,11 @@ import RoomListScreen from './components/RoomListScreen';
 import JoinScreen from './components/JoinScreen';
 import LobbyScreen from './components/LobbyScreen';
 import LoginScreen from './components/LoginScreen';
+import EndGamePanel from './components/EndGamePanel';
 import type { LobbyPlayer } from './types/gameState';
 import './App.css';
 
 type Advantage = { label: string; tooltip: string; cls: string };
-
-type PlayerScore = {
-  vp_chips: number;
-  building_vp: number;
-  guild_hall_bonus: number;
-  residence_bonus: number;
-  fortress_bonus: number;
-  customs_house_bonus: number;
-  city_hall_bonus: number;
-  total: number;
-};
-type FinalScoreResponse = {
-  scores: Record<string, PlayerScore>;
-  winner: string;
-  player_order: string[];
-};
 
 // CSS classes only — labels/tooltips come from i18n
 const ROLE_PRIVILEGE_CLASSES: Record<string, string> = {
@@ -152,7 +137,7 @@ export default function App() {
   const [roundFlash, setRoundFlash] = useState<number | null>(null);
   const [discardProtected, setDiscardProtected] = useState<string[]>([]);
   const [discardSingleExtra, setDiscardSingleExtra] = useState<string | null>(null);
-  const [finalScores, setFinalScores] = useState<FinalScoreResponse | null>(null);
+  const [finalScores, setFinalScores] = useState<FinalScoreSummary | null>(null);
   const prevRoundRef = useRef<number | null>(null);
   const prevPhaseRef = useRef<string | null>(null);
   const prevActivePlayerRef = useRef<string | null>(null);
@@ -339,15 +324,37 @@ export default function App() {
   }, [state?.history?.length]);
 
   useEffect(() => {
-    if (!state?.meta.end_game_triggered || !gameId || !authToken) return;
+    if (!state?.meta.end_game_triggered) return;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (state.result_summary) return;
+    if (!gameId || !authToken) return;
+
+    let cancelled = false;
     fetch(`${BACKEND}/api/puco/game/${gameId}/final-score`, {
       headers: { 'Authorization': `Bearer ${authToken}` },
     })
-      .then(r => r.json())
-      .then(setFinalScores)
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(await parseApiError(response));
+        }
+        return response.json() as Promise<FinalScoreSummary>;
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setFinalScores(data);
+        }
+      })
       .catch(() => {});
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [state?.meta.end_game_triggered]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, gameId, state?.meta.end_game_triggered, state?.result_summary]);
+
+  useEffect(() => {
+    if (state?.meta.end_game_triggered) return;
+    setFinalScores(null);
+  }, [state?.meta.end_game_triggered, state?.meta.game_id]);
 
   useEffect(() => { initializeApp(); }, []);
 
@@ -680,6 +687,44 @@ export default function App() {
   function closeLobbyWs() {
     lobbyWsRef.current?.close();
     lobbyWsRef.current = null;
+  }
+
+  function resetGameUiState() {
+    popupTimersRef.current.forEach(clearTimeout);
+    popupTimersRef.current = [];
+    setPopups([]);
+    setRoundFlash(null);
+    setSaving(false);
+    setPassing(false);
+    setBuildConfirm(null);
+    setPendingSettlement(null);
+    setSellingGood(null);
+    setDiscardProtected([]);
+    setDiscardSingleExtra(null);
+    setFinalScores(null);
+    setMayorPending(null);
+    setLobbyError(null);
+    lastMayorDistRef.current = null;
+    prevRoundRef.current = null;
+    prevPhaseRef.current = null;
+    prevActivePlayerRef.current = null;
+    prevHaciendaUsedRef.current = false;
+    prevHistoryLenRef.current = -1;
+  }
+
+  function handleReturnToRooms() {
+    closeLobbyWs();
+    resetGameUiState();
+    setState(null);
+    setGameId(null);
+    setMyName(null);
+    setMyPlayerId(null);
+    setIsMultiplayer(false);
+    setIsSpectator(false);
+    setLobbyPlayers([]);
+    setLobbyHost(null);
+    setError(null);
+    setScreen('rooms');
   }
 
   /** Channel: 게임 시작 */
@@ -1206,50 +1251,11 @@ export default function App() {
         <div className="round-flash">{t('actions.roundCompleted', { n: roundFlash })}</div>
       )}
       {state.meta.end_game_triggered && (
-        <div className="end-game-panel">
-          <div className="end-game-panel__header">
-            {t('endGame.title', { reason: state.meta.end_game_reason })}
-          </div>
-          {finalScores ? (() => {
-            const cols: { key: keyof PlayerScore; label: string }[] = [
-              { key: 'vp_chips',            label: t('endGame.vpChips') },
-              { key: 'building_vp',         label: t('endGame.buildings') },
-              { key: 'guild_hall_bonus',    label: t('endGame.guildHall') },
-              { key: 'residence_bonus',     label: t('endGame.residence') },
-              { key: 'fortress_bonus',      label: t('endGame.fortress') },
-              { key: 'customs_house_bonus', label: t('endGame.customsHouse') },
-              { key: 'city_hall_bonus',     label: t('endGame.cityHall') },
-              { key: 'total',               label: t('endGame.total') },
-            ];
-            return (
-              <table className="end-game-table">
-                <thead>
-                  <tr>
-                    <th>{t('player.governor')}</th>
-                    {cols.map(c => <th key={c.key}>{c.label}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {finalScores.player_order.map(pid => {
-                    const s = finalScores.scores[pid];
-                    const isWinner = pid === finalScores.winner;
-                    const name = state.players[pid]?.display_name ?? pid;
-                    return (
-                      <tr key={pid} className={isWinner ? 'end-game-winner' : ''}>
-                        <td>{isWinner ? '🏆 ' : ''}{name}</td>
-                        {cols.map(c => (
-                          <td key={c.key} className={c.key === 'total' ? 'end-game-total' : ''}>
-                            {s[c.key] > 0 || c.key === 'vp_chips' || c.key === 'total' ? s[c.key] : '—'}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            );
-          })() : <p className="end-game-loading">Calcolo punteggi...</p>}
-        </div>
+        <EndGamePanel
+          state={state}
+          scores={state.result_summary ?? finalScores}
+          onReturnToRooms={handleReturnToRooms}
+        />
       )}
       {error && (
         <div className="error-banner">

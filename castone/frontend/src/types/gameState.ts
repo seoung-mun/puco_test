@@ -209,6 +209,23 @@ export interface HistoryEntry {
   params: Record<string, string>;
 }
 
+export interface PlayerScore {
+  vp_chips: number;
+  building_vp: number;
+  guild_hall_bonus: number;
+  residence_bonus: number;
+  fortress_bonus: number;
+  customs_house_bonus: number;
+  city_hall_bonus: number;
+  total: number;
+}
+
+export interface FinalScoreSummary {
+  scores: Record<string, PlayerScore>;
+  winner: string;
+  player_order: string[];
+}
+
 export interface GameState {
   meta: Meta;
   common_board: CommonBoard;
@@ -216,4 +233,5 @@ export interface GameState {
   decision: Decision;
   history: HistoryEntry[];
   bot_players?: Record<string, string>;
+  result_summary?: FinalScoreSummary | null;
 }

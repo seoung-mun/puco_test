@@ -278,6 +278,9 @@
 
   "endGame": {
     "title":       "🏁 Game Over — {{reason}}",
+    "titleNoReason":"🏁 Game Over",
+    "loading":     "Calculating final scores...",
+    "returnToRooms":"Return to room list",
     "vpChips":     "VP chips",
     "buildings":   "Buildings",
     "guildHall":   "Guild Hall",

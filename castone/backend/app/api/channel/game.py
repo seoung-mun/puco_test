@@ -102,6 +102,8 @@ async def add_bot(
         raise HTTPException(status_code=404, detail="Game not found")
     if str(current_user.id) not in (room.players or []):
         raise HTTPException(status_code=403, detail="You are not a player in this game")
+    if str(current_user.id) != str(room.host_id):
+        raise HTTPException(status_code=403, detail="Only the host can manage bots")
     if room.status != "WAITING":
         raise HTTPException(status_code=409, detail="Game has already started")
     players = list(room.players or [])
@@ -135,8 +137,10 @@ async def get_final_score(
     room = db.query(GameSession).filter(GameSession.id == game_id).first()
     if not room:
         raise HTTPException(status_code=404, detail="Game not found")
-    if str(current_user.id) not in (room.players or []):
-        raise HTTPException(status_code=403, detail="You are not a player in this game")
+    is_player = str(current_user.id) in (room.players or [])
+    is_host = str(current_user.id) == str(room.host_id)
+    if not (is_player or is_host):
+        raise HTTPException(status_code=403, detail="You are not allowed to view this game's final score")
 
     engine = GameService.active_engines.get(game_id)
     if not engine:

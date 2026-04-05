@@ -3,6 +3,10 @@ from typing import Any, Union, Optional
 import jwt
 import os
 
+from app.core.env_secrets import validate_runtime_secrets
+
+validate_runtime_secrets(os.environ)
+
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError(

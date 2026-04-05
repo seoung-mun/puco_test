@@ -13,7 +13,9 @@ from common import (
 )
 
 
-def build_lineage_markdown(ctx, max_steps: int) -> str:
+def build_lineage_markdown(ctx, max_steps: int, lang: str = "en") -> str:
+    is_ko = lang == "ko"
+    yes_label = "예" if is_ko else "yes"
     joined = build_step_join(ctx.game_logs, ctx.transitions)
     transition_coverage = field_coverage(
         ctx.transitions,
@@ -29,7 +31,7 @@ def build_lineage_markdown(ctx, max_steps: int) -> str:
 
     summary_rows = [
         ["game_id", ctx.game_id or ""],
-        ["db_url", ctx.db_url or "(not set)"],
+        ["db_url", ctx.db_url or ("(설정되지 않음)" if is_ko else "(not set)")],
         ["db_game_logs", len(ctx.game_logs)],
         ["jsonl_rows", len(ctx.transitions)],
         ["transition_files", len(ctx.transition_files)],
@@ -48,14 +50,14 @@ def build_lineage_markdown(ctx, max_steps: int) -> str:
                 row["actor_id"],
                 db_log.action if db_log else "",
                 jsonl.get("action") if jsonl else "",
-                "yes" if db_log and db_log.state_summary else "",
-                "yes" if jsonl and jsonl.get("model_info") else "",
-                "yes" if jsonl and jsonl.get("action_mask_before") is not None else "",
+                yes_label if db_log and db_log.state_summary else "",
+                yes_label if jsonl and jsonl.get("model_info") else "",
+                yes_label if jsonl and jsonl.get("action_mask_before") is not None else "",
             ]
         )
 
     coverage_rows = [
-        [field_name, coverage_badge(count, total)]
+        [field_name, coverage_badge(count, total, lang)]
         for field_name, count, total in transition_coverage
     ]
 
@@ -101,46 +103,72 @@ flowchart LR
     E --> H["Redis + WebSocket\\nSTATE_UPDATE"]
     C --> H
 ```"""
+    if is_ko:
+        mermaid_flow = f"""```mermaid
+flowchart LR
+    A["PuertoRicoEnv / EngineWrapper"] --> B["BotInputSnapshot\\nobs + mask + phase"]
+    A --> C["serialize_game_state_from_engine\\nrich GameState"]
+    B --> D["BotService.get_action()"]
+    D --> E["GameService.process_action()"]
+    E --> F["game_logs\\n행 수={len(ctx.game_logs)}"]
+    E --> G["게임별 JSONL\\n행 수={len(ctx.transitions)}"]
+    E --> H["Redis + WebSocket\\nSTATE_UPDATE"]
+    C --> H
+```"""
 
     mermaid_sequence = "```mermaid\n" + "\n".join(sequence_lines) + "\n```"
 
     sections = [
-        f"# Lineage Report: {ctx.game_id or 'unknown-game'}",
+        f"# {'계보 리포트' if is_ko else 'Lineage Report'}: {ctx.game_id or 'unknown-game'}",
         "",
-        "## Data Sources",
-        markdown_table(["item", "value"], summary_rows),
+        f"## {'데이터 소스' if is_ko else 'Data Sources'}",
+        markdown_table(["항목", "값"] if is_ko else ["item", "value"], summary_rows),
         "",
-        "## Warnings",
-        bullet_list(ctx.warnings),
+        f"## {'경고' if is_ko else 'Warnings'}",
+        bullet_list(ctx.warnings, empty_label="없음" if is_ko else "none"),
         "",
-        "## Runtime Flow",
+        f"## {'런타임 흐름' if is_ko else 'Runtime Flow'}",
         mermaid_flow,
         "",
-        "## Step Sequence",
+        f"## {'스텝 시퀀스' if is_ko else 'Step Sequence'}",
         mermaid_sequence,
         "",
-        "## Step Alignment",
+        f"## {'스텝 정렬' if is_ko else 'Step Alignment'}",
         markdown_table(
-            ["round", "step", "actor_id", "db_action", "jsonl_action", "db_summary", "jsonl_model", "jsonl_mask"],
+            ["round", "step", "actor_id", "db_action", "jsonl_action", "db_summary", "jsonl_model", "jsonl_mask"]
+            if not is_ko else
+            ["round", "step", "actor_id", "DB 액션", "JSONL 액션", "DB 요약", "JSONL 모델", "JSONL 마스크"],
             step_rows or [["", "", "", "", "", "", "", ""]],
         ),
         "",
-        "## Transition Field Coverage",
-        markdown_table(["field", "coverage"], coverage_rows or [["(no jsonl rows)", "0/0"]]),
-        "",
-        "## Model Snapshot",
+        f"## {'전이 필드 커버리지' if is_ko else 'Transition Field Coverage'}",
         markdown_table(
-            ["player", "actor_type", "bot_type", "artifact_name", "checkpoint", "metadata_source"],
-            model_rows or [["(not available)", "", "", "", "", ""]],
+            ["필드", "커버리지"] if is_ko else ["field", "coverage"],
+            coverage_rows or [[("(JSONL 행 없음)" if is_ko else "(no jsonl rows)"), "0/0"]],
         ),
         "",
-        "## Notes",
+        f"## {'모델 스냅샷' if is_ko else 'Model Snapshot'}",
+        markdown_table(
+            ["player", "actor_type", "bot_type", "artifact_name", "checkpoint", "metadata_source"]
+            if not is_ko else
+            ["player", "행위자 유형", "봇 타입", "artifact_name", "체크포인트", "metadata_source"],
+            model_rows or [[("(사용 불가)" if is_ko else "(not available)"), "", "", "", "", ""]],
+        ),
+        "",
+        f"## {'메모' if is_ko else 'Notes'}",
         bullet_list(
             [
+                "이 리포트는 DB와 JSONL 행을 (round, step, actor_id)로 조인합니다. canonical step_id는 아직 없습니다."
+                if is_ko else
                 "This report joins DB and JSONL rows by (round, step, actor_id). A canonical step_id does not exist yet.",
+                "STATE_UPDATE 전달은 런타임 코드에서 보이지만 state_revision/state_hash는 아직 계측되지 않았습니다."
+                if is_ko else
                 "STATE_UPDATE delivery is visible in runtime code, but state_revision/state_hash are not instrumented.",
+                "JSONL에 model_info가 있으면 어떤 artifact가 결정을 만들었는지 사람이 추적할 수 있습니다."
+                if is_ko else
                 "When model_info is present in JSONL, a human can follow which artifact produced a decision.",
-            ]
+            ],
+            empty_label="없음" if is_ko else "none",
         ),
     ]
     return "\n".join(sections).strip() + "\n"
@@ -154,7 +182,7 @@ def main() -> None:
         db_url=args.db_url,
         jsonl_paths=args.jsonl_paths,
     )
-    markdown = build_lineage_markdown(ctx, args.max_steps)
+    markdown = build_lineage_markdown(ctx, args.max_steps, args.lang)
     write_output(args.output, markdown)
 
 

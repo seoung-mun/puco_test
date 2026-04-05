@@ -699,6 +699,27 @@ th { color: #80a0cc; font-weight: normal; font-size: 0.8rem; }
   color: #ffd !important;
 }
 
+.end-game-panel__actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.end-game-panel__button {
+  background: #2a5ab0;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: bold;
+  padding: 0.7rem 1.2rem;
+}
+
+.end-game-panel__button:hover {
+  background: #3770d7;
+}
+
 /* Inline action card (trader / captain) */
 .action-card {
   background: #0b2028;

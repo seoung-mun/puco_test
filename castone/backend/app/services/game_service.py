@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import json
 import logging
 from typing import Dict, List
@@ -13,6 +14,12 @@ from app.schemas.game import GameRoomCreate
 from app.services.ws_manager import manager
 from app.services.state_serializer import serialize_compact_summary, serialize_game_state_from_engine
 from app.services.mayor_orchestrator import MayorPlacement, apply_distribution_plan
+from app.services.replay_logger import (
+    ReplayLogger,
+    build_final_scores_payload,
+    build_replay_entry,
+    summarize_transition_state,
+)
 from app.services.agent_registry import (
     require_valid_bot_type,
     resolve_bot_type_from_actor_id,
@@ -73,6 +80,27 @@ class GameService:
         state["model_versions"] = dict(room.model_versions or {})
         return state
 
+    def _build_replay_players_snapshot(self, room: GameSession, player_names: list[str]) -> list[dict]:
+        players_snapshot: list[dict] = []
+        model_versions = room.model_versions or {}
+        for idx, actor_id in enumerate(room.players or []):
+            actor_key = f"player_{idx}"
+            model_info = model_versions.get(actor_key) or {}
+            display_name = player_names[idx] if idx < len(player_names) else actor_key
+            actor_id_str = str(actor_id)
+            players_snapshot.append(
+                {
+                    "player": idx,
+                    "actor_id": actor_id_str,
+                    "display_name": display_name,
+                    "actor_type": model_info.get("actor_type", "bot" if actor_id_str.startswith("BOT_") else "human"),
+                    "bot_type": model_info.get("bot_type"),
+                    "artifact_name": model_info.get("artifact_name"),
+                    "metadata_source": model_info.get("metadata_source"),
+                }
+            )
+        return players_snapshot
+
     def _build_model_versions_snapshot(self, room: GameSession) -> Dict[str, Dict]:
         players = room.players or []
         snapshot: Dict[str, Dict] = {}
@@ -129,6 +157,16 @@ class GameService:
         action_mask = rich_state.get("action_mask", engine.get_action_mask())
         self._store_game_meta(game_id, room)
         self._sync_to_redis(game_id, rich_state)
+        player_names, _ = self._resolve_player_names_and_bots(room)
+        ReplayLogger.initialize_game(
+            game_id=game_id,
+            title=room.title,
+            status=room.status,
+            host_id=str(room.host_id) if room.host_id else None,
+            players=self._build_replay_players_snapshot(room, player_names),
+            model_versions=dict(room.model_versions or {}),
+            initial_state_summary=summarize_transition_state(engine.get_state()),
+        )
 
         # Trigger Bot if first player is a bot
         self._schedule_next_bot_turn_if_needed(game_id, room, engine)
@@ -188,10 +226,28 @@ class GameService:
 
         # Step through engine (wrapper handles snapshot & logging prep)
         result = engine.step(action)
-        
+        player_names, _ = self._resolve_player_names_and_bots(room) if room else ([], {})
+        actor_name = (
+            player_names[current_player_idx]
+            if current_player_idx is not None and 0 <= current_player_idx < len(player_names)
+            else actor_id
+        )
+        replay_entry = build_replay_entry(
+            actor_id=actor_id,
+            actor_name=actor_name,
+            player_index=current_player_idx,
+            action=action,
+            reward=result["reward"],
+            done=result["done"],
+            info=result["info"],
+            state_before=copy.deepcopy(result["state_before"]),
+            state_after=copy.deepcopy(result["state_after"]),
+            action_mask_before=copy.deepcopy(current_mask),
+            model_info=copy.deepcopy(actor_model_info),
+        )
+
         # Async MLOps Logging
         from app.services.ml_logger import MLLogger
-        import copy
         
         # Keep strong references to background logging tasks to prevent GC dropping them
         if not hasattr(GameService, "_background_log_tasks"):
@@ -243,8 +299,17 @@ class GameService:
         
         # Load the room to check players (for bot scheduling)
         room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
+        replay_status = room.status if room else None
+        replay_final_scores = None
+        replay_result_summary = None
         if result.get("terminated", result["done"]) and room:
             room.status = "FINISHED"
+            replay_status = "FINISHED"
+            replay_final_scores, replay_result_summary = build_final_scores_payload(
+                game=engine.env.game,
+                player_names=player_names,
+                actor_ids=[str(player_id) for player_id in (room.players or [])],
+            )
             # Update Redis meta to reflect finished status
             try:
                 redis_client.hset(f"game:{game_id}:meta", "status", "FINISHED")
@@ -253,6 +318,18 @@ class GameService:
                 logger.warning("Redis meta update failed: %s", e)
 
         self.db.commit()
+        if room:
+            ReplayLogger.append_entry(
+                game_id=game_id,
+                title=room.title,
+                status=replay_status,
+                host_id=str(room.host_id) if room.host_id else None,
+                players=self._build_replay_players_snapshot(room, player_names),
+                model_versions=dict(room.model_versions or {}),
+                entry=replay_entry,
+                final_scores=replay_final_scores,
+                result_summary=replay_result_summary,
+            )
 
         # Update Redis for WebSocket broadcast (Bot actions are also blasted through this channel)
         terminated = result.get("terminated", result["done"])
