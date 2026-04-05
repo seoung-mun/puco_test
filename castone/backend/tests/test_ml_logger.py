@@ -3,9 +3,8 @@ import os
 import pytest
 import asyncio
 from uuid import uuid4
-from datetime import datetime
 
-from app.services.ml_logger import MLLogger, LOG_DIR
+from app.services.ml_logger import MLLogger
 
 @pytest.mark.asyncio
 async def test_log_transition_concurrency():
@@ -32,8 +31,7 @@ async def test_log_transition_concurrency():
     # Run all writes concurrently
     await asyncio.gather(*tasks)
     
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    log_file = os.path.join(LOG_DIR, f"transitions_{date_str}.jsonl")
+    log_file = MLLogger.get_log_file_path(game_id)
     
     # Verify the file exists and all 100 lines are valid JSON
     assert os.path.exists(log_file)
@@ -41,10 +39,9 @@ async def test_log_transition_concurrency():
     valid_lines = 0
     with open(log_file, "r") as f:
         for line in f:
-            if actor_id in line:
-                data = json.loads(line)
-                assert "state_before" in data
-                valid_lines += 1
+            data = json.loads(line)
+            assert "state_before" in data
+            valid_lines += 1
                 
     assert valid_lines == 100, f"Expected 100 valid lines, got {valid_lines}!"
 
@@ -66,11 +63,49 @@ async def test_log_transition_includes_action_mask_when_provided():
         action_mask_before=[0, 1, 0, 1],
     )
 
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    log_file = os.path.join(LOG_DIR, f"transitions_{date_str}.jsonl")
+    log_file = MLLogger.get_log_file_path(game_id)
 
     with open(log_file, "r") as f:
-        matching = [json.loads(line) for line in f if actor_id in line]
+        matching = [json.loads(line) for line in f]
 
     assert matching, "기록된 transition이 없습니다"
     assert matching[-1]["action_mask_before"] == [0, 1, 0, 1]
+
+
+@pytest.mark.asyncio
+async def test_log_transition_includes_model_info_when_provided():
+    game_id = uuid4()
+    actor_id = f"test_actor_model_{uuid4().hex}"
+
+    await MLLogger.log_transition(
+        game_id=game_id,
+        actor_id=actor_id,
+        state_before={"step": 3},
+        action=7,
+        reward=1.0,
+        done=False,
+        state_after={"step": 4},
+        info={"round": 1, "step": 4},
+        model_info={
+            "actor_type": "bot",
+            "bot_type": "ppo",
+            "artifact_name": "PPO_PR_Server_20260401_214532_step_99942400",
+            "metadata_source": "bootstrap_derived",
+        },
+    )
+
+    log_file = MLLogger.get_log_file_path(game_id)
+
+    with open(log_file, "r") as f:
+        matching = [json.loads(line) for line in f]
+
+    assert matching, "기록된 transition이 없습니다"
+    assert matching[-1]["model_info"]["bot_type"] == "ppo"
+    assert matching[-1]["model_info"]["metadata_source"] == "bootstrap_derived"
+
+
+def test_get_log_file_path_uses_per_game_jsonl_layout():
+    game_id = uuid4()
+    log_path = MLLogger.get_log_file_path(game_id)
+
+    assert log_path.endswith(f"/data/logs/games/{game_id}.jsonl")

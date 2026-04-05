@@ -16,18 +16,24 @@ export interface RoomInfo {
   player_names: RoomPlayerInfo[];
 }
 
+interface BotAgent {
+  type: string;
+  name: string;
+}
+
 interface Props {
   token: string;
   userNickname?: string | null;
   onJoinRoom: (roomId: string) => void;
   onCreateRoom: (title: string, isPrivate: boolean, password: string | null) => Promise<string | null>;
-  onCreateBotGame?: () => void;
+  onCreateBotGame?: (botTypes: string[]) => Promise<string | null | void> | string | null | void;
   onLogout: () => void;
   error?: string | null;
 }
 
 export default function RoomListScreen({ token, userNickname, onJoinRoom, onCreateRoom, onCreateBotGame, onLogout, error: externalError }: Props) {
   const { t } = useTranslation();
+  const defaultBotTypes = ['random', 'random', 'random'];
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +45,14 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
   const [newPassword, setNewPassword] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Create bot-game modal state
+  const [showBotGame, setShowBotGame] = useState(false);
+  const [botAgents, setBotAgents] = useState<BotAgent[]>([]);
+  const [selectedBotTypes, setSelectedBotTypes] = useState<string[]>(defaultBotTypes);
+  const [loadingBotTypes, setLoadingBotTypes] = useState(false);
+  const [creatingBotGame, setCreatingBotGame] = useState(false);
+  const [botGameError, setBotGameError] = useState<string | null>(null);
 
   // Password prompt for private rooms
   const [pendingJoinId, setPendingJoinId] = useState<string | null>(null);
@@ -65,6 +79,40 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
 
   useEffect(() => { fetchRooms(); }, [fetchRooms]);
 
+  useEffect(() => {
+    if (!onCreateBotGame) return;
+
+    let cancelled = false;
+    const fallbackAgents: BotAgent[] = [{ type: 'random', name: 'Random Bot' }];
+
+    async function fetchBotAgents() {
+      setLoadingBotTypes(true);
+      try {
+        const res = await fetch('/api/bot-types');
+        if (!res.ok) throw new Error('봇 목록을 불러오지 못했습니다');
+        const data: BotAgent[] = await res.json();
+        if (cancelled) return;
+
+        const nextAgents = data.length > 0 ? data : fallbackAgents;
+        const defaultType = nextAgents.find(agent => agent.type === 'random')?.type ?? nextAgents[0].type;
+
+        setBotAgents(nextAgents);
+        setSelectedBotTypes(prev =>
+          prev.map(type => (nextAgents.some(agent => agent.type === type) ? type : defaultType))
+        );
+      } catch {
+        if (cancelled) return;
+        setBotAgents(fallbackAgents);
+        setSelectedBotTypes(prev => prev.map(type => type || 'random'));
+      } finally {
+        if (!cancelled) setLoadingBotTypes(false);
+      }
+    }
+
+    fetchBotAgents();
+    return () => { cancelled = true; };
+  }, [onCreateBotGame]);
+
   async function handleCreate() {
     if (!newTitle.trim()) return;
     if (newIsPrivate && newPassword.length !== 4) {
@@ -82,6 +130,38 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
       setNewTitle('');
       setNewIsPrivate(false);
       setNewPassword('');
+    }
+  }
+
+  function openBotGameModal() {
+    setBotGameError(null);
+    setShowBotGame(true);
+  }
+
+  function closeBotGameModal() {
+    if (creatingBotGame) return;
+    setShowBotGame(false);
+    setBotGameError(null);
+  }
+
+  function handleBotTypeChange(index: number, botType: string) {
+    setSelectedBotTypes(prev => prev.map((value, slot) => (slot === index ? botType : value)));
+  }
+
+  async function handleCreateBotGameConfirm() {
+    if (!onCreateBotGame) return;
+
+    setCreatingBotGame(true);
+    setBotGameError(null);
+    try {
+      const err = await onCreateBotGame(selectedBotTypes);
+      if (typeof err === 'string' && err) {
+        setBotGameError(err);
+        return;
+      }
+      setShowBotGame(false);
+    } finally {
+      setCreatingBotGame(false);
     }
   }
 
@@ -156,7 +236,7 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
           </button>
           {onCreateBotGame && (
             <button
-              onClick={onCreateBotGame}
+              onClick={openBotGameModal}
               style={{ background: '#1a3a2a', border: '1px solid #2a5a3a', borderRadius: 6, color: '#4f8', cursor: 'pointer', padding: '8px 16px', fontSize: 14 }}
             >
               🤖 {t('rooms.createBotGame', '봇전')}
@@ -323,6 +403,71 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
               {joining ? '입장 중...' : '입장하기'}
             </button>
             <button onClick={() => { setPendingJoinId(null); setJoinError(null); }} style={btnSecondary}>취소</button>
+          </div>
+        </div>
+      )}
+
+      {showBotGame && onCreateBotGame && (
+        <div style={overlay} onClick={closeBotGameModal}>
+          <div style={modal} onClick={e => e.stopPropagation()}>
+            <h3 style={{ color: '#4f8', margin: 0 }}>{t('rooms.botGameSetup', '봇전 구성')}</h3>
+            <p style={{ color: '#88a', fontSize: 13, margin: 0 }}>
+              {t('rooms.botGameHint', '각 슬롯의 봇 유형을 고르면 바로 관전용 봇전을 시작합니다.')}
+            </p>
+
+            {selectedBotTypes.map((botType, index) => (
+              <div key={`bot-slot-${index}`}>
+                <label style={{ color: '#aab', fontSize: 12, display: 'block', marginBottom: 4 }}>
+                  {t('rooms.botSlot', { n: index + 1, defaultValue: `플레이어 ${index + 1} 봇` })}
+                </label>
+                <select
+                  value={botType}
+                  onChange={e => handleBotTypeChange(index, e.target.value)}
+                  style={inputStyle}
+                  disabled={loadingBotTypes || creatingBotGame || botAgents.length === 0}
+                >
+                  {botAgents.map(agent => (
+                    <option key={`${index}-${agent.type}`} value={agent.type}>
+                      {agent.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+
+            {loadingBotTypes && (
+              <p style={{ color: '#88a', margin: 0, fontSize: 13 }}>
+                {t('rooms.loadingBotTypes', '봇 목록을 불러오는 중...')}
+              </p>
+            )}
+
+            {!loadingBotTypes && botAgents.length === 0 && (
+              <p style={{ color: '#f66', margin: 0, fontSize: 13 }}>
+                {t('rooms.noBotTypes', '사용 가능한 봇이 없습니다.')}
+              </p>
+            )}
+
+            {botGameError && <p style={{ color: '#f66', margin: 0, fontSize: 13 }}>{botGameError}</p>}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button
+                onClick={handleCreateBotGameConfirm}
+                disabled={creatingBotGame || loadingBotTypes || botAgents.length === 0}
+                style={{
+                  ...btnPrimary,
+                  flex: 1,
+                  opacity: creatingBotGame || loadingBotTypes || botAgents.length === 0 ? 0.6 : 1,
+                  cursor: creatingBotGame || loadingBotTypes || botAgents.length === 0 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {creatingBotGame
+                  ? t('rooms.creatingBotGame', '봇전 생성 중...')
+                  : t('rooms.startBotGame', '봇전 시작')}
+              </button>
+              <button onClick={closeBotGameModal} disabled={creatingBotGame} style={{ ...btnSecondary, flex: 1 }}>
+                {t('newGame.cancel', '취소')}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -12,12 +12,14 @@ CAPTAIN_PHASE = 5
 
 
 def _iter_records(path: Path):
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            yield json.loads(line)
+    paths = [path] if path.is_file() else sorted(path.rglob("*.jsonl"))
+    for current_path in paths:
+        with current_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                yield json.loads(line)
 
 
 def _resolve_phase(record: dict) -> int | None:
@@ -91,7 +93,7 @@ def _print_section(title: str, entries):
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze bot transitions from ML logs.")
-    parser.add_argument("path", type=Path, help="Path to transitions_*.jsonl")
+    parser.add_argument("path", type=Path, help="Path to a per-game JSONL file or a directory containing JSONL files")
     args = parser.parse_args()
 
     result = analyze(args.path)

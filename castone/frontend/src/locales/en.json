@@ -322,6 +322,13 @@
   "rooms": {
     "createRoom":    "Create Room",
     "createBotGame": "Bot Game",
+    "botGameSetup":  "Configure Bot Game",
+    "botGameHint":   "Choose the bot type for each slot and start a spectator bot match right away.",
+    "botSlot":       "Player {{n}} Bot",
+    "startBotGame":  "Start Bot Game",
+    "creatingBotGame":"Creating bot game...",
+    "loadingBotTypes":"Loading bot types...",
+    "noBotTypes":    "No bot types are available.",
     "refresh":       "Refresh",
     "full":          "Full",
     "join":          "Join",

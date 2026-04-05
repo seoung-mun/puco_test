@@ -6,34 +6,41 @@ from app.core.security import create_access_token
 
 def test_game_action_logs_to_db(client, db):
     """Valid action must be logged to game_logs with correct JSONB structure."""
-    # 1. Create user and game in DB
-    user_id = uuid.uuid4()
-    user = User(id=user_id, google_id=f"gid_{uuid.uuid4().hex}", nickname="ActionTester")
-    db.add(user)
+    # 1. Create users and game in DB
+    users = []
+    for idx in range(3):
+        user_id = uuid.uuid4()
+        user = User(id=user_id, google_id=f"gid_{uuid.uuid4().hex}", nickname=f"ActionTester{idx}")
+        db.add(user)
+        users.append(user)
+
     game = GameSession(
         id=uuid.uuid4(),
         title="Log Test Room",
         status="WAITING",
         num_players=3,
-        players=[str(user_id), "BOT_random", "BOT_random"],
-        host_id=str(user_id),
+        players=[str(user.id) for user in users],
+        host_id=str(users[0].id),
     )
     db.add(game)
     db.flush()
 
-    headers = {"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"}
+    start_headers = {"Authorization": f"Bearer {create_access_token(subject=str(users[0].id))}"}
 
     # 2. Start game
-    start_res = client.post(f"/api/puco/game/{game.id}/start", headers=headers)
+    start_res = client.post(f"/api/puco/game/{game.id}/start", headers=start_headers)
     assert start_res.status_code == 200
 
     # 3. Pick first valid action from mask
     action_mask = start_res.json()["action_mask"]
     valid_action = next(i for i, v in enumerate(action_mask) if v == 1)
+    current_player_idx = int(start_res.json()["state"]["meta"]["active_player"].split("_")[1])
+    current_user = users[current_player_idx]
+    action_headers = {"Authorization": f"Bearer {create_access_token(subject=str(current_user.id))}"}
     action_data = {"payload": {"action_index": valid_action}}
 
     response = client.post(
-        f"/api/puco/game/{game.id}/action", json=action_data, headers=headers
+        f"/api/puco/game/{game.id}/action", json=action_data, headers=action_headers
     )
     assert response.status_code == 200
     assert response.json()["status"] == "success"

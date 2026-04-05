@@ -31,20 +31,33 @@ logger = logging.getLogger(__name__)
 class AgentMetadata:
     """모델 명세를 정의하는 경량 메타데이터 모델."""
     name: str
-    architecture: str  # "legacy_ppo", "ppo", "phase_ppo"
+    architecture: str  # "legacy_ppo", "ppo", "ppo_residual", "phase_ppo"
     obs_dim: int = 210
     action_dim: int = 200
     hidden_dim: int = 256
+    num_res_blocks: int = 3
     version: Optional[str] = "1.0.0"
 
     @classmethod
     def from_dict(cls, data: dict) -> "AgentMetadata":
+        if data.get("schema_version") == "model-metadata.v1":
+            network = data.get("network") or {}
+            return cls(
+                name=data["artifact_name"],
+                architecture=data["architecture"],
+                obs_dim=int(data.get("obs_dim", 210)),
+                action_dim=int(data.get("action_dim", 200)),
+                hidden_dim=int(network.get("hidden_dim", 256)),
+                num_res_blocks=int(network.get("num_res_blocks", 3)),
+                version=data.get("version", "1.0.0"),
+            )
         return cls(
-            name=data["name"],
+            name=data.get("name") or data.get("artifact_name"),
             architecture=data["architecture"],
             obs_dim=int(data.get("obs_dim", 210)),
             action_dim=int(data.get("action_dim", 200)),
             hidden_dim=int(data.get("hidden_dim", 256)),
+            num_res_blocks=int(data.get("num_res_blocks", 3)),
             version=data.get("version", "1.0.0"),
         )
 
@@ -113,13 +126,14 @@ class AgentFactory:
             )
             wrapper_cls = LegacyPPOAgentWrapper
             
-        elif metadata.architecture == "ppo":
+        elif metadata.architecture in {"ppo", "ppo_residual"}:
             if ResidualAgent is None:
                 raise ImportError("ResidualAgent class not found in PuCo_RL")
             model = ResidualAgent(
                 obs_dim=metadata.obs_dim, 
                 action_dim=metadata.action_dim,
-                hidden_dim=512 # 신규 모델 기본값
+                hidden_dim=metadata.hidden_dim,
+                num_res_blocks=metadata.num_res_blocks,
             )
             wrapper_cls = PPOAgentWrapper
             

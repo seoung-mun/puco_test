@@ -321,6 +321,13 @@
   "rooms": {
     "createRoom":    "방 만들기",
     "createBotGame": "봇전",
+    "botGameSetup":  "봇전 구성",
+    "botGameHint":   "각 슬롯의 봇 유형을 고르면 바로 관전용 봇전을 시작합니다.",
+    "botSlot":       "플레이어 {{n}} 봇",
+    "startBotGame":  "봇전 시작",
+    "creatingBotGame":"봇전 생성 중...",
+    "loadingBotTypes":"봇 목록을 불러오는 중...",
+    "noBotTypes":    "사용 가능한 봇이 없습니다.",
     "refresh":       "새로고침",
     "full":          "정원 초과",
     "join":          "입장하기",

@@ -320,6 +320,13 @@
   "rooms": {
     "createRoom":    "Crea Stanza",
     "createBotGame": "Partita Bot",
+    "botGameSetup":  "Configura Partita Bot",
+    "botGameHint":   "Scegli il tipo di bot per ogni slot e avvia subito una partita bot da osservare.",
+    "botSlot":       "Bot Giocatore {{n}}",
+    "startBotGame":  "Avvia Partita Bot",
+    "creatingBotGame":"Creazione partita bot...",
+    "loadingBotTypes":"Caricamento tipi di bot...",
+    "noBotTypes":    "Nessun tipo di bot disponibile.",
     "refresh":       "Aggiorna",
     "full":          "Piena",
     "join":          "Entra",

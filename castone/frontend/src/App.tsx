@@ -561,24 +561,35 @@ export default function App() {
     }
   }
 
-  /** Channel: 봇전 생성 — BOT×3 자동 시작, 사용자는 관전자 */
-  async function handleCreateBotGame() {
-    if (!authToken) return;
+  /** Channel: 봇전 생성 — 선택한 BOT×3 자동 시작, 사용자는 관전자 */
+  async function handleCreateBotGame(botTypes: string[]): Promise<string | null> {
+    if (!authToken) return 'Not logged in';
     setError(null);
     try {
       const res = await fetch(`${BACKEND}/api/puco/rooms/bot-game`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${authToken}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ bot_types: botTypes }),
       });
-      if (!res.ok) { setError(await res.text()); return; }
+      if (!res.ok) {
+        const message = await parseApiError(res);
+        setError(message);
+        return message;
+      }
       const data = await res.json();
       setState(data.state);
       setGameId(data.game_id);
       setIsSpectator(true);
       setIsMultiplayer(false);
       setScreen('game');
+      return null;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed');
+      const message = e instanceof Error ? e.message : 'Failed';
+      setError(message);
+      return message;
     }
   }
 

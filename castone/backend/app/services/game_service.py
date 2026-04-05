@@ -13,7 +13,12 @@ from app.schemas.game import GameRoomCreate
 from app.services.ws_manager import manager
 from app.services.state_serializer import serialize_compact_summary, serialize_game_state_from_engine
 from app.services.mayor_orchestrator import MayorPlacement, apply_distribution_plan
-from app.services.agent_registry import require_valid_bot_type, resolve_bot_type_from_actor_id
+from app.services.agent_registry import (
+    require_valid_bot_type,
+    resolve_bot_type_from_actor_id,
+    resolve_model_artifact,
+)
+from app.services.model_registry import build_human_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +64,48 @@ class GameService:
     def _build_rich_state(self, game_id: UUID, engine: EngineWrapper, room: GameSession) -> Dict:
         """serialize_game_state_from_engine()으로 rich GameState JSON을 생성한다."""
         player_names, bot_players = self._resolve_player_names_and_bots(room)
-        return serialize_game_state_from_engine(
+        state = serialize_game_state_from_engine(
             engine=engine,
             player_names=player_names,
             game_id=str(game_id),
             bot_players=bot_players,
         )
+        state["model_versions"] = dict(room.model_versions or {})
+        return state
+
+    def _build_model_versions_snapshot(self, room: GameSession) -> Dict[str, Dict]:
+        players = room.players or []
+        snapshot: Dict[str, Dict] = {}
+        for idx, player_id in enumerate(players):
+            pid = str(player_id)
+            key = f"player_{idx}"
+            if pid.startswith("BOT_"):
+                bot_type = require_valid_bot_type(resolve_bot_type_from_actor_id(pid))
+                artifact = resolve_model_artifact(bot_type)
+                if artifact is None:
+                    snapshot[key] = {
+                        "actor_type": "bot",
+                        "bot_type": bot_type,
+                        "family": bot_type,
+                        "policy_tag": "champion",
+                        "artifact_name": bot_type,
+                        "checkpoint_filename": None,
+                        "architecture": None,
+                        "metadata_source": "builtin",
+                    }
+                else:
+                    snapshot[key] = artifact.to_snapshot(bot_type=bot_type)
+            else:
+                snapshot[key] = build_human_snapshot(pid)
+        return snapshot
+
+    def _resolve_actor_model_info(self, room: GameSession | None, actor_id: str) -> Dict | None:
+        if room is None:
+            return None
+        for idx, player_id in enumerate(room.players or []):
+            if str(player_id) == str(actor_id):
+                return (room.model_versions or {}).get(f"player_{idx}")
+        return None
 
     def start_game(self, game_id: UUID):
         room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
@@ -80,6 +121,7 @@ class GameService:
         GameService.active_engines[game_id] = engine
 
         room.status = "PROGRESS"
+        room.model_versions = self._build_model_versions_snapshot(room)
         self.db.commit()
 
         # Build rich state and broadcast
@@ -132,6 +174,7 @@ class GameService:
         current_mask = engine.get_action_mask()
         current_player_idx = engine.env.game.current_player_idx
         current_phase_id = engine.last_info.get("current_phase_id") if engine.last_info else None
+        actor_model_info = self._resolve_actor_model_info(room, actor_id)
         logger.warning(
             "[BOT_TRACE] process_action_mask game=%s actor=%s action=%s valid=%s mask_len=%d",
             game_id,
@@ -169,6 +212,7 @@ class GameService:
                     action_mask_before=copy.deepcopy(current_mask),
                     phase_id_before=current_phase_id,
                     current_player_idx_before=current_player_idx,
+                    model_info=copy.deepcopy(actor_model_info),
                 )
             )
             GameService._background_log_tasks.add(task)
@@ -186,7 +230,10 @@ class GameService:
             round=result["info"].get("round", 0),
             step=result["info"].get("step", 0),
             actor_id=actor_id,
-            action_data={"action": action},
+            action_data={
+                "action": action,
+                "model_info": actor_model_info,
+            },
             available_options=result["action_mask"],
             state_before=result["state_before"],
             state_after=result["state_after"],

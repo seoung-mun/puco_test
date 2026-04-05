@@ -32,45 +32,63 @@ from app.core.security import create_access_token
 # ================================================================== #
 
 def _setup_game_and_run_actions(client, db, n_actions: int) -> uuid.UUID:
-    """공통 픽스처: 3인 게임(human + 2 bots) 생성 후 n_actions 번 액션 수행.
+    """공통 픽스처: 3인 게임(모두 human) 생성 후 n_actions 번 액션 수행.
 
     - /start 응답의 action_mask로 첫 액션을 선택
-    - 이후 각 /action 응답의 action_mask로 다음 액션을 선택
+    - 이후 각 /action 응답의 active_player를 읽어 해당 플레이어 토큰으로 다음 액션을 선택
     - 게임 종료 또는 유효 액션 없음 시 중단
     """
-    user_id = uuid.uuid4()
-    db.add(User(id=user_id, google_id=f"gid_{user_id.hex[:8]}", nickname=f"Tester_{user_id.hex[:4]}"))
+    users = []
+    for idx in range(3):
+        user_id = uuid.uuid4()
+        user = User(id=user_id, google_id=f"gid_{user_id.hex[:8]}", nickname=f"Tester_{idx}_{user_id.hex[:4]}")
+        db.add(user)
+        users.append(user)
+
     game_id = uuid.uuid4()
     db.add(GameSession(
         id=game_id,
         title="VP/DL Test Room",
         status="WAITING",
         num_players=3,
-        players=[str(user_id), "BOT_random", "BOT_random"],
-        host_id=str(user_id),
+        players=[str(user.id) for user in users],
+        host_id=str(users[0].id),
     ))
     db.flush()
 
-    headers = {"Authorization": f"Bearer {create_access_token(subject=str(user_id))}"}
+    start_headers = {"Authorization": f"Bearer {create_access_token(subject=str(users[0].id))}"}
 
-    start = client.post(f"/api/puco/game/{game_id}/start", headers=headers)
+    start = client.post(f"/api/puco/game/{game_id}/start", headers=start_headers)
     assert start.status_code == 200, f"게임 시작 실패: {start.json()}"
 
-    mask = start.json().get("action_mask", [])
+    payload = start.json()
+    mask = payload.get("action_mask", [])
+    state = payload.get("state", {})
 
     for _ in range(n_actions):
         valid_actions = [i for i, v in enumerate(mask) if v == 1]
         if not valid_actions:
             break
+
+        active_player = state.get("meta", {}).get("active_player")
+        if not active_player:
+            break
+
+        current_player_idx = int(str(active_player).split("_")[1])
+        current_user = users[current_player_idx]
+        action_headers = {"Authorization": f"Bearer {create_access_token(subject=str(current_user.id))}"}
+
         action = valid_actions[0]
         resp = client.post(
             f"/api/puco/game/{game_id}/action",
             json={"payload": {"action_index": action}},
-            headers=headers,
+            headers=action_headers,
         )
         if resp.status_code != 200:
             break  # 더 이상 액션 불가 (게임 종료 등)
-        mask = resp.json().get("action_mask", [])
+        payload = resp.json()
+        mask = payload.get("action_mask", [])
+        state = payload.get("state", {})
 
     return game_id
 

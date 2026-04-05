@@ -20,6 +20,8 @@ class EngineWrapper:
         self,
         num_players: int = 3,
         max_game_steps: int = 1200,
+        game_seed: Optional[int] = None,
+        governor_idx: Optional[int] = None,
         **env_kwargs: Any,
     ):
         if PuertoRicoEnv is None:
@@ -29,18 +31,8 @@ class EngineWrapper:
             max_game_steps=max_game_steps,
             **env_kwargs,
         )
-        
-        # Ensure governor is always player_0 (room owner) for UI consistency
-        # We repeat reset() until governor_idx is 0 to maintain internal state consistency
-        # (e.g. plantation distribution depends on who is the governor)
-        for _ in range(100):
-            self.env.reset()
-            if self.env.game.governor_idx == 0:
-                break
-        else:
-            # Fallback (should not happen statistically)
-            self.env.game.governor_idx = 0
-            self.env.game.current_player_idx = 0
+
+        self._reset_environment(game_seed=game_seed, governor_idx=governor_idx)
 
         # PettingZoo AEC retrieve observation via observe()
         self._refresh_cached_view()
@@ -48,6 +40,29 @@ class EngineWrapper:
         self._step_count = 0
         self._round_count = 0
         self._last_governor = self.env.game.governor_idx
+
+    def _reset_environment(self, game_seed: Optional[int], governor_idx: Optional[int]) -> None:
+        if governor_idx is None:
+            self.env.reset(seed=game_seed)
+            return
+
+        if governor_idx < 0 or governor_idx >= self.env.num_players:
+            raise ValueError(
+                f"governor_idx must be between 0 and {self.env.num_players - 1}, got {governor_idx}"
+            )
+
+        # Re-run reset until the engine itself chooses the requested governor.
+        # This preserves all governor-dependent setup, including initial plantations.
+        max_attempts = 64
+        for attempt in range(max_attempts):
+            seed = None if game_seed is None else game_seed + attempt
+            self.env.reset(seed=seed)
+            if self.env.game.governor_idx == governor_idx:
+                return
+
+        raise RuntimeError(
+            f"Unable to initialize engine with governor_idx={governor_idx} after {max_attempts} attempts"
+        )
 
     def get_state(self) -> Dict[str, Any]:
         """Returns the current state/observation as a serializable dict."""
@@ -162,5 +177,15 @@ class EngineWrapper:
             return obs.item()
         return obs
 
-def create_game_engine(num_players: int = 3, **env_kwargs: Any) -> EngineWrapper:
-    return EngineWrapper(num_players=num_players, **env_kwargs)
+def create_game_engine(
+    num_players: int = 3,
+    game_seed: Optional[int] = None,
+    governor_idx: Optional[int] = None,
+    **env_kwargs: Any,
+) -> EngineWrapper:
+    return EngineWrapper(
+        num_players=num_players,
+        game_seed=game_seed,
+        governor_idx=governor_idx,
+        **env_kwargs,
+    )
