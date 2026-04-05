@@ -43,8 +43,10 @@ def test_final_score_allows_host_spectator_for_bot_game(client, db):
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert set(body.keys()) == {"scores", "winner", "player_order"}
+    assert set(body.keys()) == {"scores", "winner", "player_order", "display_names"}
     assert len(body["player_order"]) == 3
+    assert body["player_order"] == ["player_0", "player_1", "player_2"]
+    assert list(body["display_names"].values()) == ["Bot (random)", "Bot (random)", "Bot (random)"]
 
 
 def test_final_score_still_rejects_non_member_non_host(client, db):

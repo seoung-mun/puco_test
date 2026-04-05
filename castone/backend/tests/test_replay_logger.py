@@ -141,5 +141,20 @@ def test_build_final_scores_payload_matches_terminal_breakdown():
     )
 
     assert len(final_scores) == 3
-    assert result_summary["winner"] in player_names
+    assert result_summary["winner"] in result_summary["player_order"]
     assert all("breakdown" in row for row in final_scores)
+
+
+def test_build_final_scores_payload_handles_duplicate_bot_display_names():
+    engine = create_game_engine(num_players=3)
+    actor_ids = ["BOT_ppo", "BOT_ppo", "BOT_ppo"]
+
+    final_scores, result_summary = build_final_scores_payload(
+        game=engine.env.game,
+        player_names=["Bot (ppo)", "Bot (ppo)", "Bot (ppo)"],
+        actor_ids=actor_ids,
+    )
+
+    assert [row["display_name"] for row in final_scores] == ["Bot (ppo)", "Bot (ppo)", "Bot (ppo)"]
+    assert set(result_summary["scores"].keys()) == {"player_0", "player_1", "player_2"}
+    assert result_summary["winner"] in {"player_0", "player_1", "player_2"}

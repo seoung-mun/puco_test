@@ -334,8 +334,12 @@ def _serialize_player(
 
 def compute_score_breakdown(game: "PuertoRicoGame", player_names: List[str]) -> Dict[str, Any]:
     scores = {}
+    display_names = {}
+    player_order = []
     for i, p in enumerate(game.players):
-        name = player_names[i] if i < len(player_names) else f"player_{i}"
+        player_ref = f"player_{i}"
+        display_names[player_ref] = player_names[i] if i < len(player_names) else player_ref
+        player_order.append(player_ref)
         vp_chips = p.vp_chips
 
         building_vp = sum(BUILDING_DATA[b.building_type][1] for b in p.city_board if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE))
@@ -369,7 +373,7 @@ def compute_score_breakdown(game: "PuertoRicoGame", player_names: List[str]) -> 
                     )
 
         total = vp_chips + building_vp + guildhall_bonus + residence_bonus + fortress_bonus + customs_house_bonus + city_hall_bonus
-        scores[name] = {
+        scores[player_ref] = {
             "vp_chips": vp_chips,
             "building_vp": building_vp,
             "guild_hall_bonus": guildhall_bonus,
@@ -381,12 +385,20 @@ def compute_score_breakdown(game: "PuertoRicoGame", player_names: List[str]) -> 
         }
 
     # Determine winner (highest total, tie-break by doubloons + goods)
-    player_order = [player_names[i] if i < len(player_names) else f"player_{i}" for i in range(len(game.players))]
-    winner = max(
-        player_order,
-        key=lambda n: (scores[n]["total"], game.players[player_order.index(n)].doubloons + sum(game.players[player_order.index(n)].goods.values()))
+    winner_idx = max(
+        range(len(game.players)),
+        key=lambda idx: (
+            scores[f"player_{idx}"]["total"],
+            game.players[idx].doubloons + sum(game.players[idx].goods.values()),
+        ),
     )
-    return {"scores": scores, "winner": winner, "player_order": player_order}
+    winner = f"player_{winner_idx}"
+    return {
+        "scores": scores,
+        "winner": winner,
+        "player_order": player_order,
+        "display_names": display_names,
+    }
 
 
 # ------------------------------------------------------------------ #

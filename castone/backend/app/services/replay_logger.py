@@ -308,18 +308,18 @@ def build_final_scores_payload(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     breakdown = compute_score_breakdown(game, player_names)
     final_scores: list[dict[str, Any]] = []
-    for idx, player_name in enumerate(breakdown["player_order"]):
+    for idx, player_ref in enumerate(breakdown["player_order"]):
         player = game.players[idx]
         tiebreaker = int(player.doubloons + sum(player.goods.values()))
         final_scores.append(
             {
                 "player": idx,
                 "actor_id": actor_ids[idx] if idx < len(actor_ids) else f"player_{idx}",
-                "display_name": player_name,
-                "vp": breakdown["scores"][player_name]["total"],
+                "display_name": breakdown["display_names"].get(player_ref, player_ref),
+                "vp": breakdown["scores"][player_ref]["total"],
                 "tiebreaker": tiebreaker,
-                "winner": breakdown["winner"] == player_name,
-                "breakdown": breakdown["scores"][player_name],
+                "winner": breakdown["winner"] == player_ref,
+                "breakdown": breakdown["scores"][player_ref],
             }
         )
     return final_scores, breakdown

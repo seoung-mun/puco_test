@@ -36,7 +36,7 @@ function makeState(): GameState {
 function makeScores(): FinalScoreSummary {
   return {
     scores: {
-      Alice: {
+      player_0: {
         vp_chips: 28,
         building_vp: 16,
         guild_hall_bonus: 2,
@@ -46,7 +46,7 @@ function makeScores(): FinalScoreSummary {
         city_hall_bonus: 0,
         total: 51,
       },
-      Bob: {
+      player_1: {
         vp_chips: 22,
         building_vp: 15,
         guild_hall_bonus: 0,
@@ -57,8 +57,12 @@ function makeScores(): FinalScoreSummary {
         total: 39,
       },
     },
-    winner: 'Alice',
-    player_order: ['Alice', 'Bob'],
+    winner: 'player_0',
+    player_order: ['player_0', 'player_1'],
+    display_names: {
+      player_0: 'Alice',
+      player_1: 'Bob',
+    },
   };
 }
 
@@ -93,5 +97,39 @@ describe('EndGamePanel', () => {
     );
 
     expect(screen.getByText('점수 집계 중...')).toBeTruthy();
+  });
+
+  it('renders duplicate display names without collapsing rows', () => {
+    const scores: FinalScoreSummary = {
+      scores: {
+        player_1: makeScores().scores.player_1,
+        player_2: {
+          vp_chips: 18,
+          building_vp: 12,
+          guild_hall_bonus: 0,
+          residence_bonus: 0,
+          fortress_bonus: 0,
+          customs_house_bonus: 0,
+          city_hall_bonus: 0,
+          total: 30,
+        },
+      },
+      winner: 'player_1',
+      player_order: ['player_1', 'player_2'],
+      display_names: {
+        player_1: 'Bot (ppo)',
+        player_2: 'Bot (ppo)',
+      },
+    };
+
+    render(
+      <EndGamePanel
+        state={makeState()}
+        scores={scores}
+        onReturnToRooms={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText(/Bot \(ppo\)/)).toHaveLength(2);
   });
 });

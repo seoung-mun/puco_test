@@ -45,8 +45,9 @@ export default function EndGamePanel({
           <tbody>
             {scores.player_order.map((playerRef) => {
               const row = scores.scores[playerRef];
+              if (!row) return null;
               const isWinner = playerRef === scores.winner;
-              const displayName = state.players[playerRef]?.display_name ?? playerRef;
+              const displayName = scores.display_names?.[playerRef] ?? state.players[playerRef]?.display_name ?? playerRef;
               return (
                 <tr key={playerRef} className={isWinner ? 'end-game-winner' : ''}>
                   <td>{isWinner ? '🏆 ' : ''}{displayName}</td>

@@ -224,6 +224,7 @@ export interface FinalScoreSummary {
   scores: Record<string, PlayerScore>;
   winner: string;
   player_order: string[];
+  display_names?: Record<string, string>;
 }
 
 export interface GameState {

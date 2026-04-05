@@ -41,3 +41,21 @@ def test_non_terminal_state_has_no_result_summary():
 
     assert state["meta"]["end_game_triggered"] is False
     assert state["result_summary"] is None
+
+
+def test_score_breakdown_uses_stable_player_refs_for_duplicate_display_names():
+    engine = create_game_engine(num_players=3)
+
+    result_summary = compute_score_breakdown(
+        engine.env.game,
+        ["Bot (ppo)", "Bot (ppo)", "Bot (ppo)"],
+    )
+
+    assert result_summary["player_order"] == ["player_0", "player_1", "player_2"]
+    assert result_summary["winner"] in result_summary["player_order"]
+    assert set(result_summary["scores"].keys()) == {"player_0", "player_1", "player_2"}
+    assert result_summary["display_names"] == {
+        "player_0": "Bot (ppo)",
+        "player_1": "Bot (ppo)",
+        "player_2": "Bot (ppo)",
+    }
