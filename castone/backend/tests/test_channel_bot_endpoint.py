@@ -185,3 +185,15 @@ class TestAddBotErrors:
         from app.db.models import GameSession
         room = db.query(GameSession).filter(GameSession.id == gid).first()
         assert any(str(p) == "BOT_random" for p in room.players)
+
+    def test_add_bot_rejects_unknown_bot_type(self, client, db):
+        """등록되지 않은 bot_type은 400으로 거절되어야 한다."""
+        host_id = _make_user(db)
+        gid = _make_room(db, host_id, num_players=3)
+        res = client.post(
+            f"/api/puco/game/{gid}/add-bot",
+            json={"bot_type": "gpt4"},
+            headers=_auth(host_id),
+        )
+        assert res.status_code == 400, res.text
+        assert "Unknown bot type" in res.json()["detail"]

@@ -1,21 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional
 from uuid import UUID
 
 from app.dependencies import get_db
-from app.schemas.game import GameAction, MayorDistributeRequest
+from app.schemas.game import AddBotRequest, GameAction, MayorDistributeRequest
 from app.services.game_service import GameService
 from app.api.deps import get_current_user
 from app.db.models import User, GameSession
 from app.services.state_serializer import compute_score_breakdown
 from app.services.lobby_manager import lobby_manager
-from pydantic import BaseModel
 from app.services.mayor_orchestrator import MayorPlacement
-
-
-class AddBotRequest(BaseModel):
-    bot_type: Optional[str] = "random"
+from app.services.agent_registry import make_bot_player_id, require_valid_bot_type
 
 router = APIRouter()
 
@@ -113,9 +108,13 @@ async def add_bot(
     if len(players) >= 3:
         raise HTTPException(status_code=409, detail="최대 3명까지 참가할 수 있습니다")
 
-    bot_type = (body.bot_type or "random").lower()
+    try:
+        bot_type = require_valid_bot_type(body.bot_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     slot_index = len(players)
-    players.append(f"BOT_{bot_type}")
+    players.append(make_bot_player_id(bot_type))
     room.players = players
     db.commit()
     db.refresh(room)

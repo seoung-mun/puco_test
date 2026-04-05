@@ -182,6 +182,49 @@ class TestBotGame:
         assert "game_id" in data
         assert "state" in data
 
+    def test_create_bot_game_accepts_explicit_bot_types(self, client, db, alice):
+        from app.main import app
+        from app.dependencies import get_current_user
+        from app.db.models import GameSession
+
+        app.dependency_overrides[get_current_user] = lambda: alice
+        res = client.post(
+            "/api/puco/rooms/bot-game",
+            json={"bot_types": ["ppo", "random", "ppo"]},
+        )
+        assert res.status_code == 200, res.text
+
+        game_id = res.json()["game_id"]
+        room = db.query(GameSession).filter(GameSession.id == game_id).first()
+        assert room is not None
+        assert list(room.players) == ["BOT_ppo", "BOT_random", "BOT_ppo"]
+
+    def test_create_bot_game_rejects_unknown_bot_type(self, client, db, alice):
+        from app.main import app
+        from app.dependencies import get_current_user
+
+        app.dependency_overrides[get_current_user] = lambda: alice
+        res = client.post(
+            "/api/puco/rooms/bot-game",
+            json={"bot_types": ["random", "gpt4", "ppo"]},
+        )
+        assert res.status_code == 400
+        assert "Unknown bot type" in res.json()["detail"]
+
+    def test_create_bot_game_defaults_to_three_random_bots_with_empty_body(self, client, db, alice):
+        from app.main import app
+        from app.dependencies import get_current_user
+        from app.db.models import GameSession
+
+        app.dependency_overrides[get_current_user] = lambda: alice
+        res = client.post("/api/puco/rooms/bot-game", json={})
+        assert res.status_code == 200, res.text
+
+        game_id = res.json()["game_id"]
+        room = db.query(GameSession).filter(GameSession.id == game_id).first()
+        assert room is not None
+        assert list(room.players) == ["BOT_random", "BOT_random", "BOT_random"]
+
 
 class TestAddBotBroadcast:
 

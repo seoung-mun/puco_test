@@ -90,6 +90,10 @@ class EngineWrapper:
             self._round_count += 1
             self._last_governor = self.env.game.governor_idx
 
+        self.last_info["current_phase_id"] = int(getattr(self.env.game, "current_phase", 8))
+        self.last_info["current_player_idx"] = int(getattr(self.env.game, "current_player_idx", -1))
+        self.last_info["step_count"] = self._step_count
+
         info = dict(self.last_info) if self.last_info else {}
         info["round"] = self._round_count
         info["step"] = self._step_count
@@ -113,6 +117,9 @@ class EngineWrapper:
         observation, action_mask = self._extract_observation(obs_dict)
         self.last_obs = observation
         self.last_info = dict(self.env.infos.get(self.env.agent_selection, {}))
+        self.last_info.setdefault("current_phase_id", int(getattr(self.env.game, "current_phase", 8)))
+        self.last_info.setdefault("current_player_idx", int(getattr(self.env.game, "current_player_idx", -1)))
+        self.last_info.setdefault("step_count", int(getattr(self, "_step_count", 0)))
         self.last_action_mask = action_mask
 
     def _extract_observation(self, obs_dict: Any) -> tuple[Any, Any]:

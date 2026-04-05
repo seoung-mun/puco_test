@@ -77,15 +77,21 @@ def _publish_state_update():
         mask = session.game.get_action_mask() if session.game else []
         payload = json.dumps({"type": "STATE_UPDATE", "data": state, "action_mask": mask})
         channel = f"game:{session.session_id}:events"
+        redis_published = False
 
-        redis_client.publish(channel, payload)
-
-        # 동일 프로세스 WS 브로드캐스트 (Redis Pub/Sub 구독 전 fallback)
         try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(manager.broadcast_to_game(session.session_id, json.loads(payload)))
-        except RuntimeError:
-            pass  # 동기 컨텍스트에서는 무시
+            redis_client.publish(channel, payload)
+            redis_published = True
+        except Exception:
+            redis_published = False
+
+        if not redis_published:
+            # 동일 프로세스 WS 브로드캐스트 (Redis publish 실패 시 fallback)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(manager.broadcast_to_game(session.session_id, json.loads(payload)))
+            except RuntimeError:
+                pass  # 동기 컨텍스트에서는 무시
     except Exception:
         pass  # 브로드캐스트 실패는 게임 진행에 영향 없음
 

@@ -6,14 +6,19 @@ import asyncio
 import logging
 import os
 import sys
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
+
 import torch
 import numpy as np
-from typing import Dict, Any, Optional
 from uuid import UUID
 
 from app.engine_wrapper.wrapper import EngineWrapper
-from app.services.agents.factory import AgentFactory
-from app.services.agents.wrappers import AgentWrapper
+from app.services.agent_registry import (
+    get_wrapper,
+    require_valid_bot_type,
+    resolve_bot_type_from_actor_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,48 +49,63 @@ def _build_obs_space():
     dim = get_flattened_obs_dim(space)
     return space, dim
 
+
+@dataclass(frozen=True)
+class BotInputSnapshot:
+    bot_type: str
+    obs: Dict[str, Any]
+    action_mask: list[int]
+    phase_id: int
+    current_player_idx: int
+    step_count: int
+
 class BotService:
-    _agent_wrapper: Optional[AgentWrapper] = None
     _obs_space = None
-    _obs_dim: int = None
+    _obs_dim: Optional[int] = None
 
     @classmethod
-    def _init(cls):
-        """Initialize observation space and load agent via factory."""
+    def _ensure_obs_space(cls):
         if cls._obs_space is None:
             cls._obs_space, cls._obs_dim = _build_obs_space()
 
-        model_type = os.getenv("MODEL_TYPE", "legacy_ppo").lower()
-        
-        # Determine model filename based on type
-        if model_type == "hppo" or model_type == "phase_ppo":
-            model_filename = os.getenv("HPPO_MODEL_FILENAME", "HPPO_PR_Server_1774241514_step_14745600.pth")
-        else:
-            model_filename = os.getenv("PPO_MODEL_FILENAME", "ppo_agent_update_100.pth")
-
-        model_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), f"../../../PuCo_RL/models/{model_filename}")
-        )
-
-        logger.info(f"BotService initializing with {model_type} from {model_path}")
-        cls._agent_wrapper = AgentFactory.get_agent(model_path)
-
     @classmethod
-    def get_agent_wrapper(cls) -> AgentWrapper:
-        if cls._agent_wrapper is None:
-            cls._init()
-        return cls._agent_wrapper
+    def get_agent_wrapper(cls, bot_type: str):
+        cls._ensure_obs_space()
+        normalized = require_valid_bot_type(bot_type)
+        return get_wrapper(normalized, cls._obs_dim)
 
     @staticmethod
-    def get_action(game_context: Dict[str, Any]) -> int:
+    def build_input_snapshot(
+        engine: EngineWrapper,
+        actor_id: str,
+        action_mask: Optional[list[int]] = None,
+    ) -> BotInputSnapshot:
+        mask = action_mask or engine.get_action_mask()
+        obs = engine.last_obs
+        phase_id = _extract_phase_id(obs)
+        current_player_idx = getattr(engine.env.game, "current_player_idx", -1)
+        step_count = getattr(engine, "_step_count", 0)
+        bot_type = resolve_bot_type_from_actor_id(actor_id)
+        return BotInputSnapshot(
+            bot_type=bot_type,
+            obs=obs,
+            action_mask=mask,
+            phase_id=phase_id,
+            current_player_idx=current_player_idx,
+            step_count=step_count,
+        )
+
+    @staticmethod
+    def get_action(bot_type: str, game_context: Dict[str, Any]) -> int:
         """Universal Agent Interface using Wrapper."""
-        wrapper = BotService.get_agent_wrapper()
+        wrapper = BotService.get_agent_wrapper(bot_type)
 
         raw_obs = game_context["vector_obs"]
         action_mask = game_context["action_mask"]
         phase_id = game_context.get("phase_id", 8)
 
         # Flatten observation
+        BotService._ensure_obs_space()
         flat_obs = flatten_dict_observation(raw_obs, BotService._obs_space)
         obs_tensor = torch.as_tensor(flat_obs, dtype=torch.float32)
         mask_tensor = torch.as_tensor(action_mask, dtype=torch.float32)
@@ -93,7 +113,8 @@ class BotService:
         # Use wrapper for inference
         action = wrapper.act(obs_tensor, mask_tensor, phase_id=phase_id)
         logger.warning(
-            "[BOT_TRACE] selected_action phase_id=%s action=%s valid=%s",
+            "[BOT_TRACE] selected_action bot_type=%s phase_id=%s action=%s valid=%s",
+            bot_type,
             phase_id,
             action,
             (0 <= action < len(action_mask) and bool(action_mask[action])) if action_mask else False,
@@ -138,25 +159,38 @@ class BotService:
             logger.warning("[BOT_TRACE] turn_delay game=%s actor=%s delay=%.1fs role_selection=%s", game_id, actor_id, delay, is_role_selection)
             await asyncio.sleep(delay)
 
-            # Extract phase_id for PhasePPO support
-            current_phase = _extract_phase_id(engine.last_obs)
+            snapshot = BotService.build_input_snapshot(
+                engine=engine,
+                actor_id=actor_id,
+                action_mask=mask,
+            )
             logger.warning(
-                "[BOT_TRACE] phase_id game=%s actor=%s phase_id=%s",
+                "[BOT_TRACE] input_snapshot game=%s actor=%s bot_type=%s phase_id=%s current_player_idx=%s step_count=%s",
                 game_id,
                 actor_id,
-                current_phase,
+                snapshot.bot_type,
+                snapshot.phase_id,
+                snapshot.current_player_idx,
+                snapshot.step_count,
             )
 
             game_context = {
-                "vector_obs": engine.last_obs,
-                "action_mask": mask,
-                "phase_id": current_phase,
+                "vector_obs": snapshot.obs,
+                "action_mask": snapshot.action_mask,
+                "phase_id": snapshot.phase_id,
             }
 
             # 1. Attempt Model Inference
             try:
-                action_int = BotService.get_action(game_context)
-                logger.warning("[BOT_TRACE] turn_action_selected game=%s actor=%s action=%d phase=%d", game_id, actor_id, action_int, current_phase)
+                action_int = BotService.get_action(snapshot.bot_type, game_context)
+                logger.warning(
+                    "[BOT_TRACE] turn_action_selected game=%s actor=%s bot_type=%s action=%d phase=%d",
+                    game_id,
+                    actor_id,
+                    snapshot.bot_type,
+                    action_int,
+                    snapshot.phase_id,
+                )
             except Exception as e:
                 logger.exception("[BOT] inference error for game %s. Falling back to random.", game_id)
                 valid_indices = [i for i, v in enumerate(mask) if v > 0.5]

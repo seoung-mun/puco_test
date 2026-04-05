@@ -55,6 +55,14 @@ class JoinRoomRequest(BaseModel):
     password: Optional[str] = None
 
 
+class AddBotRequest(BaseModel):
+    bot_type: Optional[str] = "random"
+
+
+class BotGameCreateRequest(BaseModel):
+    bot_types: List[str] = Field(default_factory=lambda: ["random", "random", "random"])
+
+
 class RoomPlayerInfo(BaseModel):
     display_name: str
     is_bot: bool

@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 _MODELS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../../../PuCo_RL/models")
 )
+DEFAULT_BOT_TYPE = "random"
+BOT_PLAYER_PREFIX = "BOT_"
 
 # ──────────────────────────────────────────────────────────────────────────
 # 에이전트 등록 테이블 — 새 알고리즘은 이 dict 한 곳만 수정
@@ -48,6 +50,48 @@ AGENT_REGISTRY: dict[str, dict] = {
 }
 
 
+def normalize_bot_type(bot_type: str | None) -> str:
+    normalized = (bot_type or DEFAULT_BOT_TYPE).strip().lower()
+    return normalized or DEFAULT_BOT_TYPE
+
+
+def require_valid_bot_type(bot_type: str | None) -> str:
+    normalized = normalize_bot_type(bot_type)
+    if normalized not in AGENT_REGISTRY:
+        raise ValueError(
+            f"Unknown bot type '{normalized}'. Valid: {sorted(AGENT_REGISTRY)}"
+        )
+    return normalized
+
+
+def resolve_bot_type_from_actor_id(actor_id: str | None) -> str:
+    actor = str(actor_id or "")
+    if not actor.startswith(BOT_PLAYER_PREFIX):
+        return DEFAULT_BOT_TYPE
+
+    suffix = actor[len(BOT_PLAYER_PREFIX):]
+    normalized = normalize_bot_type(suffix)
+    if normalized in AGENT_REGISTRY:
+        return normalized
+
+    base_type = normalize_bot_type(suffix.split("_", 1)[0])
+    if base_type in AGENT_REGISTRY:
+        return base_type
+
+    return normalized
+
+
+def make_bot_player_id(bot_type: str | None) -> str:
+    return f"{BOT_PLAYER_PREFIX}{require_valid_bot_type(bot_type)}"
+
+
+def normalize_bot_types(bot_types: list[str] | None, max_players: int = 3) -> list[str]:
+    normalized = [require_valid_bot_type(bot_type) for bot_type in (bot_types or [])[:max_players]]
+    while len(normalized) < max_players:
+        normalized.append(DEFAULT_BOT_TYPE)
+    return normalized
+
+
 def _resolve_model_path(cfg: dict) -> str | None:
     """env var → 기본값 순서로 모델 경로를 결정한다."""
     if cfg["model_env_key"] is None:
@@ -59,13 +103,11 @@ def _resolve_model_path(cfg: dict) -> str | None:
 @functools.lru_cache(maxsize=None)
 def get_wrapper(bot_type: str, obs_dim: int) -> AgentWrapper:
     """bot_type 별 AgentWrapper 싱글턴을 반환한다 (LRU 캐시로 1회만 생성)."""
-    cfg = AGENT_REGISTRY.get(bot_type)
-    if cfg is None:
-        logger.warning("알 수 없는 bot_type '%s' — random으로 폴백", bot_type)
-        cfg = AGENT_REGISTRY["random"]
+    normalized = require_valid_bot_type(bot_type)
+    cfg = AGENT_REGISTRY[normalized]
 
     model_path = _resolve_model_path(cfg)
-    logger.info("AgentWrapper 생성: type=%s, model=%s", bot_type, model_path)
+    logger.info("AgentWrapper 생성: type=%s, model=%s", normalized, model_path)
     return cfg["wrapper_cls"](model_path=model_path, obs_dim=obs_dim)
 
 

@@ -13,6 +13,7 @@ from app.schemas.game import GameRoomCreate
 from app.services.ws_manager import manager
 from app.services.state_serializer import serialize_compact_summary, serialize_game_state_from_engine
 from app.services.mayor_orchestrator import MayorPlacement, apply_distribution_plan
+from app.services.agent_registry import require_valid_bot_type, resolve_bot_type_from_actor_id
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class GameService:
         for i, player_id in enumerate(players):
             pid = str(player_id)
             if pid.startswith("BOT_"):
-                bot_type = pid.split("_", 1)[1].lower() if "_" in pid else "random"
+                bot_type = require_valid_bot_type(resolve_bot_type_from_actor_id(pid))
                 player_names.append(f"Bot ({bot_type})")
                 bot_players[i] = bot_type
             else:
@@ -129,6 +130,8 @@ class GameService:
 
         # TDD Defense: Validate action against the current action mask
         current_mask = engine.get_action_mask()
+        current_player_idx = engine.env.game.current_player_idx
+        current_phase_id = engine.last_info.get("current_phase_id") if engine.last_info else None
         logger.warning(
             "[BOT_TRACE] process_action_mask game=%s actor=%s action=%s valid=%s mask_len=%d",
             game_id,
@@ -162,7 +165,10 @@ class GameService:
                     reward=result["reward"],
                     done=result["done"],
                     state_after=copy.deepcopy(result["state_after"]),
-                    info=copy.deepcopy(result["info"])
+                    info=copy.deepcopy(result["info"]),
+                    action_mask_before=copy.deepcopy(current_mask),
+                    phase_id_before=current_phase_id,
+                    current_player_idx_before=current_player_idx,
                 )
             )
             GameService._background_log_tasks.add(task)
@@ -398,6 +404,7 @@ class GameService:
     def _sync_to_redis(self, game_id: UUID, state: Dict, finished: bool = False):
         ttl = 300 if finished else 900  # 5 min after game end, 15 min during play
         data = {"type": "STATE_UPDATE", "data": state}
+        redis_published = False
         logger.warning(
             "[STATE_TRACE] sync_to_redis_start game=%s finished=%s ttl=%s",
             game_id,
@@ -407,22 +414,26 @@ class GameService:
         try:
             redis_client.set(f"game:{game_id}:state", json.dumps(state), ex=ttl)
             redis_client.publish(f"game:{game_id}:events", json.dumps(data))
+            redis_published = True
             logger.warning("[STATE_TRACE] sync_to_redis_end game=%s", game_id)
         except Exception as e:
             logger.warning("[STATE_TRACE] sync_to_redis_error game=%s error=%s", game_id, e, exc_info=True)
             logger.warning("Redis sync failed: %s", e)
 
-        # 2. Direct In-Memory Broadcast (Fallback for single-instance development)
+        if redis_published:
+            return
+
+        # 2. Direct In-Memory Broadcast (Fallback when Redis publish is unavailable)
         try:
             loop = asyncio.get_running_loop()
-            logger.warning("[STATE_TRACE] ws_broadcast_start game=%s", game_id)
+            logger.warning("[STATE_TRACE] ws_broadcast_fallback_start game=%s", game_id)
             loop.create_task(manager.broadcast_to_game(str(game_id), data))
-            logger.warning("[STATE_TRACE] ws_broadcast_end game=%s", game_id)
+            logger.warning("[STATE_TRACE] ws_broadcast_fallback_end game=%s", game_id)
         except RuntimeError:
-            logger.warning("[STATE_TRACE] ws_broadcast_error game=%s error=no_running_loop", game_id)
+            logger.warning("[STATE_TRACE] ws_broadcast_fallback_error game=%s error=no_running_loop", game_id)
             pass  # No running loop (sync context)
         except Exception as e:
-            logger.warning("[STATE_TRACE] ws_broadcast_error game=%s error=%s", game_id, e, exc_info=True)
+            logger.warning("[STATE_TRACE] ws_broadcast_fallback_error game=%s error=%s", game_id, e, exc_info=True)
             logger.warning("Direct broadcast failed: %s", e)
 
     def get_room_list(self) -> List[GameSession]:

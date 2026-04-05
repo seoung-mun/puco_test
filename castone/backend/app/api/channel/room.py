@@ -5,10 +5,17 @@ from typing import List
 from uuid import UUID, uuid4
 
 from app.dependencies import get_db, get_current_user
-from app.schemas.game import GameRoomCreate, GameRoomResponse, JoinRoomRequest, RoomPlayerInfo
+from app.schemas.game import (
+    BotGameCreateRequest,
+    GameRoomCreate,
+    GameRoomResponse,
+    JoinRoomRequest,
+    RoomPlayerInfo,
+)
 from app.services.game_service import GameService
 from app.db.models import User, GameSession
 from app.services.lobby_manager import lobby_manager, handle_leave
+from app.services.agent_registry import make_bot_player_id, normalize_bot_types, resolve_bot_type_from_actor_id
 
 MAX_PLAYERS = 3
 
@@ -20,7 +27,7 @@ def _resolve_player_names(room: GameSession, db: Session) -> List[RoomPlayerInfo
     for pid in (room.players or []):
         pid_str = str(pid)
         if pid_str.startswith("BOT_"):
-            bot_type = pid_str.split("_", 1)[1].capitalize() if "_" in pid_str else "Bot"
+            bot_type = resolve_bot_type_from_actor_id(pid_str).capitalize()
             result.append(RoomPlayerInfo(display_name=bot_type, is_bot=True))
         else:
             user = db.query(User).filter(User.id == pid_str).first()
@@ -123,6 +130,7 @@ async def join_room(
 
 @router.post("/bot-game")
 async def create_bot_game(
+    body: BotGameCreateRequest = BotGameCreateRequest(),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -135,13 +143,18 @@ async def create_bot_game(
     if existing_host:
         raise HTTPException(status_code=409, detail="이미 방장인 방이 있습니다")
 
+    try:
+        bot_types = normalize_bot_types(body.bot_types, max_players=MAX_PLAYERS)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     room = GameSession(
         id=uuid4(),
         title=f"{current_user.nickname}의 봇전",
         status="WAITING",
         num_players=3,
         is_private=False,
-        players=["BOT_random", "BOT_random", "BOT_random"],
+        players=[make_bot_player_id(bot_type) for bot_type in bot_types],
         host_id=str(current_user.id),
     )
     db.add(room)
