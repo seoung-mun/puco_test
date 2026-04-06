@@ -1,0 +1,376 @@
+{
+  "roles": {
+    "settler":     "Colonizzatore",
+    "mayor":       "Sindaco",
+    "builder":     "Costruttore",
+    "craftsman":   "Artigiano",
+    "trader":      "Commerciante",
+    "captain":     "Capitano",
+    "prospector":  "Cercatore d'oro",
+    "prospector_2":"Cercatore d'oro 2"
+  },
+
+  "goods": {
+    "corn":    "Granturco",
+    "indigo":  "Indaco",
+    "sugar":   "Zucchero",
+    "tobacco": "Tabacco",
+    "coffee":  "Caffè",
+    "total":   "Totale"
+  },
+
+  "plantations": {
+    "corn":    "Granturco",
+    "indigo":  "Indaco",
+    "sugar":   "Zucchero",
+    "tobacco": "Tabacco",
+    "coffee":  "Caffè",
+    "quarry":  "Cava"
+  },
+
+  "buildings": {
+    "small_indigo_plant":  "Piccolo stabilimento di indaco",
+    "indigo_plant":        "Stabilimento di indaco",
+    "small_sugar_mill":    "Piccolo mulino dello zucchero",
+    "sugar_mill":          "Mulino dello zucchero",
+    "small_market":        "Piccolo mercato",
+    "large_market":        "Grande mercato",
+    "hacienda":            "Hacienda",
+    "construction_hut":    "Capanna della costruzione",
+    "small_warehouse":     "Piccolo magazzino",
+    "large_warehouse":     "Grande magazzino",
+    "tobacco_storage":     "Impianto del tabacco",
+    "coffee_roaster":      "Impianto di torrefazione del caffè",
+    "hospice":             "Ospizio",
+    "office":              "Ufficio",
+    "factory":             "Fabbrica",
+    "university":          "Università",
+    "harbor":              "Porto",
+    "wharf":               "Molo",
+    "guild_hall":          "Sede della corporazione",
+    "residence":           "Residenza",
+    "fortress":            "Fortezza",
+    "customs_house":       "Dogana",
+    "city_hall":           "Municipio"
+  },
+
+  "phases": {
+    "role_selection":   "Selezione ruolo",
+    "settler_action":   "Azione Colonizzatore",
+    "mayor_distribution": "Distribuzione coloni",
+    "mayor_action":     "Azione Sindaco",
+    "builder_action":   "Azione Costruttore",
+    "craftsman_action": "Azione Artigiano",
+    "trader_action":    "Azione Commerciante",
+    "captain_action":   "Azione Capitano",
+    "captain_discard":  "Stoccaggio merci"
+  },
+
+  "meta": {
+    "round":    "Round",
+    "phase":    "Fase",
+    "governor": "Governatore",
+    "active":   "Attivo",
+    "vpSupply": "VP rimasti"
+  },
+
+  "board": {
+    "title":         "Tabellone comune",
+    "roles":         "Ruoli",
+    "clickToSelect": "(clicca per selezionare)",
+    "colonists":     "Coloni",
+    "tradingHouse":  "Emporio",
+    "goodsSupply":   "Scorta merci",
+    "cargoShips":    "Navi da carico",
+    "plantations":   "Piantagioni disponibili",
+    "clickToPick":   "(clicca per scegliere)",
+    "roleCol":       "Ruolo",
+    "doubloonsCol":  "Dobloni",
+    "takenByCol":    "Scelto da",
+    "ship":          "Nave",
+    "supply":        "Scorta",
+    "full":          "Piena",
+    "drawPile":      "Mazzo",
+    "haciendaFollowup": "Hacienda ha gia fornito 1 piantagione extra. Ora scegli ancora 1 piantagione scoperta oppure una cava."
+  },
+
+  "player": {
+    "governor":          "Governatore",
+    "active":            "attivo",
+    "goods":             "Merci",
+    "production":        "Produzione",
+    "island":            "Isola",
+    "city":              "Città",
+    "unplacedColonists": "{{n}} coloni non piazzati"
+  },
+
+  "island": {
+    "activeQuarries": "{{n}} cav{{suffix}} attiv{{suffix}}"
+  },
+
+  "city": {
+    "discount": "sconto: {{n}}"
+  },
+
+  "sanJuan": {
+    "title":     "San Juan",
+    "building":  "Edificio",
+    "cost":      "Costo",
+    "vp":        "VP",
+    "colonists": "Col.",
+    "copies":    "×",
+    "quarryMax": "⛏ max {{n}}"
+  },
+
+  "rolePrivileges": {
+    "settler":   { "label": "Privilegio Colonizzatore", "tip": "Puoi prendere una cava invece di una piantagione scoperta" },
+    "mayor":     { "label": "Privilegio Sindaco",       "tip": "+1 colono dalla scorta, in aggiunta alla distribuzione normale" },
+    "builder":   { "label": "Privilegio Costruttore",   "tip": "1 doblone di sconto sul costo di costruzione" },
+    "craftsman": { "label": "Privilegio Artigiano",     "tip": "Produci 1 unità extra di una merce prodotta (a scelta)" },
+    "trader":    { "label": "Privilegio Commerciante",  "tip": "+1 doblone guadagnato quando vendi all'Emporio" },
+    "captain":   { "label": "Privilegio Capitano",      "tip": "+1 VP quando carichi merci sulla nave" }
+  },
+
+  "buildingAdvantages": {
+    "small_indigo_plant": { "tip": "Produzione — Produce 1 unità di indaco per round (richiede 1 colono)" },
+    "indigo_plant":       { "tip": "Produzione — Produce 1 unità di indaco per colono (max 3)" },
+    "small_sugar_mill":   { "tip": "Produzione — Produce 1 unità di zucchero per round (richiede 1 colono)" },
+    "sugar_mill":         { "tip": "Produzione — Produce 1 unità di zucchero per colono (max 3)" },
+    "tobacco_storage":    { "tip": "Produzione — Produce 1 unità di tabacco per colono (max 3)" },
+    "coffee_roaster":     { "tip": "Produzione — Produce 1 unità di caffè per colono (max 2)" },
+    "hacienda":           { "label": "Hacienda",       "tip": "Colonizzatore — Prima di scegliere una piantagione, puoi pescare 1 piantagione casuale dalla pila coperta (facoltativo)" },
+    "hospice":            { "label": "Ospizio",         "tip": "Colonizzatore — Quando piazzi una piantagione, ricevi 1 colono dalla scorta (facoltativo)" },
+    "construction_hut":   { "label": "Capanna",         "tip": "Colonizzatore — Puoi prendere una cava al posto di una piantagione" },
+    "small_market":       { "label": "Mercato S",       "tip": "Commerciante — +1 doblone quando vendi all'Emporio" },
+    "large_market":       { "label": "Mercato G",       "tip": "Commerciante — +2 dobloni quando vendi all'Emporio" },
+    "office":             { "label": "Ufficio",         "tip": "Commerciante — Puoi vendere qualsiasi merce, anche se già presente nell'Emporio" },
+    "factory":            { "label": "Fabbrica",        "tip": "Artigiano — Ricevi dobloni extra in base al numero di tipi diversi di merce prodotta (1 tipo→0, 2→1, 3→2, 4→3, 5→5)" },
+    "small_warehouse":    { "label": "Magazzino S",     "tip": "Capitano — Puoi conservare tutte le unità di 1 tipo di merce invece di scartarle" },
+    "large_warehouse":    { "label": "Magazzino G",     "tip": "Capitano — Puoi conservare tutte le unità di 2 tipi di merce invece di scartarle" },
+    "harbor":             { "label": "Porto",           "tip": "Capitano — +1 VP ogni volta che carichi merci su una nave" },
+    "wharf":              { "label": "Banchina",        "tip": "Capitano — Puoi caricare qualsiasi quantità di merce sulla tua nave privata (1 volta per fase Capitano)" },
+    "university":         { "label": "Università",      "tip": "Costruttore — Quando costruisci un edificio, ricevi +1 colono dalla scorta da piazzare sull'edificio" },
+    "guild_hall":         { "tip": "Fine partita — +1 VP per ogni piccolo edificio produttivo, +2 VP per ogni grande edificio produttivo" },
+    "residence":          { "tip": "Fine partita — +4 VP se hai 9+ spazi isola occupati; +5 se ≥10; +6 se ≥11; +7 se tutti i 12 spazi sono occupati" },
+    "fortress":           { "tip": "Fine partita — +1 VP ogni 3 coloni in tuo possesso (città + isola + non piazzati)" },
+    "customs_house":      { "tip": "Fine partita — +1 VP ogni 4 chip VP accumulati durante la partita" },
+    "city_hall":          { "tip": "Fine partita — +1 VP per ogni edificio viola (commercio/produzione) nella tua città, inclusa la Sala della Città stessa" }
+  },
+
+  "newGame": {
+    "title":       "Nuova Partita",
+    "numPlayers":  "Numero di giocatori:",
+    "playerName":  "Giocatore {{n}}",
+    "human":       "Umano",
+    "botRandom":   "Bot Casuale",
+    "botSmart":    "Bot Strategico",
+    "botGemini":   "Gemini AI",
+    "govNote":     "Il governatore iniziale viene sorteggiato casualmente.",
+    "cancel":      "Annulla",
+    "confirm":     "✓ Conferma",
+    "start":       "🚀 Inizia",
+    "starting":    "Avvio..."
+  },
+
+  "actions": {
+    "next":              "Avanti → (salta {{phase}})",
+    "advancing":         "Avanzando...",
+    "saving":            "Salvataggio in corso...",
+    "finishMayor":       "Termina posizionamento",
+    "finishMayorWait":   "Piazza tutti i coloni prima",
+    "askAi":             "Consulta IA (disabilitato)",
+    "useHacienda":       "Usa Hacienda",
+    "roundCompleted":    "Round {{n}} completato!",
+    "decisionNeeded":    "Decisione: {{note}}"
+  },
+
+  "history": {
+    "title": "Storico partita",
+    "empty": "Nessuna azione ancora registrata.",
+    "actions": {
+      "new_game":             "Nuova partita: {{players}} ({{num_players}} giocatori)",
+      "select_role":          "{{player}} ha scelto: {{role}}",
+      "settle_plantation":    "{{player}} ha colonizzato una piantagione di {{plantation}}",
+      "build":                "{{player}} ha costruito {{building}} (costo: {{cost}})",
+      "craftsman_privilege":  "{{player}} ha scelto {{good}} come privilegio dell'artigiano",
+      "sell":                 "{{player}} ha venduto {{good}} per {{price}} dobloni",
+      "load_ship":            "{{player}} ha caricato {{quantity}} {{good}} sulla nave (+{{vp}} VP)",
+      "pass":                  "{{player}} ha passato",
+      "use_hacienda":          "{{player}} ha usato l'hacienda",
+      "mayor_toggle_island":   "{{player}} ha spostato un colono sull'isola (slot {{slot}})",
+      "mayor_toggle_city":     "{{player}} ha spostato un colono nell'edificio (slot {{slot}})",
+      "store_windrose":        "{{player}} ha conservato {{good}} (rosa dei venti)",
+      "store_warehouse":       "{{player}} ha conservato {{good}} nel magazzino",
+      "mayor_finish_placement":"{{player}} ha completato il posizionamento dei coloni",
+      "mayor_distribute":      "{{player}} ha completato il posizionamento dei coloni",
+      "mayor_place_done":      "{{player}} ha completato il posizionamento dei coloni",
+      "discard":              "{{player}} ha scartato le merci in eccesso",
+      "round_end":            "Fine round {{round}}"
+    }
+  },
+
+  "decision": {
+    "role_selection":      "{{player}} sceglie un ruolo",
+    "mayor_distribution":  "Distribuzione dei coloni in corso...",
+    "mayor_action":        "{{player}} — posiziona i coloni nella tua città",
+    "settler_action":      "{{player}} — scegli una piantagione da colonizzare",
+    "builder_action":      "{{player}} — scegli un edificio da costruire",
+    "craftsman_privilege": "{{player}} — scegli un prodotto bonus (privilegio artigiano)",
+    "trader_action":       "{{player}} — scegli una merce da vendere al mercato",
+    "captain_action":      "{{player}} — carica le merci su una nave",
+    "captain_discard":     "{{player}} — scarta le merci in eccesso",
+    "action":              "{{player}} — esegui un'azione"
+  },
+
+  "trader": {
+    "title":        "Commerciante",
+    "privilegeBadge": "★ Privilegio +1",
+    "smallMarket":  "🏪 Mercato piccolo +1",
+    "largeMarket":  "🏪 Mercato grande +2",
+    "office":       "🏢 Ufficio",
+    "houseFull":    "Emporio pieno",
+    "noGoods":      "Nessuna merce in possesso.",
+    "good":         "Merce",
+    "qty":          "Qtà",
+    "base":         "Base",
+    "bonus":        "Bonus",
+    "total":        "Totale",
+    "sell":         "Vendi",
+    "pass":         "Passa"
+  },
+
+  "captain": {
+    "title":        "Capitano",
+    "privilegeBadge": "★ Privilegio +1VP",
+    "harbor":       "⚓ Porto +1VP",
+    "noGoods":      "Nessuna merce da caricare.",
+    "shipBtn":      "Nave {{idx}} ({{filled}}/{{cap}}) → carica {{qty}}",
+    "noValidShip":  "nessuna nave valida",
+    "wharfBtn":     "Nave privata → carica tutto ({{qty}})",
+    "mustLoad":     "Devi caricare",
+    "pass":         "Passa"
+  },
+
+  "discard": {
+    "title":        "Scarta merci",
+    "warehouse":    "🏪 Magazzino: {{n}} tipo/i protetti",
+    "noWarehouse":  "Nessun magazzino",
+    "noGoods":      "Nessuna merce.",
+    "good":         "Merce",
+    "qty":          "Qtà",
+    "warehouseCol": "Magazzino ({{used}}/{{max}})",
+    "extraCol":     "+1 extra",
+    "discardCol":   "Viene scartato",
+    "confirm":      "Conferma scarto"
+  },
+
+  "hospiceDialog": {
+    "message": "Hai scelto <strong>{{plantation}}</strong>.<br />Vuoi usare l'<strong>Ospizio</strong> per colonizzare subito questa piantagione?",
+    "yes":     "Sì, colono",
+    "no":      "No"
+  },
+
+  "craftsmanDialog": {
+    "message": "Sei l'<strong>Artigiano</strong>.<br />Scegli 1 bene extra da produrre come privilegio:",
+    "skip":    "Salta"
+  },
+
+  "endGame": {
+    "title":       "🏁 Partita terminata — {{reason}}",
+    "titleNoReason":"🏁 Partita terminata",
+    "loading":     "Calcolo punteggi...",
+    "returnToRooms":"Torna all'elenco stanze",
+    "vpChips":     "Gettoni VP",
+    "buildings":   "Edifici",
+    "guildHall":   "Palazzo corp.",
+    "residence":   "Residenza",
+    "fortress":    "Fortezza",
+    "customsHouse":"Dogana",
+    "cityHall":    "Municipio",
+    "total":       "TOTALE"
+  },
+
+  "admin": {
+    "title":    "⚙ Admin",
+    "label":    "Test state:",
+    "load":     "Carica",
+    "loading":  "Caricando...",
+    "loaded":   "Caricato: {{name}}"
+  },
+
+  "nav": {
+    "roles":   "Ruoli",
+    "cargo":   "Navi",
+    "island":  "Isola",
+    "city":    "Città",
+    "sanJuan": "San Juan",
+    "focus":   "Focus"
+  },
+
+  "langToggle": "EN",
+
+  "home": {
+    "offline":           "Partita offline",
+    "onlineMultiplayer": "Multigiocatore online",
+    "continueGame":      "Continua partita",
+    "newGame":           "Nuova partita",
+    "enterHostName":     "Inserisci il tuo nome per ospitare la sessione:",
+    "yourName":          "Il tuo nome",
+    "startMultiplayer":  "Crea sessione",
+    "back":              "← Indietro",
+    "logout":            "Disconnetti"
+  },
+
+  "rooms": {
+    "createRoom":    "Crea Stanza",
+    "createBotGame": "Partita Bot",
+    "botGameSetup":  "Configura Partita Bot",
+    "botGameHint":   "Scegli il tipo di bot per ogni slot e avvia subito una partita bot da osservare.",
+    "botSlot":       "Bot Giocatore {{n}}",
+    "startBotGame":  "Avvia Partita Bot",
+    "creatingBotGame":"Creazione partita bot...",
+    "loadingBotTypes":"Caricamento tipi di bot...",
+    "noBotTypes":    "Nessun tipo di bot disponibile.",
+    "refresh":       "Aggiorna",
+    "full":          "Piena",
+    "join":          "Entra",
+    "spectating":    "In Osservazione"
+  },
+
+  "join": {
+    "enterKey":      "Inserisci la chiave della sessione:",
+    "next":          "Avanti →",
+    "whoAreYou":     "Chi sei? (scegli il tuo giocatore)",
+    "enterName":     "Come vuoi chiamarti?",
+    "namePlaceholder":"Il tuo nome",
+    "as_player":     "Giocatore",
+    "as_spectator":  "Spettatore",
+    "enter":         "Entra",
+    "back":          "← Indietro"
+  },
+
+  "lobby": {
+    "title":             "Lobby",
+    "shareKey":          "Condividi questa chiave con i tuoi amici:",
+    "shareUrl":          "URL del server",
+    "players":           "Giocatori",
+    "spectator":         "spettatore",
+    "noPlayers":         "Nessun giocatore ancora...",
+    "start":             "▶ Avvia Partita",
+    "needMorePlayers":   "Servono ancora {{n}} giocatori",
+    "waitingHost":       "In attesa che l'host avvii la partita...",
+    "hostDisconnected":  "Host disconnesso — in attesa che si ricolleghi...",
+    "logout":            "Disconnettiti",
+    "addBot":            "+ Aggiungi Bot",
+    "botNamePlaceholder": "Nome bot",
+    "botType":           "Tipo",
+    "back":              "Torna alle stanze"
+  },
+
+  "game": {
+    "waitingTurn":   "In attesa del turno di {{name}}...",
+    "geminiThinking": "Gemini AI sta pensando...",
+    "noGame":        "Nessuna partita in corso.",
+    "startNew":      "Inizia nuova partita"
+  }
+}

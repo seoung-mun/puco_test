@@ -1,0 +1,38 @@
+### --- Python / RL Project Standard --- ###
+# 가상환경 (가장 큰 주범)
+venv/
+bin/
+lib/
+share/
+
+# 파이썬 캐시 및 컴파일 파일
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
+
+# 머신러닝/강화학습 결과물 및 모델
+# (GitHub 용량 초과 방지를 위해 제외 권장)
+models/
+runs/
+checkpoints/
+*.pth
+*.h5
+*.ckpt
+*.onnx
+
+### --- Editor & System --- ###
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+### --- Project Specific --- ###
+rule_documents/
+.agents/
+command.txt
+
+# 만약 데이터셋 폴더가 있다면 추가하세요
+# data/

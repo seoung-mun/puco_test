@@ -1,0 +1,39 @@
+# ── Backend Production Dockerfile ──
+# 용도: docker-compose.prod.yml (배포 환경)
+# 특징: non-root, HEALTHCHECK, PuCo_RL 엔진 번들, 최소 공격 표면
+FROM python:3.12-slim
+
+# torch (OpenMP) 런타임 라이브러리
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgomp1 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+
+# 의존성 레이어 캐시
+COPY backend/requirements.txt .
+RUN uv pip install --system --no-cache -r requirements.txt
+
+# PuCo_RL 게임 엔진 + 모델
+COPY PuCo_RL /PuCo_RL
+
+# 백엔드 앱 코드
+COPY backend/ /app/
+
+RUN useradd -m -u 1001 appuser
+
+COPY backend/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+USER appuser
+
+ENV PYTHONPATH=/app:/PuCo_RL
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://127.0.0.1:8000/health || exit 1
+
+CMD ["/entrypoint.sh"]

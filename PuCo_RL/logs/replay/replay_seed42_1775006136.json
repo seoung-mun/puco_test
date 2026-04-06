@@ -1,0 +1,5472 @@
+{
+  "model": "PPO_PR_Server_20260331_163417_step_99942400.pth",
+  "architecture": "PPOAgent",
+  "seed": 42,
+  "num_players": 3,
+  "total_steps": 223,
+  "final_scores": [
+    {
+      "player": 0,
+      "vp": 38,
+      "tiebreaker": 3,
+      "winner": true
+    },
+    {
+      "player": 1,
+      "vp": 30,
+      "tiebreaker": 2,
+      "winner": false
+    },
+    {
+      "player": 2,
+      "vp": 36,
+      "tiebreaker": 3,
+      "winner": false
+    }
+  ],
+  "entries": [
+    {
+      "step": 0,
+      "round": 0,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 2,
+      "action": "Select Role: Builder",
+      "value_estimate": 0.2495,
+      "top_actions": [
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.9951
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor",
+          "prob": 0.0021
+        },
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.0012
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0008
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0006
+        }
+      ],
+      "role_selected": "Builder",
+      "commentary": "Has 2 doubloons"
+    },
+    {
+      "step": 1,
+      "round": 0,
+      "player": 2,
+      "phase": "BUILDER",
+      "action_id": 18,
+      "action": "Builder: Build Indigo Plant (cost 3, VP 2)",
+      "value_estimate": 0.2547,
+      "top_actions": [
+        {
+          "action_id": 18,
+          "action": "Builder: Build Indigo Plant (cost 3, VP 2)",
+          "prob": 0.9907
+        },
+        {
+          "action_id": 16,
+          "action": "Builder: Build Small Indigo Plant (cost 1, VP 1)",
+          "prob": 0.0039
+        },
+        {
+          "action_id": 24,
+          "action": "Builder: Build Construction Hut (cost 2, VP 1)",
+          "prob": 0.0031
+        },
+        {
+          "action_id": 22,
+          "action": "Builder: Build Small Market (cost 1, VP 1)",
+          "prob": 0.0019
+        },
+        {
+          "action_id": 25,
+          "action": "Builder: Build Small Warehouse (cost 3, VP 1)",
+          "prob": 0.0002
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 2,
+      "round": 0,
+      "player": 0,
+      "phase": "BUILDER",
+      "action_id": 16,
+      "action": "Builder: Build Small Indigo Plant (cost 1, VP 1)",
+      "value_estimate": 0.2626,
+      "top_actions": [
+        {
+          "action_id": 16,
+          "action": "Builder: Build Small Indigo Plant (cost 1, VP 1)",
+          "prob": 0.9774
+        },
+        {
+          "action_id": 17,
+          "action": "Builder: Build Small Sugar Mill (cost 2, VP 1)",
+          "prob": 0.0145
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 0.0051
+        },
+        {
+          "action_id": 22,
+          "action": "Builder: Build Small Market (cost 1, VP 1)",
+          "prob": 0.0019
+        },
+        {
+          "action_id": 23,
+          "action": "Builder: Build Hacienda (cost 2, VP 1)",
+          "prob": 0.0008
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 3,
+      "round": 0,
+      "player": 1,
+      "phase": "BUILDER",
+      "action_id": 16,
+      "action": "Builder: Build Small Indigo Plant (cost 1, VP 1)",
+      "value_estimate": 0.2634,
+      "top_actions": [
+        {
+          "action_id": 16,
+          "action": "Builder: Build Small Indigo Plant (cost 1, VP 1)",
+          "prob": 0.9958
+        },
+        {
+          "action_id": 17,
+          "action": "Builder: Build Small Sugar Mill (cost 2, VP 1)",
+          "prob": 0.0025
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 0.0008
+        },
+        {
+          "action_id": 23,
+          "action": "Builder: Build Hacienda (cost 2, VP 1)",
+          "prob": 0.0008
+        },
+        {
+          "action_id": 22,
+          "action": "Builder: Build Small Market (cost 1, VP 1)",
+          "prob": 0.0001
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 4,
+      "round": 0,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 1,
+      "action": "Select Role: Mayor",
+      "value_estimate": 0.255,
+      "top_actions": [
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor",
+          "prob": 0.9998
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0001
+        },
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Mayor",
+      "commentary": "Unplaced colonists: 0 | Empty placeable slots: 2"
+    },
+    {
+      "step": 5,
+      "round": 0,
+      "player": 0,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.2572,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 6,
+      "round": 0,
+      "player": 0,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.2561,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 7,
+      "round": 0,
+      "player": 1,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.2521,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 0.9965
+        },
+        {
+          "action_id": 69,
+          "action": "Mayor: Place 0 colonists on current slot",
+          "prob": 0.0035
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 8,
+      "round": 0,
+      "player": 2,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.2487,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 0.9915
+        },
+        {
+          "action_id": 69,
+          "action": "Mayor: Place 0 colonists on current slot",
+          "prob": 0.0085
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 9,
+      "round": 0,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2675,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.9961
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.002
+        },
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.0012
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0007
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 1 goods"
+    },
+    {
+      "step": 10,
+      "round": 0,
+      "player": 1,
+      "phase": "CRAFTSMAN",
+      "action_id": 95,
+      "action": "Craftsman Privilege: Take 1 extra Corn",
+      "value_estimate": 0.2659,
+      "top_actions": [
+        {
+          "action_id": 95,
+          "action": "Craftsman Privilege: Take 1 extra Corn",
+          "prob": 1.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 11,
+      "round": 1,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain (+1 doubloon)",
+      "value_estimate": 0.2561,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain (+1 doubloon)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 1 goods"
+    },
+    {
+      "step": 12,
+      "round": 1,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 53,
+      "action": "Captain: Load Indigo onto Medium Ship",
+      "value_estimate": 0.2604,
+      "top_actions": [
+        {
+          "action_id": 53,
+          "action": "Captain: Load Indigo onto Medium Ship",
+          "prob": 0.9999
+        },
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 0.0001
+        },
+        {
+          "action_id": 58,
+          "action": "Captain: Load Indigo onto Large Ship",
+          "prob": 0.0001
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 13,
+      "round": 1,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.264,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 46,
+          "action": "Captain: Load Corn onto Small Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 14,
+      "round": 1,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2475,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 15,
+      "round": 1,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2508,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 16,
+      "round": 1,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2495,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 17,
+      "round": 1,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2502,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 18,
+      "round": 1,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2482,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 19,
+      "round": 1,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2506,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 20,
+      "round": 1,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 4,
+      "action": "Select Role: Trader (+1 doubloon)",
+      "value_estimate": 0.2529,
+      "top_actions": [
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.9406
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0497
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0056
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0041
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor",
+          "prob": 0.0001
+        }
+      ],
+      "role_selected": "Trader",
+      "commentary": ""
+    },
+    {
+      "step": 21,
+      "round": 1,
+      "player": 1,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.2547,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 22,
+      "round": 1,
+      "player": 2,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.2567,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 23,
+      "round": 1,
+      "player": 0,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.2579,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 24,
+      "round": 1,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2502,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.9973
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0017
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.001
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 0 goods"
+    },
+    {
+      "step": 25,
+      "round": 2,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 0,
+      "action": "Select Role: Settler (+2 doubloons)",
+      "value_estimate": 0.2612,
+      "top_actions": [
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+2 doubloons)",
+          "prob": 0.9946
+        },
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.0053
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Settler",
+      "commentary": "Empty island spaces: 11"
+    },
+    {
+      "step": 26,
+      "round": 2,
+      "player": 1,
+      "phase": "INIT",
+      "action_id": 14,
+      "action": "Settler: Take Quarry",
+      "value_estimate": 0.2693,
+      "top_actions": [
+        {
+          "action_id": 14,
+          "action": "Settler: Take Quarry",
+          "prob": 0.9944
+        },
+        {
+          "action_id": 8,
+          "action": "Settler: Take Indigo Plantation (face-up #0)",
+          "prob": 0.0041
+        },
+        {
+          "action_id": 9,
+          "action": "Settler: Take Coffee Plantation (face-up #1)",
+          "prob": 0.001
+        },
+        {
+          "action_id": 11,
+          "action": "Settler: Take Corn Plantation (face-up #3)",
+          "prob": 0.0002
+        },
+        {
+          "action_id": 10,
+          "action": "Settler: Take Coffee Plantation (face-up #2)",
+          "prob": 0.0002
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 27,
+      "round": 2,
+      "player": 2,
+      "phase": "INIT",
+      "action_id": 8,
+      "action": "Settler: Take Indigo Plantation (face-up #0)",
+      "value_estimate": 0.2616,
+      "top_actions": [
+        {
+          "action_id": 8,
+          "action": "Settler: Take Indigo Plantation (face-up #0)",
+          "prob": 0.9745
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.012
+        },
+        {
+          "action_id": 11,
+          "action": "Settler: Take Corn Plantation (face-up #3)",
+          "prob": 0.0061
+        },
+        {
+          "action_id": 9,
+          "action": "Settler: Take Coffee Plantation (face-up #1)",
+          "prob": 0.0048
+        },
+        {
+          "action_id": 10,
+          "action": "Settler: Take Coffee Plantation (face-up #2)",
+          "prob": 0.0026
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 28,
+      "round": 2,
+      "player": 0,
+      "phase": "INIT",
+      "action_id": 10,
+      "action": "Settler: Take Corn Plantation (face-up #2)",
+      "value_estimate": 0.2657,
+      "top_actions": [
+        {
+          "action_id": 10,
+          "action": "Settler: Take Corn Plantation (face-up #2)",
+          "prob": 0.9732
+        },
+        {
+          "action_id": 8,
+          "action": "Settler: Take Coffee Plantation (face-up #0)",
+          "prob": 0.0243
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.0017
+        },
+        {
+          "action_id": 9,
+          "action": "Settler: Take Coffee Plantation (face-up #1)",
+          "prob": 0.0008
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 29,
+      "round": 2,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 1,
+      "action": "Select Role: Mayor (+1 doubloon)",
+      "value_estimate": 0.2661,
+      "top_actions": [
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+1 doubloon)",
+          "prob": 0.9989
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0006
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 0.0004
+        },
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.0
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Mayor",
+      "commentary": "Unplaced colonists: 0 | Empty placeable slots: 4"
+    },
+    {
+      "step": 30,
+      "round": 2,
+      "player": 2,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.2566,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 1.0
+        },
+        {
+          "action_id": 69,
+          "action": "Mayor: Place 0 colonists on current slot",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 31,
+      "round": 2,
+      "player": 2,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.2729,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 0.9999
+        },
+        {
+          "action_id": 69,
+          "action": "Mayor: Place 0 colonists on current slot",
+          "prob": 0.0001
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 32,
+      "round": 2,
+      "player": 2,
+      "phase": "MAYOR",
+      "action_id": 71,
+      "action": "Mayor: Place 2 colonists on current slot",
+      "value_estimate": 0.2769,
+      "top_actions": [
+        {
+          "action_id": 71,
+          "action": "Mayor: Place 2 colonists on current slot",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 33,
+      "round": 2,
+      "player": 0,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.264,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 34,
+      "round": 2,
+      "player": 0,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.2761,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 35,
+      "round": 2,
+      "player": 0,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.266,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 36,
+      "round": 2,
+      "player": 1,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.2697,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 1.0
+        },
+        {
+          "action_id": 69,
+          "action": "Mayor: Place 0 colonists on current slot",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 37,
+      "round": 2,
+      "player": 1,
+      "phase": "MAYOR",
+      "action_id": 70,
+      "action": "Mayor: Place 1 colonist on current slot",
+      "value_estimate": 0.2744,
+      "top_actions": [
+        {
+          "action_id": 70,
+          "action": "Mayor: Place 1 colonist on current slot",
+          "prob": 0.9983
+        },
+        {
+          "action_id": 69,
+          "action": "Mayor: Place 0 colonists on current slot",
+          "prob": 0.0017
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 38,
+      "round": 2,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2619,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 1.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0
+        },
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 2 goods"
+    },
+    {
+      "step": 39,
+      "round": 2,
+      "player": 0,
+      "phase": "CRAFTSMAN",
+      "action_id": 97,
+      "action": "Craftsman Privilege: Take 1 extra Indigo",
+      "value_estimate": 0.2789,
+      "top_actions": [
+        {
+          "action_id": 97,
+          "action": "Craftsman Privilege: Take 1 extra Indigo",
+          "prob": 0.9997
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0003
+        },
+        {
+          "action_id": 95,
+          "action": "Craftsman Privilege: Take 1 extra Corn",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 40,
+      "round": 3,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain (+1 doubloon)",
+      "value_estimate": 0.2793,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain (+1 doubloon)",
+          "prob": 0.9452
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+2 doubloons)",
+          "prob": 0.0526
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0015
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0004
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0002
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 2 goods"
+    },
+    {
+      "step": 41,
+      "round": 3,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 53,
+      "action": "Captain: Load Indigo onto Medium Ship",
+      "value_estimate": 0.2733,
+      "top_actions": [
+        {
+          "action_id": 53,
+          "action": "Captain: Load Indigo onto Medium Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 42,
+      "round": 3,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 53,
+      "action": "Captain: Load Indigo onto Medium Ship",
+      "value_estimate": 0.2782,
+      "top_actions": [
+        {
+          "action_id": 53,
+          "action": "Captain: Load Indigo onto Medium Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 43,
+      "round": 3,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.2859,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 44,
+      "round": 3,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2688,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 45,
+      "round": 3,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.2681,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 46,
+      "round": 3,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2639,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 47,
+      "round": 3,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2598,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 48,
+      "round": 3,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2656,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 49,
+      "round": 3,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 68,
+      "action": "Store (Windrose): Keep 1 Indigo",
+      "value_estimate": 0.2593,
+      "top_actions": [
+        {
+          "action_id": 68,
+          "action": "Store (Windrose): Keep 1 Indigo",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 50,
+      "round": 3,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2593,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 51,
+      "round": 3,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2609,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 52,
+      "round": 3,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 2,
+      "action": "Select Role: Builder (+2 doubloons)",
+      "value_estimate": 0.2707,
+      "top_actions": [
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+2 doubloons)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor",
+          "prob": 0.0
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Builder",
+      "commentary": "Has 2 doubloons"
+    },
+    {
+      "step": 53,
+      "round": 3,
+      "player": 0,
+      "phase": "BUILDER",
+      "action_id": 20,
+      "action": "Builder: Build Tobacco Storage (cost 5, VP 3)",
+      "value_estimate": 0.2641,
+      "top_actions": [
+        {
+          "action_id": 20,
+          "action": "Builder: Build Tobacco Storage (cost 5, VP 3)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 26,
+          "action": "Builder: Build Hospice (cost 4, VP 2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 18,
+          "action": "Builder: Build Indigo Plant (cost 3, VP 2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 19,
+          "action": "Builder: Build Sugar Mill (cost 4, VP 2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 27,
+          "action": "Builder: Build Office (cost 5, VP 2)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 54,
+      "round": 3,
+      "player": 1,
+      "phase": "BUILDER",
+      "action_id": 20,
+      "action": "Builder: Build Tobacco Storage (cost 5, VP 3)",
+      "value_estimate": 0.2624,
+      "top_actions": [
+        {
+          "action_id": 20,
+          "action": "Builder: Build Tobacco Storage (cost 5, VP 3)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 17,
+          "action": "Builder: Build Small Sugar Mill (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 18,
+          "action": "Builder: Build Indigo Plant (cost 3, VP 2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 19,
+          "action": "Builder: Build Sugar Mill (cost 4, VP 2)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 55,
+      "round": 3,
+      "player": 2,
+      "phase": "BUILDER",
+      "action_id": 16,
+      "action": "Builder: Build Small Indigo Plant (cost 1, VP 1)",
+      "value_estimate": 0.2637,
+      "top_actions": [
+        {
+          "action_id": 16,
+          "action": "Builder: Build Small Indigo Plant (cost 1, VP 1)",
+          "prob": 0.9999
+        },
+        {
+          "action_id": 17,
+          "action": "Builder: Build Small Sugar Mill (cost 2, VP 1)",
+          "prob": 0.0001
+        },
+        {
+          "action_id": 22,
+          "action": "Builder: Build Small Market (cost 1, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 23,
+          "action": "Builder: Build Hacienda (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 24,
+          "action": "Builder: Build Construction Hut (cost 2, VP 1)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 56,
+      "round": 3,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2359,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 1.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 1 goods"
+    },
+    {
+      "step": 57,
+      "round": 3,
+      "player": 1,
+      "phase": "CRAFTSMAN",
+      "action_id": 95,
+      "action": "Craftsman Privilege: Take 1 extra Corn",
+      "value_estimate": 0.2439,
+      "top_actions": [
+        {
+          "action_id": 95,
+          "action": "Craftsman Privilege: Take 1 extra Corn",
+          "prob": 1.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 58,
+      "round": 4,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain",
+      "value_estimate": 0.2479,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 1.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+2 doubloons)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 3 goods"
+    },
+    {
+      "step": 59,
+      "round": 4,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.253,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 53,
+          "action": "Captain: Load Indigo onto Medium Ship",
+          "prob": 0.0
+        },
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 60,
+      "round": 4,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.2494,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 61,
+      "round": 4,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2548,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 62,
+      "round": 4,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2412,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 63,
+      "round": 4,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2498,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 64,
+      "round": 4,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2522,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 65,
+      "round": 4,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 66,
+      "action": "Store (Windrose): Keep 1 Corn",
+      "value_estimate": 0.2393,
+      "top_actions": [
+        {
+          "action_id": 66,
+          "action": "Store (Windrose): Keep 1 Corn",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 66,
+      "round": 4,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2393,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 67,
+      "round": 4,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 66,
+      "action": "Store (Windrose): Keep 1 Corn",
+      "value_estimate": 0.2489,
+      "top_actions": [
+        {
+          "action_id": 66,
+          "action": "Store (Windrose): Keep 1 Corn",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 68,
+      "round": 4,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2489,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 69,
+      "round": 4,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2511,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 70,
+      "round": 4,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 4,
+      "action": "Select Role: Trader (+2 doubloons)",
+      "value_estimate": 0.2529,
+      "top_actions": [
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+2 doubloons)",
+          "prob": 0.9962
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0036
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+1 doubloon)",
+          "prob": 0.0001
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0001
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0001
+        }
+      ],
+      "role_selected": "Trader",
+      "commentary": "Best sellable: Corn (base 0)"
+    },
+    {
+      "step": 71,
+      "round": 4,
+      "player": 1,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.2505,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 41,
+          "action": "Trader: Sell Corn (base price 0)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 72,
+      "round": 4,
+      "player": 2,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.2528,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 73,
+      "round": 4,
+      "player": 0,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.2384,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 41,
+          "action": "Trader: Sell Corn (base price 0)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 74,
+      "round": 4,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2602,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 1.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+1 doubloon)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 2 goods"
+    },
+    {
+      "step": 75,
+      "round": 4,
+      "player": 2,
+      "phase": "CRAFTSMAN",
+      "action_id": 97,
+      "action": "Craftsman Privilege: Take 1 extra Indigo",
+      "value_estimate": 0.26,
+      "top_actions": [
+        {
+          "action_id": 97,
+          "action": "Craftsman Privilege: Take 1 extra Indigo",
+          "prob": 1.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 76,
+      "round": 5,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain",
+      "value_estimate": 0.2602,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 1.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+2 doubloons)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+2 doubloons)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 2 goods"
+    },
+    {
+      "step": 77,
+      "round": 5,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 51,
+      "action": "Captain: Load Corn onto Medium Ship",
+      "value_estimate": 0.2602,
+      "top_actions": [
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 0.9917
+        },
+        {
+          "action_id": 46,
+          "action": "Captain: Load Corn onto Small Ship",
+          "prob": 0.0066
+        },
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 0.0016
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 78,
+      "round": 5,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2537,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 58,
+          "action": "Captain: Load Indigo onto Large Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 79,
+      "round": 5,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2435,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 80,
+      "round": 5,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2494,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 81,
+      "round": 5,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2501,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 82,
+      "round": 5,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 51,
+      "action": "Captain: Load Corn onto Medium Ship",
+      "value_estimate": 0.2474,
+      "top_actions": [
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 83,
+      "round": 5,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2395,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 84,
+      "round": 5,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.246,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 85,
+      "round": 5,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2447,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 86,
+      "round": 5,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2423,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 87,
+      "round": 5,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 0,
+      "action": "Select Role: Settler (+2 doubloons)",
+      "value_estimate": 0.2463,
+      "top_actions": [
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+2 doubloons)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+2 doubloons)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Settler",
+      "commentary": "Empty island spaces: 10"
+    },
+    {
+      "step": 88,
+      "round": 5,
+      "player": 2,
+      "phase": "INIT",
+      "action_id": 8,
+      "action": "Settler: Take Tobacco Plantation (face-up #0)",
+      "value_estimate": 0.2478,
+      "top_actions": [
+        {
+          "action_id": 8,
+          "action": "Settler: Take Tobacco Plantation (face-up #0)",
+          "prob": 0.9993
+        },
+        {
+          "action_id": 14,
+          "action": "Settler: Take Quarry",
+          "prob": 0.0004
+        },
+        {
+          "action_id": 11,
+          "action": "Settler: Take Coffee Plantation (face-up #3)",
+          "prob": 0.0003
+        },
+        {
+          "action_id": 10,
+          "action": "Settler: Take Tobacco Plantation (face-up #2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 9,
+          "action": "Settler: Take Tobacco Plantation (face-up #1)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 89,
+      "round": 5,
+      "player": 0,
+      "phase": "INIT",
+      "action_id": 8,
+      "action": "Settler: Take Tobacco Plantation (face-up #0)",
+      "value_estimate": 0.2321,
+      "top_actions": [
+        {
+          "action_id": 8,
+          "action": "Settler: Take Tobacco Plantation (face-up #0)",
+          "prob": 0.9999
+        },
+        {
+          "action_id": 10,
+          "action": "Settler: Take Coffee Plantation (face-up #2)",
+          "prob": 0.0001
+        },
+        {
+          "action_id": 9,
+          "action": "Settler: Take Tobacco Plantation (face-up #1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 90,
+      "round": 5,
+      "player": 1,
+      "phase": "INIT",
+      "action_id": 8,
+      "action": "Settler: Take Tobacco Plantation (face-up #0)",
+      "value_estimate": 0.2386,
+      "top_actions": [
+        {
+          "action_id": 8,
+          "action": "Settler: Take Tobacco Plantation (face-up #0)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 9,
+          "action": "Settler: Take Coffee Plantation (face-up #1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 91,
+      "round": 5,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2321,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.9983
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+2 doubloons)",
+          "prob": 0.0011
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0005
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 0.0001
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 2 goods"
+    },
+    {
+      "step": 92,
+      "round": 5,
+      "player": 0,
+      "phase": "CRAFTSMAN",
+      "action_id": 97,
+      "action": "Craftsman Privilege: Take 1 extra Indigo",
+      "value_estimate": 0.2406,
+      "top_actions": [
+        {
+          "action_id": 97,
+          "action": "Craftsman Privilege: Take 1 extra Indigo",
+          "prob": 1.0
+        },
+        {
+          "action_id": 95,
+          "action": "Craftsman Privilege: Take 1 extra Corn",
+          "prob": 0.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 93,
+      "round": 6,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 2,
+      "action": "Select Role: Builder (+2 doubloons)",
+      "value_estimate": 0.2576,
+      "top_actions": [
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+2 doubloons)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+3 doubloons)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Builder",
+      "commentary": "Has 3 doubloons"
+    },
+    {
+      "step": 94,
+      "round": 6,
+      "player": 2,
+      "phase": "BUILDER",
+      "action_id": 20,
+      "action": "Builder: Build Tobacco Storage (cost 5, VP 3)",
+      "value_estimate": 0.2443,
+      "top_actions": [
+        {
+          "action_id": 20,
+          "action": "Builder: Build Tobacco Storage (cost 5, VP 3)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 21,
+          "action": "Builder: Build Coffee Roaster (cost 6, VP 3)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 26,
+          "action": "Builder: Build Hospice (cost 4, VP 2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 17,
+          "action": "Builder: Build Small Sugar Mill (cost 2, VP 1)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 95,
+      "round": 6,
+      "player": 0,
+      "phase": "BUILDER",
+      "action_id": 15,
+      "action": "Pass (BUILDER)",
+      "value_estimate": 0.2368,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 96,
+      "round": 6,
+      "player": 1,
+      "phase": "BUILDER",
+      "action_id": 18,
+      "action": "Builder: Build Indigo Plant (cost 3, VP 2)",
+      "value_estimate": 0.2414,
+      "top_actions": [
+        {
+          "action_id": 18,
+          "action": "Builder: Build Indigo Plant (cost 3, VP 2)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 23,
+          "action": "Builder: Build Hacienda (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 24,
+          "action": "Builder: Build Construction Hut (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 25,
+          "action": "Builder: Build Small Warehouse (cost 3, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 97,
+      "round": 6,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain",
+      "value_estimate": 0.2375,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 1.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+3 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 3 goods"
+    },
+    {
+      "step": 98,
+      "round": 6,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2482,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 58,
+          "action": "Captain: Load Indigo onto Large Ship",
+          "prob": 0.0
+        },
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 99,
+      "round": 6,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 51,
+      "action": "Captain: Load Corn onto Medium Ship",
+      "value_estimate": 0.2345,
+      "top_actions": [
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 100,
+      "round": 6,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2309,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 101,
+      "round": 6,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2323,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 102,
+      "round": 6,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2337,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 103,
+      "round": 6,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.23,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 104,
+      "round": 6,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 66,
+      "action": "Store (Windrose): Keep 1 Corn",
+      "value_estimate": 0.2318,
+      "top_actions": [
+        {
+          "action_id": 66,
+          "action": "Store (Windrose): Keep 1 Corn",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 105,
+      "round": 6,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2318,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 106,
+      "round": 6,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2333,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 107,
+      "round": 6,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.234,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 108,
+      "round": 6,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2355,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 1.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+3 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 1 goods"
+    },
+    {
+      "step": 109,
+      "round": 6,
+      "player": 1,
+      "phase": "CRAFTSMAN",
+      "action_id": 95,
+      "action": "Craftsman Privilege: Take 1 extra Corn",
+      "value_estimate": 0.2365,
+      "top_actions": [
+        {
+          "action_id": 95,
+          "action": "Craftsman Privilege: Take 1 extra Corn",
+          "prob": 0.9596
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0404
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 110,
+      "round": 7,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain",
+      "value_estimate": 0.2351,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 1.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+2 doubloons)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+4 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 3 goods"
+    },
+    {
+      "step": 111,
+      "round": 7,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2381,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 53,
+          "action": "Captain: Load Indigo onto Medium Ship",
+          "prob": 0.0
+        },
+        {
+          "action_id": 58,
+          "action": "Captain: Load Indigo onto Large Ship",
+          "prob": 0.0
+        },
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 0.0
+        },
+        {
+          "action_id": 46,
+          "action": "Captain: Load Corn onto Small Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 112,
+      "round": 7,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 51,
+      "action": "Captain: Load Corn onto Medium Ship",
+      "value_estimate": 0.2386,
+      "top_actions": [
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 0.9999
+        },
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 0.0001
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 113,
+      "round": 7,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2299,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 114,
+      "round": 7,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 51,
+      "action": "Captain: Load Corn onto Medium Ship",
+      "value_estimate": 0.2243,
+      "top_actions": [
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 115,
+      "round": 7,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2198,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 116,
+      "round": 7,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2199,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 117,
+      "round": 7,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2183,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 118,
+      "round": 7,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2126,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 119,
+      "round": 7,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2144,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 120,
+      "round": 7,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2173,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 121,
+      "round": 7,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 4,
+      "action": "Select Role: Trader (+2 doubloons)",
+      "value_estimate": 0.2184,
+      "top_actions": [
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+2 doubloons)",
+          "prob": 0.9997
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0002
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+4 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Trader",
+      "commentary": ""
+    },
+    {
+      "step": 122,
+      "round": 7,
+      "player": 1,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.2352,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 123,
+      "round": 7,
+      "player": 2,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.232,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 124,
+      "round": 7,
+      "player": 0,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.2318,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 125,
+      "round": 7,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2266,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 1.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+4 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 2 goods"
+    },
+    {
+      "step": 126,
+      "round": 7,
+      "player": 2,
+      "phase": "CRAFTSMAN",
+      "action_id": 97,
+      "action": "Craftsman Privilege: Take 1 extra Indigo",
+      "value_estimate": 0.2436,
+      "top_actions": [
+        {
+          "action_id": 97,
+          "action": "Craftsman Privilege: Take 1 extra Indigo",
+          "prob": 0.9921
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0079
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 127,
+      "round": 8,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain",
+      "value_estimate": 0.2412,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 1.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+2 doubloons)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 1 goods"
+    },
+    {
+      "step": 128,
+      "round": 8,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 51,
+      "action": "Captain: Load Corn onto Medium Ship",
+      "value_estimate": 0.2489,
+      "top_actions": [
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 129,
+      "round": 8,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2502,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 130,
+      "round": 8,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2488,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 131,
+      "round": 8,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.245,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 132,
+      "round": 8,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2475,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 133,
+      "round": 8,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2482,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 134,
+      "round": 8,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 68,
+      "action": "Store (Windrose): Keep 1 Indigo",
+      "value_estimate": 0.2458,
+      "top_actions": [
+        {
+          "action_id": 68,
+          "action": "Store (Windrose): Keep 1 Indigo",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 135,
+      "round": 8,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2458,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 136,
+      "round": 8,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 68,
+      "action": "Store (Windrose): Keep 1 Indigo",
+      "value_estimate": 0.2338,
+      "top_actions": [
+        {
+          "action_id": 68,
+          "action": "Store (Windrose): Keep 1 Indigo",
+          "prob": 0.9574
+        },
+        {
+          "action_id": 66,
+          "action": "Store (Windrose): Keep 1 Corn",
+          "prob": 0.0426
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 137,
+      "round": 8,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2338,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 138,
+      "round": 8,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 0,
+      "action": "Select Role: Settler (+2 doubloons)",
+      "value_estimate": 0.2453,
+      "top_actions": [
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+2 doubloons)",
+          "prob": 0.999
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 0.001
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+5 doubloons)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Settler",
+      "commentary": "Empty island spaces: 9"
+    },
+    {
+      "step": 139,
+      "round": 8,
+      "player": 2,
+      "phase": "INIT",
+      "action_id": 15,
+      "action": "Pass (N/A)",
+      "value_estimate": 0.2399,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.9974
+        },
+        {
+          "action_id": 8,
+          "action": "Settler: Take Sugar Plantation (face-up #0)",
+          "prob": 0.0021
+        },
+        {
+          "action_id": 9,
+          "action": "Settler: Take Coffee Plantation (face-up #1)",
+          "prob": 0.0003
+        },
+        {
+          "action_id": 11,
+          "action": "Settler: Take Sugar Plantation (face-up #3)",
+          "prob": 0.0001
+        },
+        {
+          "action_id": 10,
+          "action": "Settler: Take Sugar Plantation (face-up #2)",
+          "prob": 0.0001
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 140,
+      "round": 8,
+      "player": 0,
+      "phase": "INIT",
+      "action_id": 15,
+      "action": "Pass (N/A)",
+      "value_estimate": 0.2378,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.9964
+        },
+        {
+          "action_id": 8,
+          "action": "Settler: Take Sugar Plantation (face-up #0)",
+          "prob": 0.0033
+        },
+        {
+          "action_id": 10,
+          "action": "Settler: Take Sugar Plantation (face-up #2)",
+          "prob": 0.0002
+        },
+        {
+          "action_id": 9,
+          "action": "Settler: Take Coffee Plantation (face-up #1)",
+          "prob": 0.0001
+        },
+        {
+          "action_id": 11,
+          "action": "Settler: Take Sugar Plantation (face-up #3)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 141,
+      "round": 8,
+      "player": 1,
+      "phase": "INIT",
+      "action_id": 15,
+      "action": "Pass (N/A)",
+      "value_estimate": 0.2408,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.9998
+        },
+        {
+          "action_id": 8,
+          "action": "Settler: Take Sugar Plantation (face-up #0)",
+          "prob": 0.0002
+        },
+        {
+          "action_id": 11,
+          "action": "Settler: Take Sugar Plantation (face-up #3)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 9,
+          "action": "Settler: Take Coffee Plantation (face-up #1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 10,
+          "action": "Settler: Take Sugar Plantation (face-up #2)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 142,
+      "round": 8,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.241,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 1.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+5 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 2 goods"
+    },
+    {
+      "step": 143,
+      "round": 8,
+      "player": 0,
+      "phase": "CRAFTSMAN",
+      "action_id": 95,
+      "action": "Craftsman Privilege: Take 1 extra Corn",
+      "value_estimate": 0.2346,
+      "top_actions": [
+        {
+          "action_id": 95,
+          "action": "Craftsman Privilege: Take 1 extra Corn",
+          "prob": 0.9698
+        },
+        {
+          "action_id": 97,
+          "action": "Craftsman Privilege: Take 1 extra Indigo",
+          "prob": 0.0201
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0101
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 144,
+      "round": 9,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain",
+      "value_estimate": 0.2543,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.9813
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+2 doubloons)",
+          "prob": 0.0187
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+6 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 3 goods"
+    },
+    {
+      "step": 145,
+      "round": 9,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2509,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 0.9268
+        },
+        {
+          "action_id": 58,
+          "action": "Captain: Load Indigo onto Large Ship",
+          "prob": 0.0577
+        },
+        {
+          "action_id": 53,
+          "action": "Captain: Load Indigo onto Medium Ship",
+          "prob": 0.0155
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 146,
+      "round": 9,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2365,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 0.0
+        },
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 147,
+      "round": 9,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.2401,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 0.958
+        },
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 0.042
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 148,
+      "round": 9,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2404,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 149,
+      "round": 9,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.2354,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 150,
+      "round": 9,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.228,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 151,
+      "round": 9,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2304,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 152,
+      "round": 9,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2328,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 153,
+      "round": 9,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 68,
+      "action": "Store (Windrose): Keep 1 Indigo",
+      "value_estimate": 0.2277,
+      "top_actions": [
+        {
+          "action_id": 68,
+          "action": "Store (Windrose): Keep 1 Indigo",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 154,
+      "round": 9,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2277,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 155,
+      "round": 9,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2296,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 156,
+      "round": 9,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 2,
+      "action": "Select Role: Builder (+2 doubloons)",
+      "value_estimate": 0.2386,
+      "top_actions": [
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+2 doubloons)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+6 doubloons)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Builder",
+      "commentary": "Has 0 doubloons"
+    },
+    {
+      "step": 157,
+      "round": 9,
+      "player": 0,
+      "phase": "BUILDER",
+      "action_id": 18,
+      "action": "Builder: Build Indigo Plant (cost 3, VP 2)",
+      "value_estimate": 0.234,
+      "top_actions": [
+        {
+          "action_id": 18,
+          "action": "Builder: Build Indigo Plant (cost 3, VP 2)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 22,
+          "action": "Builder: Build Small Market (cost 1, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 17,
+          "action": "Builder: Build Small Sugar Mill (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 23,
+          "action": "Builder: Build Hacienda (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 158,
+      "round": 9,
+      "player": 1,
+      "phase": "BUILDER",
+      "action_id": 22,
+      "action": "Builder: Build Small Market (cost 1, VP 1)",
+      "value_estimate": 0.2376,
+      "top_actions": [
+        {
+          "action_id": 22,
+          "action": "Builder: Build Small Market (cost 1, VP 1)",
+          "prob": 0.8853
+        },
+        {
+          "action_id": 23,
+          "action": "Builder: Build Hacienda (cost 2, VP 1)",
+          "prob": 0.058
+        },
+        {
+          "action_id": 17,
+          "action": "Builder: Build Small Sugar Mill (cost 2, VP 1)",
+          "prob": 0.0449
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 0.0118
+        },
+        {
+          "action_id": 24,
+          "action": "Builder: Build Construction Hut (cost 2, VP 1)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 159,
+      "round": 9,
+      "player": 2,
+      "phase": "BUILDER",
+      "action_id": 22,
+      "action": "Builder: Build Small Market (cost 1, VP 1)",
+      "value_estimate": 0.2388,
+      "top_actions": [
+        {
+          "action_id": 22,
+          "action": "Builder: Build Small Market (cost 1, VP 1)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 24,
+          "action": "Builder: Build Construction Hut (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 17,
+          "action": "Builder: Build Small Sugar Mill (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 23,
+          "action": "Builder: Build Hacienda (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 160,
+      "round": 9,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2355,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 1.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+6 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 1 goods"
+    },
+    {
+      "step": 161,
+      "round": 9,
+      "player": 1,
+      "phase": "CRAFTSMAN",
+      "action_id": 95,
+      "action": "Craftsman Privilege: Take 1 extra Corn",
+      "value_estimate": 0.2494,
+      "top_actions": [
+        {
+          "action_id": 95,
+          "action": "Craftsman Privilege: Take 1 extra Corn",
+          "prob": 0.9415
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0585
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 162,
+      "round": 10,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain",
+      "value_estimate": 0.2403,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.9962
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0013
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+2 doubloons)",
+          "prob": 0.001
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0009
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0006
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 3 goods"
+    },
+    {
+      "step": 163,
+      "round": 10,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2471,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 0.0
+        },
+        {
+          "action_id": 53,
+          "action": "Captain: Load Indigo onto Medium Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 164,
+      "round": 10,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.2307,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 165,
+      "round": 10,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2324,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 166,
+      "round": 10,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.2238,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 167,
+      "round": 10,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2256,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 168,
+      "round": 10,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2273,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 169,
+      "round": 10,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2227,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 170,
+      "round": 10,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2217,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 171,
+      "round": 10,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2253,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 172,
+      "round": 10,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2274,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 173,
+      "round": 10,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2364,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.9715
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+2 doubloons)",
+          "prob": 0.0265
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0013
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0007
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+7 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 1 goods"
+    },
+    {
+      "step": 174,
+      "round": 10,
+      "player": 1,
+      "phase": "CRAFTSMAN",
+      "action_id": 95,
+      "action": "Craftsman Privilege: Take 1 extra Corn",
+      "value_estimate": 0.2381,
+      "top_actions": [
+        {
+          "action_id": 95,
+          "action": "Craftsman Privilege: Take 1 extra Corn",
+          "prob": 0.9993
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0007
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 175,
+      "round": 10,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 0,
+      "action": "Select Role: Settler (+1 doubloon)",
+      "value_estimate": 0.2426,
+      "top_actions": [
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.6373
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+2 doubloons)",
+          "prob": 0.3517
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.011
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+7 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Settler",
+      "commentary": "Empty island spaces: 9"
+    },
+    {
+      "step": 176,
+      "round": 10,
+      "player": 2,
+      "phase": "INIT",
+      "action_id": 8,
+      "action": "Settler: Take Coffee Plantation (face-up #0)",
+      "value_estimate": 0.2544,
+      "top_actions": [
+        {
+          "action_id": 8,
+          "action": "Settler: Take Coffee Plantation (face-up #0)",
+          "prob": 0.5877
+        },
+        {
+          "action_id": 9,
+          "action": "Settler: Take Indigo Plantation (face-up #1)",
+          "prob": 0.4068
+        },
+        {
+          "action_id": 10,
+          "action": "Settler: Take Indigo Plantation (face-up #2)",
+          "prob": 0.0027
+        },
+        {
+          "action_id": 14,
+          "action": "Settler: Take Quarry",
+          "prob": 0.0025
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.0002
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 177,
+      "round": 10,
+      "player": 0,
+      "phase": "INIT",
+      "action_id": 9,
+      "action": "Settler: Take Indigo Plantation (face-up #1)",
+      "value_estimate": 0.2421,
+      "top_actions": [
+        {
+          "action_id": 9,
+          "action": "Settler: Take Indigo Plantation (face-up #1)",
+          "prob": 0.8616
+        },
+        {
+          "action_id": 8,
+          "action": "Settler: Take Indigo Plantation (face-up #0)",
+          "prob": 0.0849
+        },
+        {
+          "action_id": 10,
+          "action": "Settler: Take Tobacco Plantation (face-up #2)",
+          "prob": 0.0511
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.0024
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 178,
+      "round": 10,
+      "player": 1,
+      "phase": "INIT",
+      "action_id": 9,
+      "action": "Settler: Take Tobacco Plantation (face-up #1)",
+      "value_estimate": 0.2423,
+      "top_actions": [
+        {
+          "action_id": 9,
+          "action": "Settler: Take Tobacco Plantation (face-up #1)",
+          "prob": 0.7936
+        },
+        {
+          "action_id": 8,
+          "action": "Settler: Take Indigo Plantation (face-up #0)",
+          "prob": 0.1734
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.033
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 179,
+      "round": 11,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 4,
+      "action": "Select Role: Trader (+3 doubloons)",
+      "value_estimate": 0.2507,
+      "top_actions": [
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+3 doubloons)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+8 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Trader",
+      "commentary": "Best sellable: Corn (base 0)"
+    },
+    {
+      "step": 180,
+      "round": 11,
+      "player": 1,
+      "phase": "TRADER",
+      "action_id": 41,
+      "action": "Trader: Sell Corn (base price 0)",
+      "value_estimate": 0.2535,
+      "top_actions": [
+        {
+          "action_id": 41,
+          "action": "Trader: Sell Corn (base price 0)",
+          "prob": 0.9338
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 0.0662
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 181,
+      "round": 11,
+      "player": 2,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.2534,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 0.8633
+        },
+        {
+          "action_id": 43,
+          "action": "Trader: Sell Indigo (base price 1)",
+          "prob": 0.1367
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 182,
+      "round": 11,
+      "player": 0,
+      "phase": "TRADER",
+      "action_id": 15,
+      "action": "Pass (TRADER)",
+      "value_estimate": 0.2518,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (TRADER)",
+          "prob": 0.963
+        },
+        {
+          "action_id": 43,
+          "action": "Trader: Sell Indigo (base price 1)",
+          "prob": 0.037
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 183,
+      "round": 11,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 2,
+      "action": "Select Role: Builder (+1 doubloon)",
+      "value_estimate": 0.2516,
+      "top_actions": [
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.0
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+8 doubloons)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Builder",
+      "commentary": "Has 3 doubloons"
+    },
+    {
+      "step": 184,
+      "round": 11,
+      "player": 2,
+      "phase": "BUILDER",
+      "action_id": 26,
+      "action": "Builder: Build Hospice (cost 4, VP 2)",
+      "value_estimate": 0.2516,
+      "top_actions": [
+        {
+          "action_id": 26,
+          "action": "Builder: Build Hospice (cost 4, VP 2)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 19,
+          "action": "Builder: Build Sugar Mill (cost 4, VP 2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 27,
+          "action": "Builder: Build Office (cost 5, VP 2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 24,
+          "action": "Builder: Build Construction Hut (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 17,
+          "action": "Builder: Build Small Sugar Mill (cost 2, VP 1)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 185,
+      "round": 11,
+      "player": 0,
+      "phase": "BUILDER",
+      "action_id": 15,
+      "action": "Pass (BUILDER)",
+      "value_estimate": 0.2415,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 186,
+      "round": 11,
+      "player": 1,
+      "phase": "BUILDER",
+      "action_id": 21,
+      "action": "Builder: Build Coffee Roaster (cost 6, VP 3)",
+      "value_estimate": 0.2406,
+      "top_actions": [
+        {
+          "action_id": 21,
+          "action": "Builder: Build Coffee Roaster (cost 6, VP 3)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 30,
+          "action": "Builder: Build Factory (cost 7, VP 3)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 26,
+          "action": "Builder: Build Hospice (cost 4, VP 2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 19,
+          "action": "Builder: Build Sugar Mill (cost 4, VP 2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 27,
+          "action": "Builder: Build Office (cost 5, VP 2)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 187,
+      "round": 11,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2483,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.9997
+        },
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 0.0002
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+8 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 2 goods"
+    },
+    {
+      "step": 188,
+      "round": 11,
+      "player": 0,
+      "phase": "CRAFTSMAN",
+      "action_id": 95,
+      "action": "Craftsman Privilege: Take 1 extra Corn",
+      "value_estimate": 0.2534,
+      "top_actions": [
+        {
+          "action_id": 95,
+          "action": "Craftsman Privilege: Take 1 extra Corn",
+          "prob": 0.6223
+        },
+        {
+          "action_id": 97,
+          "action": "Craftsman Privilege: Take 1 extra Indigo",
+          "prob": 0.3731
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0046
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 189,
+      "round": 12,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain (+1 doubloon)",
+      "value_estimate": 0.2704,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain (+1 doubloon)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+9 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 4 goods"
+    },
+    {
+      "step": 190,
+      "round": 12,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2661,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 53,
+          "action": "Captain: Load Indigo onto Medium Ship",
+          "prob": 0.0
+        },
+        {
+          "action_id": 58,
+          "action": "Captain: Load Indigo onto Large Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 191,
+      "round": 12,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.2565,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 0.5697
+        },
+        {
+          "action_id": 51,
+          "action": "Captain: Load Corn onto Medium Ship",
+          "prob": 0.4303
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 192,
+      "round": 12,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.2458,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 193,
+      "round": 12,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2323,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 194,
+      "round": 12,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2327,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 195,
+      "round": 12,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2333,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 196,
+      "round": 12,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2328,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 197,
+      "round": 12,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 68,
+      "action": "Store (Windrose): Keep 1 Indigo",
+      "value_estimate": 0.2294,
+      "top_actions": [
+        {
+          "action_id": 68,
+          "action": "Store (Windrose): Keep 1 Indigo",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 198,
+      "round": 12,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2294,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 199,
+      "round": 12,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2268,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 200,
+      "round": 12,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 0,
+      "action": "Select Role: Settler (+1 doubloon)",
+      "value_estimate": 0.2355,
+      "top_actions": [
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler (+1 doubloon)",
+          "prob": 0.8441
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.086
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0405
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0294
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+9 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Settler",
+      "commentary": "Empty island spaces: 8"
+    },
+    {
+      "step": 201,
+      "round": 12,
+      "player": 0,
+      "phase": "INIT",
+      "action_id": 9,
+      "action": "Settler: Take Sugar Plantation (face-up #1)",
+      "value_estimate": 0.247,
+      "top_actions": [
+        {
+          "action_id": 9,
+          "action": "Settler: Take Sugar Plantation (face-up #1)",
+          "prob": 0.8899
+        },
+        {
+          "action_id": 8,
+          "action": "Settler: Take Indigo Plantation (face-up #0)",
+          "prob": 0.0831
+        },
+        {
+          "action_id": 14,
+          "action": "Settler: Take Quarry",
+          "prob": 0.0171
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.0054
+        },
+        {
+          "action_id": 11,
+          "action": "Settler: Take Indigo Plantation (face-up #3)",
+          "prob": 0.004
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 202,
+      "round": 12,
+      "player": 1,
+      "phase": "INIT",
+      "action_id": 9,
+      "action": "Settler: Take Sugar Plantation (face-up #1)",
+      "value_estimate": 0.2412,
+      "top_actions": [
+        {
+          "action_id": 9,
+          "action": "Settler: Take Sugar Plantation (face-up #1)",
+          "prob": 0.9964
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.002
+        },
+        {
+          "action_id": 10,
+          "action": "Settler: Take Indigo Plantation (face-up #2)",
+          "prob": 0.0014
+        },
+        {
+          "action_id": 8,
+          "action": "Settler: Take Indigo Plantation (face-up #0)",
+          "prob": 0.0002
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 203,
+      "round": 12,
+      "player": 2,
+      "phase": "INIT",
+      "action_id": 9,
+      "action": "Settler: Take Indigo Plantation (face-up #1)",
+      "value_estimate": 0.2384,
+      "top_actions": [
+        {
+          "action_id": 9,
+          "action": "Settler: Take Indigo Plantation (face-up #1)",
+          "prob": 0.9941
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (N/A)",
+          "prob": 0.0041
+        },
+        {
+          "action_id": 8,
+          "action": "Settler: Take Indigo Plantation (face-up #0)",
+          "prob": 0.0018
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 204,
+      "round": 12,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2375,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.9996
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder",
+          "prob": 0.0004
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+9 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 1 goods"
+    },
+    {
+      "step": 205,
+      "round": 12,
+      "player": 1,
+      "phase": "CRAFTSMAN",
+      "action_id": 95,
+      "action": "Craftsman Privilege: Take 1 extra Corn",
+      "value_estimate": 0.2535,
+      "top_actions": [
+        {
+          "action_id": 95,
+          "action": "Craftsman Privilege: Take 1 extra Corn",
+          "prob": 0.9673
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0327
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 206,
+      "round": 13,
+      "player": 0,
+      "phase": "END_ROUND",
+      "action_id": 5,
+      "action": "Select Role: Captain",
+      "value_estimate": 0.2593,
+      "top_actions": [
+        {
+          "action_id": 5,
+          "action": "Select Role: Captain",
+          "prob": 1.0
+        },
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+10 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Captain",
+      "commentary": "Holding 3 goods"
+    },
+    {
+      "step": 207,
+      "round": 13,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 56,
+      "action": "Captain: Load Corn onto Large Ship",
+      "value_estimate": 0.2611,
+      "top_actions": [
+        {
+          "action_id": 56,
+          "action": "Captain: Load Corn onto Large Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 0.0
+        },
+        {
+          "action_id": 53,
+          "action": "Captain: Load Indigo onto Medium Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 208,
+      "round": 13,
+      "player": 1,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2592,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 209,
+      "round": 13,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2606,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        },
+        {
+          "action_id": 53,
+          "action": "Captain: Load Indigo onto Medium Ship",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 210,
+      "round": 13,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 48,
+      "action": "Captain: Load Indigo onto Small Ship",
+      "value_estimate": 0.2518,
+      "top_actions": [
+        {
+          "action_id": 48,
+          "action": "Captain: Load Indigo onto Small Ship",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 211,
+      "round": 13,
+      "player": 2,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2409,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 212,
+      "round": 13,
+      "player": 0,
+      "phase": "CAPTAIN",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN)",
+      "value_estimate": 0.2442,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 213,
+      "round": 13,
+      "player": 0,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2448,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 214,
+      "round": 13,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 66,
+      "action": "Store (Windrose): Keep 1 Corn",
+      "value_estimate": 0.2416,
+      "top_actions": [
+        {
+          "action_id": 66,
+          "action": "Store (Windrose): Keep 1 Corn",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 215,
+      "round": 13,
+      "player": 1,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2416,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 216,
+      "round": 13,
+      "player": 2,
+      "phase": "CAPTAIN_STORE",
+      "action_id": 15,
+      "action": "Pass (CAPTAIN_STORE)",
+      "value_estimate": 0.2419,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (CAPTAIN_STORE)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 217,
+      "round": 13,
+      "player": 1,
+      "phase": "END_ROUND",
+      "action_id": 2,
+      "action": "Select Role: Builder (+1 doubloon)",
+      "value_estimate": 0.2581,
+      "top_actions": [
+        {
+          "action_id": 2,
+          "action": "Select Role: Builder (+1 doubloon)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+10 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Builder",
+      "commentary": "Has 1 doubloons | Active quarries: 1 → discount"
+    },
+    {
+      "step": 218,
+      "round": 13,
+      "player": 1,
+      "phase": "BUILDER",
+      "action_id": 26,
+      "action": "Builder: Build Hospice (cost 4, VP 2)",
+      "value_estimate": 0.2567,
+      "top_actions": [
+        {
+          "action_id": 26,
+          "action": "Builder: Build Hospice (cost 4, VP 2)",
+          "prob": 1.0
+        },
+        {
+          "action_id": 19,
+          "action": "Builder: Build Sugar Mill (cost 4, VP 2)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 24,
+          "action": "Builder: Build Construction Hut (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 23,
+          "action": "Builder: Build Hacienda (cost 2, VP 1)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 25,
+          "action": "Builder: Build Small Warehouse (cost 3, VP 1)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 219,
+      "round": 13,
+      "player": 2,
+      "phase": "BUILDER",
+      "action_id": 24,
+      "action": "Builder: Build Construction Hut (cost 2, VP 1)",
+      "value_estimate": 0.2607,
+      "top_actions": [
+        {
+          "action_id": 24,
+          "action": "Builder: Build Construction Hut (cost 2, VP 1)",
+          "prob": 0.9736
+        },
+        {
+          "action_id": 23,
+          "action": "Builder: Build Hacienda (cost 2, VP 1)",
+          "prob": 0.0239
+        },
+        {
+          "action_id": 17,
+          "action": "Builder: Build Small Sugar Mill (cost 2, VP 1)",
+          "prob": 0.0025
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 0.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 220,
+      "round": 13,
+      "player": 0,
+      "phase": "BUILDER",
+      "action_id": 15,
+      "action": "Pass (BUILDER)",
+      "value_estimate": 0.2518,
+      "top_actions": [
+        {
+          "action_id": 15,
+          "action": "Pass (BUILDER)",
+          "prob": 1.0
+        }
+      ],
+      "commentary": ""
+    },
+    {
+      "step": 221,
+      "round": 13,
+      "player": 2,
+      "phase": "END_ROUND",
+      "action_id": 3,
+      "action": "Select Role: Craftsman",
+      "value_estimate": 0.2519,
+      "top_actions": [
+        {
+          "action_id": 3,
+          "action": "Select Role: Craftsman",
+          "prob": 1.0
+        },
+        {
+          "action_id": 4,
+          "action": "Select Role: Trader (+1 doubloon)",
+          "prob": 0.0
+        },
+        {
+          "action_id": 0,
+          "action": "Select Role: Settler",
+          "prob": 0.0
+        },
+        {
+          "action_id": 1,
+          "action": "Select Role: Mayor (+10 doubloons)",
+          "prob": 0.0
+        }
+      ],
+      "role_selected": "Craftsman",
+      "commentary": "Production capacity: 2 goods"
+    },
+    {
+      "step": 222,
+      "round": 13,
+      "player": 2,
+      "phase": "CRAFTSMAN",
+      "action_id": 97,
+      "action": "Craftsman Privilege: Take 1 extra Indigo",
+      "value_estimate": 0.2636,
+      "top_actions": [
+        {
+          "action_id": 97,
+          "action": "Craftsman Privilege: Take 1 extra Indigo",
+          "prob": 0.9999
+        },
+        {
+          "action_id": 15,
+          "action": "Pass (CRAFTSMAN)",
+          "prob": 0.0001
+        }
+      ],
+      "commentary": ""
+    }
+  ]
+}
