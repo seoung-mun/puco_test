@@ -134,3 +134,56 @@ GOOD_PRICES = {
     Good.TOBACCO: 3,
     Good.COFFEE: 4
 }
+
+# ─── Mayor Strategy Constants (for MayorStrategyAdapter) ───
+
+class MayorStrategy(IntEnum):
+    CAPTAIN_FOCUS = 0
+    TRADE_FACTORY_FOCUS = 1
+    BUILDING_FOCUS = 2
+
+LARGE_VP_BUILDINGS = [
+    BuildingType.GUILDHALL,
+    BuildingType.RESIDENCE,
+    BuildingType.FORTRESS,
+    BuildingType.CUSTOMS_HOUSE,
+    BuildingType.CITY_HALL,
+]
+
+MAYOR_STRATEGY_BUILDINGS = {
+    MayorStrategy.CAPTAIN_FOCUS: [
+        BuildingType.WHARF,
+        BuildingType.HARBOR,
+        BuildingType.LARGE_WAREHOUSE,
+        BuildingType.SMALL_WAREHOUSE,
+    ],
+    MayorStrategy.TRADE_FACTORY_FOCUS: [
+        BuildingType.OFFICE,
+        BuildingType.LARGE_MARKET,
+        BuildingType.SMALL_MARKET,
+        BuildingType.FACTORY,
+    ],
+    MayorStrategy.BUILDING_FOCUS: [
+        BuildingType.UNIVERSITY,
+        BuildingType.HOSPICE,
+        BuildingType.CONSTRUCTION_HUT,
+        BuildingType.HACIENDA,
+    ],
+}
+
+PRODUCTION_BUILDINGS = {
+    Good.COFFEE: [BuildingType.COFFEE_ROASTER],
+    Good.TOBACCO: [BuildingType.TOBACCO_STORAGE],
+    Good.SUGAR: [BuildingType.SUGAR_MILL, BuildingType.SMALL_SUGAR_MILL],
+    Good.INDIGO: [BuildingType.INDIGO_PLANT, BuildingType.SMALL_INDIGO_PLANT],
+}
+
+PLANTATION_TO_GOOD = {
+    TileType.COFFEE_PLANTATION: Good.COFFEE,
+    TileType.TOBACCO_PLANTATION: Good.TOBACCO,
+    TileType.SUGAR_PLANTATION: Good.SUGAR,
+    TileType.INDIGO_PLANTATION: Good.INDIGO,
+    TileType.CORN_PLANTATION: Good.CORN,
+}
+
+GOOD_VALUE_ORDER = [Good.COFFEE, Good.TOBACCO, Good.SUGAR, Good.INDIGO, Good.CORN]

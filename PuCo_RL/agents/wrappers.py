@@ -25,6 +25,14 @@ MODELS_DIR = os.path.abspath(
 )
 
 
+def _ensure_batched(obs: torch.Tensor, mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    if obs.dim() == 1:
+        obs = obs.unsqueeze(0)
+    if mask.dim() == 1:
+        mask = mask.unsqueeze(0)
+    return obs, mask
+
+
 def _load_weights(agent: torch.nn.Module, model_path: str) -> None:
     """state_dict 또는 {'model_state_dict': ...} 형식 모두 처리."""
     if not os.path.exists(model_path):
@@ -48,7 +56,15 @@ class PPOWrapper(AgentWrapper):
         if model_path:
             _load_weights(self._agent, model_path)
 
-    def act(self, obs: torch.Tensor, mask: torch.Tensor, phase_id: int = 9) -> int:
+    def act(
+        self,
+        obs: torch.Tensor,
+        mask: torch.Tensor,
+        phase_id: int = 9,
+        obs_dict: dict | None = None,
+        player_idx: int | None = None,
+    ) -> int:
+        obs, mask = _ensure_batched(obs, mask)
         with torch.no_grad():
             action, *_ = self._agent.get_action_and_value(obs, mask)
         return int(action.item())
@@ -63,10 +79,99 @@ class HPPOWrapper(AgentWrapper):
         if model_path:
             _load_weights(self._agent, model_path)
 
-    def act(self, obs: torch.Tensor, mask: torch.Tensor, phase_id: int = 9) -> int:
+    def act(
+        self,
+        obs: torch.Tensor,
+        mask: torch.Tensor,
+        phase_id: int = 9,
+        obs_dict: dict | None = None,
+        player_idx: int | None = None,
+    ) -> int:
+        obs, mask = _ensure_batched(obs, mask)
         phase_tensor = torch.tensor([phase_id], dtype=torch.long)
         with torch.no_grad():
             action, *_ = self._agent.get_action_and_value(obs, mask, phase_tensor)
+        return int(action.item())
+
+
+class RuleBasedWrapper(AgentWrapper):
+    """Rule-Based Agent 래퍼. 10가지 휴리스틱 전략 중 무작위 선택."""
+
+    def __init__(self, model_path: str | None = None, obs_dim: int = 0):
+        from agents.rule_based_agent import RuleBasedAgent
+        self._agent = RuleBasedAgent(action_dim=200)
+        self._agent.eval()
+
+    def act(
+        self,
+        obs: torch.Tensor,
+        mask: torch.Tensor,
+        phase_id: int = 9,
+        obs_dict: dict | None = None,
+        player_idx: int | None = None,
+    ) -> int:
+        obs, mask = _ensure_batched(obs, mask)
+        with torch.no_grad():
+            action, *_ = self._agent.get_action_and_value(
+                obs,
+                mask,
+                obs_dict=obs_dict,
+                player_idx=player_idx,
+            )
+        return int(action.item())
+
+
+class AdvancedRuleBasedWrapper(AgentWrapper):
+    """Advanced Rule-Based Agent 래퍼."""
+
+    def __init__(self, model_path: str | None = None, obs_dim: int = 0):
+        from agents.advanced_rule_based_agent import AdvancedRuleBasedAgent
+        self._agent = AdvancedRuleBasedAgent(action_dim=200)
+        self._agent.eval()
+
+    def act(
+        self,
+        obs: torch.Tensor,
+        mask: torch.Tensor,
+        phase_id: int = 9,
+        obs_dict: dict | None = None,
+        player_idx: int | None = None,
+    ) -> int:
+        obs, mask = _ensure_batched(obs, mask)
+        with torch.no_grad():
+            action, *_ = self._agent.get_action_and_value(
+                obs,
+                mask,
+                obs_dict=obs_dict,
+                player_idx=player_idx,
+            )
+        return int(action.item())
+
+
+class FactoryRuleBasedWrapper(AgentWrapper):
+    """Factory Rule-Based Agent 래퍼."""
+
+    def __init__(self, model_path: str | None = None, obs_dim: int = 0):
+        from agents.factory_rule_based_agent import FactoryRuleBasedAgent
+        self._agent = FactoryRuleBasedAgent(action_dim=200)
+        self._agent.eval()
+
+    def act(
+        self,
+        obs: torch.Tensor,
+        mask: torch.Tensor,
+        phase_id: int = 9,
+        obs_dict: dict | None = None,
+        player_idx: int | None = None,
+    ) -> int:
+        obs, mask = _ensure_batched(obs, mask)
+        with torch.no_grad():
+            action, *_ = self._agent.get_action_and_value(
+                obs,
+                mask,
+                obs_dict=obs_dict,
+                player_idx=player_idx,
+            )
         return int(action.item())
 
 
@@ -76,7 +181,15 @@ class RandomWrapper(AgentWrapper):
     def __init__(self, model_path: str | None = None, obs_dim: int = 0):
         pass  # 모델 없음
 
-    def act(self, obs: torch.Tensor, mask: torch.Tensor, phase_id: int = 9) -> int:
+    def act(
+        self,
+        obs: torch.Tensor,
+        mask: torch.Tensor,
+        phase_id: int = 9,
+        obs_dict: dict | None = None,
+        player_idx: int | None = None,
+    ) -> int:
+        obs, mask = _ensure_batched(obs, mask)
         valid = (mask.squeeze(0) > 0.5).nonzero(as_tuple=True)[0]
         if len(valid) == 0:
             return 15  # 폴백: pass 액션
