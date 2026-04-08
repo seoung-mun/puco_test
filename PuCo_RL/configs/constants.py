@@ -135,7 +135,13 @@ GOOD_PRICES = {
     Good.COFFEE: 4
 }
 
-# ─── Mayor Strategy Constants (for MayorStrategyAdapter) ───
+# ─── Player Control Mode ───
+
+class ControlMode(IntEnum):
+    HUMAN = 0
+    BOT = 1
+
+# ─── Mayor Strategy Constants ───
 
 class MayorStrategy(IntEnum):
     CAPTAIN_FOCUS = 0

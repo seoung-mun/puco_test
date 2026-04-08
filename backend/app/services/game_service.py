@@ -177,7 +177,7 @@ class GameService:
 
         return {"state": rich_state, "action_mask": action_mask}
 
-    def process_action(self, game_id: UUID, actor_id: str, action: int):
+    def process_action(self, game_id: UUID, actor_id: str, action: int, suppress_broadcast: bool = False):
         logger.warning(
             "[STATE_TRACE] process_action_enter game=%s actor=%s action=%s",
             game_id,
@@ -342,11 +342,13 @@ class GameService:
         else:
             rich_state = result["state_after"]
         new_action_mask = rich_state.get("action_mask", engine.get_action_mask()) if isinstance(rich_state, dict) else engine.get_action_mask()
-        self._sync_to_redis(game_id, rich_state, finished=terminated)
 
-        # Trigger Bot if next player is bot
-        if not terminated and room:
-            self._schedule_next_bot_turn_if_needed(game_id, room, engine)
+        if not suppress_broadcast:
+            self._sync_to_redis(game_id, rich_state, finished=terminated)
+
+            # Trigger Bot if next player is bot
+            if not terminated and room:
+                self._schedule_next_bot_turn_if_needed(game_id, room, engine)
 
         logger.warning(
             "[STATE_TRACE] process_action_exit game=%s actor=%s action=%s terminated=%s next_player_idx=%s",
@@ -404,17 +406,18 @@ class GameService:
             from app.services.bot_service import BotService
             from app.dependencies import SessionLocal
 
-            def sync_callback(bg_game_id, bg_actor_id, bg_action):
+            def sync_callback(bg_game_id, bg_actor_id, bg_action, suppress_broadcast=False):
                 logger.warning(
-                    "[BOT_TRACE] callback_enter game=%s actor=%s action=%s",
+                    "[BOT_TRACE] callback_enter game=%s actor=%s action=%s suppress_broadcast=%s",
                     bg_game_id,
                     bg_actor_id,
                     bg_action,
+                    suppress_broadcast,
                 )
                 with SessionLocal() as bg_db:
                     bg_service = GameService(bg_db)
                     try:
-                        bg_service.process_action(bg_game_id, bg_actor_id, bg_action)
+                        bg_service.process_action(bg_game_id, bg_actor_id, bg_action, suppress_broadcast=suppress_broadcast)
                         logger.warning(
                             "[BOT_TRACE] callback_exit game=%s actor=%s action=%s",
                             bg_game_id,

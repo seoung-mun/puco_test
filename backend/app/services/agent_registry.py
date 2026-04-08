@@ -15,7 +15,14 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../PuCo_RL")))
 
 from agents.base import AgentWrapper
-from agents.wrappers import HPPOWrapper, PPOWrapper, RandomWrapper
+from agents.wrappers import (
+    HPPOWrapper,
+    PPOWrapper,
+    RandomWrapper,
+    RuleBasedWrapper,
+    AdvancedRuleBasedWrapper,
+    FactoryRuleBasedWrapper,
+)
 from app.services.model_registry import (
     ModelArtifact,
     make_static_artifact,
@@ -56,6 +63,30 @@ AGENT_REGISTRY: dict[str, dict] = {
         "policy_tag": "champion",
         "wrapper_cls": RandomWrapper,
         "model_env_key": None,   # 가중치 불필요
+        "model_default": None,
+    },
+    "rule_based": {
+        "name": "Rule-Based Bot",
+        "family": "rule_based",
+        "policy_tag": "champion",
+        "wrapper_cls": RuleBasedWrapper,
+        "model_env_key": None,
+        "model_default": None,
+    },
+    "advanced_rule": {
+        "name": "Advanced Rule-Based Bot",
+        "family": "advanced_rule",
+        "policy_tag": "champion",
+        "wrapper_cls": AdvancedRuleBasedWrapper,
+        "model_env_key": None,
+        "model_default": None,
+    },
+    "factory_rule": {
+        "name": "Factory Rule-Based Bot",
+        "family": "factory_rule",
+        "policy_tag": "champion",
+        "wrapper_cls": FactoryRuleBasedWrapper,
+        "model_env_key": None,
         "model_default": None,
     },
 }

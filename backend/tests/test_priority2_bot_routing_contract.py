@@ -11,12 +11,14 @@ class _WrapperStub:
         self.action = action
         self.calls = []
 
-    def act(self, obs, mask, phase_id=9):
+    def act(self, obs, mask, phase_id=9, obs_dict=None, player_idx=None):
         self.calls.append(
             {
                 "obs_shape": tuple(obs.shape),
                 "mask_shape": tuple(mask.shape),
                 "phase_id": phase_id,
+                "obs_dict": obs_dict,
+                "player_idx": player_idx,
             }
         )
         return self.action
@@ -49,12 +51,17 @@ class TestBotRoutingContract:
                 "vector_obs": {"global_state": {"current_phase": 8}},
                 "action_mask": [0] * 15 + [1],
                 "phase_id": 8,
+                "current_player_idx": 2,
             },
         )
 
         assert action == 15
         assert requested["bot_type"] == "random"
         assert wrapper.calls[0]["phase_id"] == 8
+        assert wrapper.calls[0]["obs_shape"] == (1, 3)
+        assert wrapper.calls[0]["mask_shape"] == (1, 16)
+        assert wrapper.calls[0]["player_idx"] == 2
+        assert wrapper.calls[0]["obs_dict"] == {"global_state": {"current_phase": 8}}
 
     def test_get_action_uses_requested_ppo_bot_type(self, monkeypatch):
         wrapper = _WrapperStub(action=3)
@@ -82,12 +89,16 @@ class TestBotRoutingContract:
                 "vector_obs": {"global_state": {"current_phase": 2}},
                 "action_mask": [1, 1, 1, 1],
                 "phase_id": 2,
+                "current_player_idx": 1,
             },
         )
 
         assert action == 3
         assert requested["bot_type"] == "ppo"
         assert wrapper.calls[0]["phase_id"] == 2
+        assert wrapper.calls[0]["obs_shape"] == (1, 3)
+        assert wrapper.calls[0]["mask_shape"] == (1, 4)
+        assert wrapper.calls[0]["player_idx"] == 1
 
     @pytest.mark.asyncio
     async def test_run_bot_turn_resolves_bot_type_from_actor_id(self, monkeypatch):

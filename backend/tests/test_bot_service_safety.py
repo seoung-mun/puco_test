@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.services.bot_service import BotService, _extract_phase_id
+from configs.constants import Phase
 
 class TestBotServiceSafety:
     def test_extract_phase_id_edge_cases(self):
@@ -17,6 +18,29 @@ class TestBotServiceSafety:
         assert _extract_phase_id({"global_state": {"current_phase": None}}) == 8
         # 5. 범위 초과 클램핑
         assert _extract_phase_id({"global_state": {"current_phase": 15}}) == 9
+
+    def test_build_input_snapshot_applies_backend_settler_guard(self):
+        engine = MagicMock()
+        raw_mask = [0] * 200
+        raw_mask[8] = 1
+        raw_mask[15] = 1
+        engine.get_action_mask.return_value = raw_mask
+        engine.last_obs = {"global_state": {"current_phase": int(Phase.SETTLER)}}
+
+        player = MagicMock()
+        player.empty_island_spaces = 1
+        game = MagicMock()
+        game.current_phase = Phase.SETTLER
+        game.current_player_idx = 0
+        game.players = [player]
+        game.face_up_plantations = [1]
+        game.quarry_stack = 8
+        engine.env.game = game
+
+        snapshot = BotService.build_input_snapshot(engine, "BOT_factory_rule")
+
+        assert snapshot.action_mask[8] == 1
+        assert snapshot.action_mask[15] == 0
 
     @pytest.mark.asyncio
     async def test_run_bot_turn_recovery_on_callback_failure(self):
@@ -51,6 +75,43 @@ class TestBotServiceSafety:
         assert call_results[0] == 15
         assert call_results[1] == 69
         assert mask[call_results[1]] == 1
+
+    @pytest.mark.asyncio
+    async def test_run_bot_turn_retry_uses_guarded_settler_mask(self):
+        engine = MagicMock()
+        raw_mask = [0] * 200
+        raw_mask[8] = 1
+        raw_mask[15] = 1
+        engine.get_action_mask.return_value = raw_mask
+        engine.last_obs = {"global_state": {"current_phase": int(Phase.SETTLER)}}
+
+        player = MagicMock()
+        player.empty_island_spaces = 1
+        game = MagicMock()
+        game.current_phase = Phase.SETTLER
+        game.current_player_idx = 0
+        game.players = [player]
+        game.face_up_plantations = [1]
+        game.quarry_stack = 8
+        engine.env.game = game
+
+        call_results = []
+
+        async def failing_callback(_gid, _aid, action):
+            call_results.append(action)
+            if action == 0:
+                raise ValueError("Action 0 is invalid in Settler phase")
+
+        with patch.object(BotService, "get_action", return_value=0):
+            with patch("asyncio.sleep", return_value=None):
+                await BotService.run_bot_turn(
+                    game_id="00000000-0000-0000-0000-000000000000",
+                    engine=engine,
+                    actor_id="BOT_factory_rule",
+                    process_action_callback=failing_callback,
+                )
+
+        assert call_results == [0, 8]
 
 class TestRunBotTurnTopLevelSafety:
     """run_bot_turn 최상위에서 예외가 발생해도 crash하지 않아야 한다."""

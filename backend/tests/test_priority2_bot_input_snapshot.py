@@ -52,3 +52,30 @@ def test_bot_input_snapshot_phase_matches_engine_info_and_serializer():
     assert state["meta"]["phase"] == PHASE_TO_STR[Phase(snapshot.phase_id)]
     assert state["meta"]["phase_id"] == snapshot.phase_id
     assert snapshot.bot_type == "ppo"
+
+
+def test_factory_rule_bot_returns_valid_settler_choice():
+    engine = create_game_engine(num_players=3)
+
+    initial_mask = engine.get_action_mask()
+    assert initial_mask[0] == 1, "게임 시작 직후 Settler 역할 선택이 가능해야 합니다"
+    engine.step(0)
+
+    snapshot = BotService.build_input_snapshot(engine, "BOT_factory_rule")
+    assert snapshot.phase_id == Phase.SETTLER
+    assert snapshot.action_mask[15] == 0, "일반 개척 선택이 가능하면 Settler pass 는 guard 되어야 합니다"
+
+    action = BotService.get_action(
+        "factory_rule",
+        {
+            "vector_obs": snapshot.obs,
+            "action_mask": snapshot.action_mask,
+            "phase_id": snapshot.phase_id,
+            "current_player_idx": snapshot.current_player_idx,
+        },
+    )
+
+    valid_actions = [idx for idx, allowed in enumerate(snapshot.action_mask) if allowed]
+    assert action in valid_actions
+    assert 8 <= action <= 14
+    assert action != 15
