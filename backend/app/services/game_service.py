@@ -9,7 +9,15 @@ from sqlalchemy.orm import Session
 
 from app.core.redis import sync_redis_client as redis_client
 from app.db.models import GameSession, GameLog, User
-from app.engine_wrapper.wrapper import create_game_engine, EngineWrapper
+from app.services.engine_gateway import create_game_engine, EngineWrapper
+from app.services.game_service_support import (
+    build_model_versions_snapshot,
+    build_player_control_modes,
+    build_replay_players_snapshot,
+    build_rich_state,
+    resolve_actor_model_info,
+    resolve_player_names_and_bots,
+)
 from app.schemas.game import GameRoomCreate
 from app.services.ws_manager import manager
 from app.services.state_serializer import (
@@ -17,20 +25,12 @@ from app.services.state_serializer import (
     serialize_compact_summary,
     serialize_game_state_from_engine,
 )
-from app.services.mayor_orchestrator import MayorPlacement, apply_distribution_plan
 from app.services.replay_logger import (
     ReplayLogger,
     build_final_scores_payload,
     build_replay_entry,
     summarize_transition_state,
 )
-from app.services.agent_registry import (
-    require_valid_bot_type,
-    resolve_bot_type_from_actor_id,
-    resolve_model_artifact,
-)
-from app.services.model_registry import build_human_snapshot
-
 logger = logging.getLogger(__name__)
 
 class GameService:
@@ -56,88 +56,22 @@ class GameService:
         return room
 
     def _resolve_player_names_and_bots(self, room: GameSession):
-        """room.players 목록에서 player_names 리스트와 bot_players 딕셔너리를 반환한다."""
-        players = room.players or []
-        player_names: List[str] = []
-        bot_players: Dict[int, str] = {}
-        for i, player_id in enumerate(players):
-            pid = str(player_id)
-            if pid.startswith("BOT_"):
-                bot_type = require_valid_bot_type(resolve_bot_type_from_actor_id(pid))
-                player_names.append(f"Bot ({bot_type})")
-                bot_players[i] = bot_type
-            else:
-                user = self.db.query(User).filter(User.id == player_id).first()
-                name = (user.nickname or user.email or f"Player {i}") if user else f"Player {i}"
-                player_names.append(name)
-        return player_names, bot_players
+        return resolve_player_names_and_bots(self.db, room)
+
+    def _build_player_control_modes(self, room: GameSession) -> List[int]:
+        return build_player_control_modes(room)
 
     def _build_rich_state(self, game_id: UUID, engine: EngineWrapper, room: GameSession) -> Dict:
-        """serialize_game_state_from_engine()으로 rich GameState JSON을 생성한다."""
-        player_names, bot_players = self._resolve_player_names_and_bots(room)
-        state = serialize_game_state_from_engine(
-            engine=engine,
-            player_names=player_names,
-            game_id=str(game_id),
-            bot_players=bot_players,
-        )
-        state["model_versions"] = dict(room.model_versions or {})
-        return state
+        return build_rich_state(self.db, game_id, engine, room)
 
     def _build_replay_players_snapshot(self, room: GameSession, player_names: list[str]) -> list[dict]:
-        players_snapshot: list[dict] = []
-        model_versions = room.model_versions or {}
-        for idx, actor_id in enumerate(room.players or []):
-            actor_key = f"player_{idx}"
-            model_info = model_versions.get(actor_key) or {}
-            display_name = player_names[idx] if idx < len(player_names) else actor_key
-            actor_id_str = str(actor_id)
-            players_snapshot.append(
-                {
-                    "player": idx,
-                    "actor_id": actor_id_str,
-                    "display_name": display_name,
-                    "actor_type": model_info.get("actor_type", "bot" if actor_id_str.startswith("BOT_") else "human"),
-                    "bot_type": model_info.get("bot_type"),
-                    "artifact_name": model_info.get("artifact_name"),
-                    "metadata_source": model_info.get("metadata_source"),
-                }
-            )
-        return players_snapshot
+        return build_replay_players_snapshot(room, player_names)
 
     def _build_model_versions_snapshot(self, room: GameSession) -> Dict[str, Dict]:
-        players = room.players or []
-        snapshot: Dict[str, Dict] = {}
-        for idx, player_id in enumerate(players):
-            pid = str(player_id)
-            key = f"player_{idx}"
-            if pid.startswith("BOT_"):
-                bot_type = require_valid_bot_type(resolve_bot_type_from_actor_id(pid))
-                artifact = resolve_model_artifact(bot_type)
-                if artifact is None:
-                    snapshot[key] = {
-                        "actor_type": "bot",
-                        "bot_type": bot_type,
-                        "family": bot_type,
-                        "policy_tag": "champion",
-                        "artifact_name": bot_type,
-                        "checkpoint_filename": None,
-                        "architecture": None,
-                        "metadata_source": "builtin",
-                    }
-                else:
-                    snapshot[key] = artifact.to_snapshot(bot_type=bot_type)
-            else:
-                snapshot[key] = build_human_snapshot(pid)
-        return snapshot
+        return build_model_versions_snapshot(room)
 
     def _resolve_actor_model_info(self, room: GameSession | None, actor_id: str) -> Dict | None:
-        if room is None:
-            return None
-        for idx, player_id in enumerate(room.players or []):
-            if str(player_id) == str(actor_id):
-                return (room.model_versions or {}).get(f"player_{idx}")
-        return None
+        return resolve_actor_model_info(room, actor_id)
 
     def start_game(self, game_id: UUID):
         room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
@@ -149,25 +83,28 @@ class GameService:
             raise ValueError(f"Need at least 3 players to start, currently {actual_players}")
 
         # Initialize engine with actual number of players
-        engine = create_game_engine(num_players=actual_players)
+        engine = create_game_engine(
+            num_players=actual_players,
+            player_control_modes=build_player_control_modes(room),
+        )
         GameService.active_engines[game_id] = engine
 
         room.status = "PROGRESS"
-        room.model_versions = self._build_model_versions_snapshot(room)
+        room.model_versions = build_model_versions_snapshot(room)
         self.db.commit()
 
         # Build rich state and broadcast
-        rich_state = self._build_rich_state(game_id, engine, room)
+        rich_state = build_rich_state(self.db, game_id, engine, room)
         action_mask = rich_state.get("action_mask", engine.get_action_mask())
         self._store_game_meta(game_id, room)
         self._sync_to_redis(game_id, rich_state)
-        player_names, _ = self._resolve_player_names_and_bots(room)
+        player_names, _ = resolve_player_names_and_bots(self.db, room)
         ReplayLogger.initialize_game(
             game_id=game_id,
             title=room.title,
             status=room.status,
             host_id=str(room.host_id) if room.host_id else None,
-            players=self._build_replay_players_snapshot(room, player_names),
+            players=build_replay_players_snapshot(room, player_names),
             model_versions=dict(room.model_versions or {}),
             initial_state_summary=summarize_transition_state(engine.get_state()),
         )
@@ -216,7 +153,7 @@ class GameService:
         current_mask = apply_backend_action_mask_guards(engine.env.game, engine.get_action_mask())
         current_player_idx = engine.env.game.current_player_idx
         current_phase_id = engine.last_info.get("current_phase_id") if engine.last_info else None
-        actor_model_info = self._resolve_actor_model_info(room, actor_id)
+        actor_model_info = resolve_actor_model_info(room, actor_id)
         logger.warning(
             "[BOT_TRACE] process_action_mask game=%s actor=%s action=%s valid=%s mask_len=%d",
             game_id,
@@ -230,7 +167,7 @@ class GameService:
 
         # Step through engine (wrapper handles snapshot & logging prep)
         result = engine.step(action)
-        player_names, _ = self._resolve_player_names_and_bots(room) if room else ([], {})
+        player_names, _ = resolve_player_names_and_bots(self.db, room) if room else ([], {})
         actor_name = (
             player_names[current_player_idx]
             if current_player_idx is not None and 0 <= current_player_idx < len(player_names)
@@ -328,7 +265,7 @@ class GameService:
                 title=room.title,
                 status=replay_status,
                 host_id=str(room.host_id) if room.host_id else None,
-                players=self._build_replay_players_snapshot(room, player_names),
+                players=build_replay_players_snapshot(room, player_names),
                 model_versions=dict(room.model_versions or {}),
                 entry=replay_entry,
                 final_scores=replay_final_scores,
@@ -338,7 +275,7 @@ class GameService:
         # Update Redis for WebSocket broadcast (Bot actions are also blasted through this channel)
         terminated = result.get("terminated", result["done"])
         if room:
-            rich_state = self._build_rich_state(game_id, engine, room)
+            rich_state = build_rich_state(self.db, game_id, engine, room)
         else:
             rich_state = result["state_after"]
         new_action_mask = rich_state.get("action_mask", engine.get_action_mask()) if isinstance(rich_state, dict) else engine.get_action_mask()
@@ -369,9 +306,6 @@ class GameService:
             getattr(engine.env, "agent_selection", None),
         )
         return {"state": rich_state, "action_mask": new_action_mask}
-
-    def process_mayor_distribution(self, game_id: UUID, actor_id: str, placements: List[MayorPlacement]):
-        return apply_distribution_plan(self, game_id, actor_id, placements)
 
     def _schedule_next_bot_turn_if_needed(self, game_id: UUID, room: GameSession, engine: EngineWrapper):
         next_idx = engine.env.game.current_player_idx

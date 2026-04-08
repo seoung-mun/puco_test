@@ -2,22 +2,22 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+from app.services.model_registry import build_replay_parity_snapshot, enrich_actor_snapshot
 from app.services.state_serializer import compute_score_breakdown
-
-
-PUCO_RL_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "../../../PuCo_RL")
+from app.services.engine_gateway.constants import (
+    BUILDING_DATA,
+    GOOD_PRICES,
+    BuildingType,
+    Good,
+    Phase,
+    Role,
+    TileType,
 )
-if PUCO_RL_PATH not in os.sys.path:
-    sys.path.append(PUCO_RL_PATH)
-
-from configs.constants import BUILDING_DATA, BuildingType, Good, GOOD_PRICES, Phase, Role, TileType
 
 
 LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../data/logs"))
@@ -233,12 +233,13 @@ def describe_action(action_id: int, *, state_before: dict[str, Any] | None = Non
     if 64 <= action_id <= 68:
         return f"Captain Store: Keep {_good_name(action_id - 64)} via Windrose"
 
-    if 69 <= action_id <= 72:
-        amount = action_id - 69
-        mayor_slot = ((state_before or {}).get("global_state") or {}).get("mayor_slot_idx")
-        if mayor_slot is None:
-            return f"Mayor: Place {amount} Colonists"
-        return f"Mayor: Place {amount} Colonists on Slot {mayor_slot}"
+    if 69 <= action_id <= 71:
+        strategy_name = {
+            69: "Captain Focus",
+            70: "Trade / Factory Focus",
+            71: "Building Focus",
+        }[action_id]
+        return f"Mayor: Strategy {strategy_name}"
 
     if 93 <= action_id <= 97:
         return f"Craftsman: Choose Privilege {_good_name(action_id - 93)}"
@@ -294,7 +295,7 @@ def build_replay_entry(
         "state_summary_after": summarize_transition_state(state_after),
     }
     if model_info is not None:
-        entry["model_info"] = model_info
+        entry["model_info"] = enrich_actor_snapshot(model_info)
     if 0 <= action <= 7:
         entry["role_selected"] = _role_name(action)
     return entry
@@ -345,6 +346,7 @@ def _base_payload(
         "num_players": len(players),
         "players": players,
         "model_versions": model_versions or {},
+        "parity": build_replay_parity_snapshot(model_versions),
         "created_at": now,
         "updated_at": now,
         "initial_state_summary": initial_state_summary or {},
@@ -398,6 +400,7 @@ class ReplayLogger:
         payload["players"] = players
         payload["num_players"] = len(players)
         payload["model_versions"] = model_versions or {}
+        payload["parity"] = build_replay_parity_snapshot(model_versions)
         payload["initial_state_summary"] = initial_state_summary or payload.get("initial_state_summary") or {}
         payload["updated_at"] = _iso_now()
         _write_payload(path, payload)
@@ -432,6 +435,7 @@ class ReplayLogger:
         payload["players"] = players
         payload["num_players"] = len(players)
         payload["model_versions"] = model_versions or {}
+        payload["parity"] = build_replay_parity_snapshot(model_versions)
         payload.setdefault("entries", []).append(entry)
         payload["total_steps"] = len(payload["entries"])
         payload["updated_at"] = _iso_now()

@@ -1,23 +1,40 @@
 """
 run_league.py — Unified Puerto Rico RL Evaluation Pipeline
 
+Modes
+-----
+ecosystem   Single PPO agent vs ecosystem opponents (DaehanBot + Shipping + Random)
+head2head   Two PPO models head-to-head with ecosystem bot as 3rd seat
+
 Usage
 -----
-# Single PPO vs full ecosystem (Shipping + Fusion + Random×2)
-python evaluate/run_league.py ecosystem \
-    --agent_path models/ppo_checkpoints/model.pth \
+# Ecosystem league: PPO vs DaehanBot + Shipping + Random
+python evaluate/run_league.py ecosystem \\
+    --agent_path models/ppo_checkpoints/model.pth \\
     --games 1000
 
-# Head-to-head: two PPO models with ecosystem bots as 3rd seat
-python evaluate/run_league.py head2head \
-    --agent_a models/ppo_checkpoints/model_a.pth \
-    --agent_b models/ppo_checkpoints/model_b.pth \
+# Head-to-head: two PPO models
+python evaluate/run_league.py head2head \\
+    --agent_a models/ppo_checkpoints/model_a.pth \\
+    --agent_b models/ppo_checkpoints/model_b.pth \\
     --games 1000
 
 Optional flags
 --------------
---report_tag STR   Custom suffix added to the report directory name
+--report_tag STR   Custom suffix for the report directory name
 --dry_run          Run only 1 game per permutation (quick sanity check)
+--pool_type STR    Opponent pool type: default, random_only, daehan_only, shipping_only
+
+Output
+------
+Report directory (report/Ecosystem_League_<timestamp>/) contains:
+  - trueskill_ecosystem.png   TrueSkill μ ± σ bar chart
+  - vp_margins.png            VP margin distribution violin plot
+  - vp_decomposition.png      Shipping vs Building VP stacked bar
+  - role_selection.png        Role selection frequency heatmap
+  - win_rates.png             Win rate bar chart
+  - apa_ppa_correlation.png   APA vs PPA bubble chart (TrueSkill as size)
+  - metrics_summary.csv       Tabular summary of all metrics
 """
 import sys
 import os
@@ -35,9 +52,10 @@ import pandas as pd
 from env.pr_env import PuertoRicoEnv
 from utils.env_wrappers import get_flattened_obs_dim
 from agents.ppo_agent import PhasePPOAgent, Agent as PPOAgent
-from agents.advanced_rule_based_agent import AdvancedRuleBasedAgent
+from agents.shipping_rush_agent import ShippingRushAgent
 from agents.factory_rule_based_agent import FactoryRuleBasedAgent
 from agents.heuristic_bots import RandomBot
+from agents.action_value_agent import ActionValueAgent
 
 from utils.evaluation.evaluator import GameEvaluator
 from utils.evaluation.metrics import (
@@ -52,6 +70,7 @@ from utils.evaluation.plotter import (
     save_vp_decomposition_plot,
     save_role_selection_plot,
     save_winrate_plot,
+    save_apa_ppa_correlation_plot,
 )
 
 
@@ -84,26 +103,31 @@ def _sanitize(path: str) -> str:
 
 
 # ── Ecosystem pool (always available) ─────────────────────────────────────────
-def build_ecosystem_pool(action_dim: int) -> dict:
+def build_ecosystem_pool(action_dim: int, pool_type: str = "default") -> dict:
     """
     Canonical opponent pool.
-
-    Removed bots (ecosystem league 1775450115 evidence):
-      - AdvRule_Fusion:   TrueSkill 16.93 << Random ~21.85 → sub-random
-      - AdvRule_Building: removed earlier (sub-random)
-      - AdvRule_Blocking: removed earlier (sub-random)
-
-    Retained:
-      - AdvRule_Shipping: TrueSkill 24.22 > Random ~21.85 → reference benchmark
-      - FactoryBot:       Human-designed Factory diversification strategy
-      - Random_1, Random_2: baseline floor
     """
-    return {
-        "AdvRule_Shipping": AdvancedRuleBasedAgent(action_dim, fixed_strategy=0).eval(),
-        "FactoryBot":       FactoryRuleBasedAgent(action_dim).eval(),
-        "Random_1":         RandomBot(action_dim).eval(),
-        "Random_2":         RandomBot(action_dim).eval(),
-    }
+    if pool_type == "random_only":
+        return {
+            "Random_1": RandomBot(action_dim).eval(),
+            "Random_2": RandomBot(action_dim).eval(),
+        }
+    elif pool_type == "actionvalue_only":
+        return {
+            "ActionValue_1": ActionValueAgent(action_dim).eval(),
+            "ActionValue_2": ActionValueAgent(action_dim).eval(),
+        }
+    elif pool_type == "shipping_only":
+        return {
+            "Shipping_1": ShippingRushAgent(action_dim, fixed_strategy=0).eval(),
+            "Shipping_2": ShippingRushAgent(action_dim, fixed_strategy=0).eval(),
+        }
+    else:
+        return {
+            "ActionValueBot": ActionValueAgent(action_dim).eval(),
+            "ShippingRush":   ShippingRushAgent(action_dim, fixed_strategy=0).eval(),
+            "Random_1":       RandomBot(action_dim).eval(),
+        }
 
 
 # ── Accumulation helpers ──────────────────────────────────────────────────────
@@ -183,6 +207,7 @@ def save_report(report_dir: str, pool: list,
     # ── CSV metrics summary ────────────────────────────────────────────────
     focal_label = "Win%(Focal games)" if focal_agents else "Win%(All)"
     rows = []
+    apa_ppa_data = []  # For APA/PPA correlation plot
     for name in pool:
         g       = games_played[name]
         g_focal = games_played_focal[name]
@@ -201,10 +226,19 @@ def save_report(report_dir: str, pool: list,
             "Avg_APA":         f"{apa:.2f}",
             "Avg_PPA":         f"{ppa:.2f}",
         })
+        apa_ppa_data.append({
+            "Agent": name,
+            "Avg_APA": apa,
+            "Avg_PPA": ppa,
+            "TrueSkill_Mu": mu,
+        })
 
     df = pd.DataFrame(rows)
     csv_path = f"{report_dir}/metrics_summary.csv"
     df.to_csv(csv_path, index=False)
+
+    # ── APA vs PPA correlation plot ────────────────────────────────────────
+    save_apa_ppa_correlation_plot(apa_ppa_data, f"{report_dir}/apa_ppa_correlation.png")
 
     print(f"\n{'='*60}")
     print(f"  Report saved → {report_dir}")
@@ -221,7 +255,7 @@ def run_ecosystem(args, obs_dim: int, action_dim: int, env: PuertoRicoEnv):
     ppo_agent = load_ppo(args.agent_path, obs_dim, action_dim, "PPO_Agent")
     ppo_agent.share_memory()
 
-    eco_pool  = build_ecosystem_pool(action_dim)
+    eco_pool  = build_ecosystem_pool(action_dim, args.pool_type)
     for a in eco_pool.values():
         a.share_memory()
 
@@ -276,7 +310,7 @@ def run_head2head(args, obs_dim: int, action_dim: int, env: PuertoRicoEnv):
     model_a.share_memory()
     model_b.share_memory()
 
-    eco_pool = build_ecosystem_pool(action_dim)
+    eco_pool = build_ecosystem_pool(action_dim, args.pool_type)
     for a in eco_pool.values():
         a.share_memory()
 
@@ -348,6 +382,9 @@ def main():
                         help="Optional suffix for the report directory name")
     p_eco.add_argument("--dry_run", action="store_true",
                         help="Run 1 game per permutation for quick sanity check")
+    p_eco.add_argument("--pool_type", type=str, default="default", 
+                        choices=["default", "random_only", "actionvalue_only", "shipping_only"],
+                        help="Type of opponent pool to use")
 
     # ── head2head ──────────────────────────────────────────────────────────
     p_h2h = subparsers.add_parser("head2head",
@@ -362,6 +399,9 @@ def main():
                         help="Optional suffix for the report directory name")
     p_h2h.add_argument("--dry_run", action="store_true",
                         help="Run 1 game per permutation for quick sanity check")
+    p_h2h.add_argument("--pool_type", type=str, default="default", 
+                        choices=["default", "random_only", "actionvalue_only", "shipping_only"],
+                        help="Type of opponent pool to use")
 
     args = parser.parse_args()
 

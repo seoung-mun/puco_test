@@ -34,8 +34,8 @@ class TestMayorSequential(unittest.TestCase):
         # Player has 3 col. Future cap: Indigo(1) + SmIndigo(1) + SmMarket(1) = 3
         # min_place = max(0, 3-3) = 0. max_place = min(1, 3) = 1.
         mask = env.valid_action_mask()
-        self.assertTrue(mask[69]) # 0
-        self.assertTrue(mask[70]) # 1
+        self.assertTrue(mask[72]) # 0
+        self.assertTrue(mask[73]) # 1
         
         # Agent chooses 0
         game.action_mayor_place(0, 0)
@@ -49,8 +49,8 @@ class TestMayorSequential(unittest.TestCase):
         # min_place = max(0, 3-2) = 1. max_place = 1.
         # MUST place 1.
         mask = env.valid_action_mask()
-        self.assertFalse(mask[69]) # 0 invalid
-        self.assertTrue(mask[70])  # 1 valid
+        self.assertFalse(mask[72]) # 0 invalid
+        self.assertTrue(mask[73])  # 1 valid
         
         # Agent chooses 1
         game.action_mayor_place(0, 1)
@@ -63,8 +63,8 @@ class TestMayorSequential(unittest.TestCase):
         # Player has 2 col. Future cap: SmMarket(1).
         # min_place = max(0, 2-1) = 1. max_place = 1.
         mask = env.valid_action_mask()
-        self.assertFalse(mask[69]) # 0 invalid
-        self.assertTrue(mask[70])  # 1 valid
+        self.assertFalse(mask[72]) # 0 invalid
+        self.assertTrue(mask[73])  # 1 valid
         game.action_mayor_place(0, 1)
         self.assertEqual(game.players[0].unplaced_colonists, 1)
         self.assertEqual(game.players[0].city_board[0].colonists, 1)
@@ -75,16 +75,16 @@ class TestMayorSequential(unittest.TestCase):
         # Player has 1 col. Future cap: 0.
         # min_place = max(0, 1-0) = 1. max_place = 1.
         mask = env.valid_action_mask()
-        self.assertFalse(mask[69]) # 0 invalid
-        self.assertTrue(mask[70])  # 1 valid
+        self.assertFalse(mask[72]) # 0 invalid
+        self.assertTrue(mask[73])  # 1 valid
         game.action_mayor_place(0, 1)
         self.assertEqual(game.players[0].unplaced_colonists, 0)
         self.assertEqual(game.players[0].city_board[1].colonists, 1)
         
         # After placing last colonist → remaining slots auto-skipped (0 colonists left)
         # → mayor_placement_idx = 24 → _advance_phase_turn called
-        # Turn should advance to next player
-        self.assertNotEqual(game.current_player_idx, 0)
+        # Players 1 & 2 have 0 colonists → auto-complete → phase advances past Mayor
+        self.assertNotEqual(game.current_phase, Phase.MAYOR)
         
         print("TestMayorSequential Passed!")
 

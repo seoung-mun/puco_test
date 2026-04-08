@@ -1,7 +1,7 @@
 export type GoodType = 'corn' | 'indigo' | 'sugar' | 'tobacco' | 'coffee';
 export type RoleName = 'settler' | 'mayor' | 'builder' | 'craftsman' | 'trader' | 'captain' | 'prospector' | 'prospector_2';
 export type PhaseType =
-  | 'role_selection' | 'settler_action' | 'mayor_distribution' | 'mayor_action'
+  | 'role_selection' | 'settler_action' | 'mayor_action'
   | 'builder_action' | 'craftsman_action' | 'trader_action'
   | 'captain_action' | 'captain_discard' | 'end_of_round' | 'game_over';
 
@@ -20,8 +20,6 @@ export interface Meta {
   vp_supply_remaining: number;
   captain_consecutive_passes: number;
   bot_thinking?: boolean;
-  mayor_slot_idx?: number | null;
-  mayor_can_skip?: boolean;
   // Channel API action indices
   pass_action_index?: number;
   hacienda_action_index?: number;
@@ -228,6 +226,14 @@ export interface FinalScoreSummary {
   display_names?: Record<string, string>;
 }
 
+export interface ModelVersionInfo {
+  actor_type?: string;
+  bot_type?: string | null;
+  artifact_name?: string | null;
+  metadata_source?: string | null;
+  [key: string]: unknown;
+}
+
 export interface GameState {
   meta: Meta;
   common_board: CommonBoard;
@@ -236,5 +242,6 @@ export interface GameState {
   history: HistoryEntry[];
   action_mask?: number[];
   bot_players?: Record<string, string>;
+  model_versions?: Record<string, ModelVersionInfo>;
   result_summary?: FinalScoreSummary | null;
 }

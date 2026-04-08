@@ -93,7 +93,7 @@ export default function CommonBoardPanel({
       </div>
 
       <div className="common-row">
-        <div className={`common-col${isActive(['mayor_distribution', 'mayor_action']) ? ' board-active' : ''}`}>
+        <div className={`common-col${isActive('mayor_action') ? ' board-active' : ''}`}>
           <h3>{t('board.colonists')}</h3>
           <ColonistShip colonists={board.colonists} numPlayers={numPlayers} />
         </div>

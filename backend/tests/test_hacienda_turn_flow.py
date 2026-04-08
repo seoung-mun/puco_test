@@ -21,10 +21,8 @@ def test_hacienda_draw_keeps_same_player_turn_and_regular_settler_choice():
         CityBuilding(building_type=BuildingType.HACIENDA, colonists=1)
     )
 
-    engine.step(0)  # Select Settler
     starting_island_tiles = len(game.players[active_idx].island_board)
-
-    engine.step(105)  # Hacienda draw
+    engine.step(0)  # Select Settler; upstream env auto-resolves Hacienda draw
     state = serialize_game_state_from_engine(
         engine=engine,
         player_names=["Alice", "Bob", "Carol"],

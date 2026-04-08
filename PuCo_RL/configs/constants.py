@@ -135,19 +135,13 @@ GOOD_PRICES = {
     Good.COFFEE: 4
 }
 
-# ─── Player Control Mode ───
-
-class ControlMode(IntEnum):
-    HUMAN = 0
-    BOT = 1
-
-# ─── Mayor Strategy Constants ───
-
+# Mayor Phase Strategy Enum
 class MayorStrategy(IntEnum):
-    CAPTAIN_FOCUS = 0
-    TRADE_FACTORY_FOCUS = 1
-    BUILDING_FOCUS = 2
+    CAPTAIN_FOCUS = 0        # Shipping strategy
+    TRADE_FACTORY_FOCUS = 1  # Trading + Factory strategy
+    BUILDING_FOCUS = 2       # Infrastructure strategy
 
+# Large VP Buildings (always highest priority)
 LARGE_VP_BUILDINGS = [
     BuildingType.GUILDHALL,
     BuildingType.RESIDENCE,
@@ -156,6 +150,7 @@ LARGE_VP_BUILDINGS = [
     BuildingType.CITY_HALL,
 ]
 
+# Strategy-specific building priorities
 MAYOR_STRATEGY_BUILDINGS = {
     MayorStrategy.CAPTAIN_FOCUS: [
         BuildingType.WHARF,
@@ -177,6 +172,7 @@ MAYOR_STRATEGY_BUILDINGS = {
     ],
 }
 
+# Production building to Good mapping (for production pairs)
 PRODUCTION_BUILDINGS = {
     Good.COFFEE: [BuildingType.COFFEE_ROASTER],
     Good.TOBACCO: [BuildingType.TOBACCO_STORAGE],
@@ -184,6 +180,7 @@ PRODUCTION_BUILDINGS = {
     Good.INDIGO: [BuildingType.INDIGO_PLANT, BuildingType.SMALL_INDIGO_PLANT],
 }
 
+# Plantation to Good mapping
 PLANTATION_TO_GOOD = {
     TileType.COFFEE_PLANTATION: Good.COFFEE,
     TileType.TOBACCO_PLANTATION: Good.TOBACCO,
@@ -192,4 +189,5 @@ PLANTATION_TO_GOOD = {
     TileType.CORN_PLANTATION: Good.CORN,
 }
 
+# Good value order (descending) for production pair priority
 GOOD_VALUE_ORDER = [Good.COFFEE, Good.TOBACCO, Good.SUGAR, Good.INDIGO, Good.CORN]

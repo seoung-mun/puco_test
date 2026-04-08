@@ -91,9 +91,16 @@ def _find_city_idx(player, building_type):
 
 def _manually_place_captain_focus(player):
     """인간이 CAPTAIN_FOCUS와 유사하게 배치한 상태를 시뮬레이션.
-    WHARF, HARBOR에 우선 배치."""
+
+    전략 시뮬레이션 결과 재현 (colonists=8):
+    Step 2: WHARF(1) + HARBOR(1)
+    Step 3: Coffee(plantation+roaster=2) + Indigo(plantation+plant=2) + Corn(1)
+    Step 4: Remaining(1) → OFFICE(1) spillover
+    Vector: V_prod=5.0, V_vp=0.0, V_eff=4.0 (WHARF=1 + HARBOR=1 + OFFICE=2)
+    """
     player.city_board[_find_city_idx(player, BuildingType.WHARF)].colonists = 1
     player.city_board[_find_city_idx(player, BuildingType.HARBOR)].colonists = 1
+    player.city_board[_find_city_idx(player, BuildingType.OFFICE)].colonists = 1   # Step 4 spillover
     player.island_board[0].is_occupied = True  # Coffee
     player.city_board[_find_city_idx(player, BuildingType.COFFEE_ROASTER)].colonists = 1
     player.island_board[2].is_occupied = True  # Indigo
@@ -103,28 +110,42 @@ def _manually_place_captain_focus(player):
 
 
 def _manually_place_trade_factory_focus(player):
-    """인간이 TRADE_FACTORY_FOCUS와 유사하게 배치."""
+    """인간이 TRADE_FACTORY_FOCUS와 유사하게 배치.
+
+    전략 시뮬레이션 결과 재현 (colonists=8):
+    Step 2: OFFICE(1) + FACTORY(1)
+    Step 3: Coffee(plantation+roaster=2) + Indigo(plantation+plant=2) + Corn(1)
+    Step 4: Remaining(1) → WHARF(1) spillover
+    Vector: V_prod=5.0, V_vp=0.0, V_eff=5.0 (WHARF=1 + OFFICE=2 + FACTORY=2)
+    """
     player.city_board[_find_city_idx(player, BuildingType.OFFICE)].colonists = 1
     player.city_board[_find_city_idx(player, BuildingType.FACTORY)].colonists = 1
-    player.island_board[0].is_occupied = True  # Coffee
-    player.city_board[_find_city_idx(player, BuildingType.COFFEE_ROASTER)].colonists = 1
-    player.island_board[1].is_occupied = True  # Tobacco
-    player.island_board[2].is_occupied = True  # Indigo
-    player.city_board[_find_city_idx(player, BuildingType.SMALL_INDIGO_PLANT)].colonists = 1
-    player.island_board[4].is_occupied = True  # Sugar
-    player.unplaced_colonists = 0
-
-
-def _manually_place_building_focus(player):
-    """인간이 BUILDING_FOCUS와 유사하게 배치."""
-    player.city_board[_find_city_idx(player, BuildingType.UNIVERSITY)].colonists = 1
-    player.city_board[_find_city_idx(player, BuildingType.HOSPICE)].colonists = 1
+    player.city_board[_find_city_idx(player, BuildingType.WHARF)].colonists = 1   # Step 4 spillover
     player.island_board[0].is_occupied = True  # Coffee
     player.city_board[_find_city_idx(player, BuildingType.COFFEE_ROASTER)].colonists = 1
     player.island_board[2].is_occupied = True  # Indigo
     player.city_board[_find_city_idx(player, BuildingType.SMALL_INDIGO_PLANT)].colonists = 1
     player.island_board[3].is_occupied = True  # Corn
-    player.island_board[4].is_occupied = True  # Sugar
+    player.unplaced_colonists = 0
+
+
+def _manually_place_building_focus(player):
+    """인간이 BUILDING_FOCUS와 유사하게 배치.
+
+    전략 시뮬레이션 결과 재현 (colonists=8):
+    Step 2: UNIVERSITY(1) + HOSPICE(1)
+    Step 3: Coffee(plantation+roaster=2) + Indigo(plantation+plant=2) + Corn(1)
+    Step 4: Remaining(1) → WHARF(1) spillover
+    Vector: V_prod=5.0, V_vp=0.0, V_eff=7.0 (WHARF=1 + UNIVERSITY=3 + HOSPICE=3)
+    """
+    player.city_board[_find_city_idx(player, BuildingType.UNIVERSITY)].colonists = 1
+    player.city_board[_find_city_idx(player, BuildingType.HOSPICE)].colonists = 1
+    player.city_board[_find_city_idx(player, BuildingType.WHARF)].colonists = 1   # Step 4 spillover
+    player.island_board[0].is_occupied = True  # Coffee
+    player.city_board[_find_city_idx(player, BuildingType.COFFEE_ROASTER)].colonists = 1
+    player.island_board[2].is_occupied = True  # Indigo
+    player.city_board[_find_city_idx(player, BuildingType.SMALL_INDIGO_PLANT)].colonists = 1
+    player.island_board[3].is_occupied = True  # Corn
     player.unplaced_colonists = 0
 
 
@@ -147,7 +168,7 @@ class TestStrategyMapping:
     def test_captain_focus_placement_maps_to_s0(self):
         """WHARF/HARBOR 우선 배치 → CAPTAIN_FOCUS(0)로 매핑되어야 한다."""
         game = PuertoRicoGame(num_players=3)
-        _force_mayor_for_mapping(game, player_idx=0, colonists=7)
+        _force_mayor_for_mapping(game, player_idx=0, colonists=8)
         _manually_place_captain_focus(game.players[0])
 
         result = game.map_human_to_strategy(0)
@@ -157,7 +178,7 @@ class TestStrategyMapping:
     def test_trade_factory_placement_maps_to_s1(self):
         """OFFICE/FACTORY 우선 배치 → TRADE_FACTORY_FOCUS(1)로 매핑되어야 한다."""
         game = PuertoRicoGame(num_players=3)
-        _force_mayor_for_mapping(game, player_idx=0, colonists=7)
+        _force_mayor_for_mapping(game, player_idx=0, colonists=8)
         _manually_place_trade_factory_focus(game.players[0])
 
         result = game.map_human_to_strategy(0)

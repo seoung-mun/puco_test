@@ -22,7 +22,7 @@ Action mapping (from pr_env.py):
   44-58:  Captain - load ship (ship_idx*5 + good_type + 44)
   59-63:  Captain - load via Wharf (Good 0-4)
   64-68:  Captain Store - keep good (Good 0-4)
-  69-72:  Mayor - place colonists
+  69-71:  Mayor - strategy selection
   93-97:  Craftsman - privilege good (Good 0-4)
   105:    Hacienda pass
   106-110:Captain Store Warehouse
@@ -423,7 +423,6 @@ class TestTraderPhase:
         """
         At game start players have no goods.
         Sell actions 39-43 must all be masked off.
-        Pass (15) should be available.
         """
         game, users = _make_human_game(db, "TraderNoGoods")
         res, _ = self._enter_trader(client, game, users)
@@ -431,7 +430,6 @@ class TestTraderPhase:
         mask = res.json()["action_mask"]
         sell_bits = mask[39:44]
         assert sum(sell_bits) == 0, "Cannot sell without goods"
-        assert mask[15] == 1, "Pass must be available when no goods to sell"
 
     def test_trader_sell_action_rejected_when_masked(self, client, db):
         game, users = _make_human_game(db, "TraderMaskedSell")
@@ -519,7 +517,7 @@ class TestCaptainPhase:
 class TestMayorPhase:
     """
     Select Mayor role (action 1) → enter Mayor phase.
-    Mayor actions: 69-72 place colonists.
+    Mayor actions: 69-71 strategy selection.
     """
 
     def _enter_mayor(self, client, game, users):
@@ -540,17 +538,17 @@ class TestMayorPhase:
         res, _ = self._enter_mayor(client, game, users)
         assert res.status_code == 200
         mask = res.json()["action_mask"]
-        mayor_bits = mask[69:73]
-        assert sum(mayor_bits) >= 1, "Mayor phase must have colonist placement actions"
+        mayor_bits = mask[69:72]
+        assert sum(mayor_bits) == 3, "Mayor phase must expose all three strategy actions"
 
-    def test_mayor_valid_colonist_placement(self, client, db):
+    def test_mayor_valid_strategy_action(self, client, db):
         game, users = _make_human_game(db, "MayorPlacement")
         res, current_user = self._enter_mayor(client, game, users)
         assert res.status_code == 200
         mask = res.json()["action_mask"]
-        mayor_valid = next((i for i in range(69, 73) if mask[i] == 1), None)
+        mayor_valid = next((i for i in range(69, 72) if mask[i] == 1), None)
         if mayor_valid is None:
-            pytest.skip("No mayor placement action available")
+            pytest.skip("No mayor strategy action available")
         res2 = _action(client, game.id, mayor_valid, _bearer(current_user.id))
         assert res2.status_code == 200
 

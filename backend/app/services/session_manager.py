@@ -123,8 +123,15 @@ class SessionManager:
 
     def start_game(self):
         """Initialise the EngineWrapper with the current player count."""
-        from app.engine_wrapper.wrapper import create_game_engine
-        self.game = create_game_engine(num_players=self.num_players)
+        from app.services.engine_gateway import create_game_engine
+        player_control_modes = [
+            1 if idx in self.bot_players else 0
+            for idx in range(self.num_players)
+        ]
+        self.game = create_game_engine(
+            num_players=self.num_players,
+            player_control_modes=player_control_modes,
+        )
         self.game_exists = True
         self.game_over = False
         self.round = 1

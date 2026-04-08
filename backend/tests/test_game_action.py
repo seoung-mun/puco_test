@@ -2,6 +2,7 @@ import uuid
 from sqlalchemy import text
 from app.db.models import GameLog, GameSession, User
 from app.core.security import create_access_token
+from app.services.game_service import GameService
 
 
 def test_game_action_logs_to_db(client, db):
@@ -60,3 +61,44 @@ def test_game_action_logs_to_db(client, db):
     assert isinstance(mask_from_db, list)
     assert len(mask_from_db) > 0
     assert all(x in [0, 1] for x in mask_from_db)
+
+
+def test_channel_action_endpoint_passes_exact_action_index_to_game_service(client, db, monkeypatch):
+    user_id = uuid.uuid4()
+    user = User(id=user_id, google_id=f"gid_{uuid.uuid4().hex}", nickname="TraceTester")
+    db.add(user)
+
+    game = GameSession(
+        id=uuid.uuid4(),
+        title="Trace Room",
+        status="PROGRESS",
+        num_players=3,
+        players=[str(user.id), "BOT_random", "BOT_random"],
+        host_id=str(user.id),
+    )
+    db.add(game)
+    db.flush()
+
+    captured = {}
+
+    def fake_process_action(self, game_id, actor_id, action, suppress_broadcast=False):
+        captured["game_id"] = game_id
+        captured["actor_id"] = actor_id
+        captured["action"] = action
+        captured["suppress_broadcast"] = suppress_broadcast
+        return {"state": {"meta": {"phase": "role_selection", "active_player": "player_0"}}, "action_mask": [0] * 200}
+
+    monkeypatch.setattr(GameService, "process_action", fake_process_action)
+
+    headers = {"Authorization": f"Bearer {create_access_token(subject=str(user.id))}"}
+    response = client.post(
+        f"/api/puco/game/{game.id}/action",
+        json={"payload": {"action_index": "39"}},
+        headers=headers,
+    )
+
+    assert response.status_code == 200, response.text
+    assert captured["game_id"] == game.id
+    assert captured["actor_id"] == str(user.id)
+    assert captured["action"] == 39
+    assert isinstance(captured["action"], int)

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import type { PhaseType, Player } from '../types/gameState';
+import type { Player } from '../types/gameState';
 import IslandGrid from './IslandGrid';
 import CityGrid from './CityGrid';
 
@@ -9,24 +9,14 @@ interface Props {
   playerId: string;
   player: Player;
   isActive: boolean;
-  phase: PhaseType;
-  // 토글 모드 (인간 플레이어)
-  mayorPending?: number[] | null;
-  mayorLocalUnplaced?: number;
-  onMayorToggle?: (slotIdx: number, delta: 1 | -1) => void;
-  // 순차 모드 (봇 대기 or 멀티 상대방)
-  onMayorPlace?: (amount: number) => void;
-  mayorSlotIdx?: number | null;
   highlightLastPlantation?: boolean;
   isOffline?: boolean;
   isMe?: boolean;
   botType?: string;
 }
 
-export default function PlayerPanel({ playerId, player, isActive, phase, mayorPending, mayorLocalUnplaced = 0, onMayorToggle, onMayorPlace, mayorSlotIdx, highlightLastPlantation, isOffline, isMe, botType }: Props) {
+export default function PlayerPanel({ playerId, player, isActive, highlightLastPlantation, isOffline, isMe, botType }: Props) {
   const { t } = useTranslation();
-  const isMayorActive = phase === 'mayor_action' && isActive;
-  const isMayorToggle = isMayorActive && mayorPending !== null && mayorPending !== undefined;
 
   const sectionStyle: React.CSSProperties = {
     ...(isOffline ? { opacity: 0.45, filter: 'grayscale(0.7)' } : {}),
@@ -96,28 +86,11 @@ export default function PlayerPanel({ playerId, player, isActive, phase, mayorPe
       <h3 id={`player-${playerId}-island`}>{t('player.island')}</h3>
       <IslandGrid
         island={player.island}
-        // 토글 모드
-        mayorPending={isMayorToggle ? (mayorPending ?? []).slice(0, 12) : null}
-        mayorLocalUnplaced={isMayorToggle ? mayorLocalUnplaced : 0}
-        onMayorToggle={isMayorToggle ? (i, d) => onMayorToggle?.(i, d) : undefined}
-        // 순차 모드
-        currentMayorSlot={isMayorActive && !isMayorToggle && mayorSlotIdx != null && mayorSlotIdx < 12 ? mayorSlotIdx : null}
-        onMayorPlace={isMayorActive && !isMayorToggle ? onMayorPlace : undefined}
-        hasUnplacedColonists={player.city.colonists_unplaced > 0}
         highlightLastTile={highlightLastPlantation}
       />
 
       <h3 id={`player-${playerId}-city`}>{t('player.city')}</h3>
-      <CityGrid
-        city={player.city}
-        // 토글 모드
-        mayorPending={isMayorToggle ? (mayorPending ?? []).slice(12, 24) : null}
-        mayorLocalUnplaced={isMayorToggle ? mayorLocalUnplaced : 0}
-        onMayorToggle={isMayorToggle ? (i, d) => onMayorToggle?.(12 + i, d) : undefined}
-        // 순차 모드
-        currentMayorSlot={isMayorActive && !isMayorToggle && mayorSlotIdx != null && mayorSlotIdx >= 12 ? mayorSlotIdx - 12 : null}
-        onMayorPlace={isMayorActive && !isMayorToggle ? onMayorPlace : undefined}
-      />
+      <CityGrid city={player.city} />
     </section>
   );
 }

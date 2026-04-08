@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puerto Rico AI Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --panel-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;       
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
+            background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
+                              radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.15), transparent 25%);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .hidden { display: none !important; }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            padding: 20px;
+        }
+
+        /* Setup Screen */
+        #setup-screen { max-width: 500px; margin: 80px auto; text-align: center; }
+        .setup-group { margin: 20px 0; text-align: left; }
+        .setup-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-muted); }
+        select {
+            width: 100%; padding: 12px; border-radius: 8px;
+            background: rgba(15, 23, 42, 0.8); color: white;
+            border: 1px solid var(--panel-border); outline: none;
+            font-size: 1rem; font-family: 'Inter', sans-serif;
+            transition: all 0.3s;
+        }
+        select:focus { border-color: var(--accent); }
+
+        button {
+            background: var(--accent); color: white; border: none;
+            padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem;
+            cursor: pointer; font-family: 'Inter', sans-serif;
+            transition: all 0.2s ease; width: 100%;
+        }
+        button:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        button:disabled { background: #475569; cursor: not-allowed; transform: none; }
+
+        /* Board Screen */
+        #board-screen { display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; max-width: 1400px; margin: 0 auto;}
+        
+        .section-title { 
+            margin: 0 0 15px 0; font-size: 1.1rem; font-weight: 600; 
+            border-bottom: 1px solid var(--panel-border); padding-bottom: 8px; 
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        /* Global State */
+        .global-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .stat-box { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
+        .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;}
+        .stat-val { font-size: 1.1rem; font-weight: 600; }
+
+        /* Players */
+        #players-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px;}
+        .player-board { 
+            background: rgba(15, 23, 42, 0.5); border-radius: 12px; padding: 15px; 
+            border: 1px solid var(--panel-border); transition: all 0.3s;
+        }
+        .active-player { border-color: var(--success); box-shadow: 0 0 15px rgba(16, 185, 129, 0.2); background: rgba(16, 185, 129, 0.05); }
+        .player-name { font-weight: 600; font-size: 1.1rem; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        
+        .player-resources { display: flex; gap: 12px; margin-bottom: 15px; font-size: 0.95rem; }
+        .badge { background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;}
+
+        .grid-area { margin-top: 10px; }
+        .grid-title { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase;}
+        
+        .items-flex { display: flex; flex-wrap: wrap; gap: 6px; }
+        .item-chip { 
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+            padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; 
+            display: flex; align-items: center; gap: 4px;
+        }
+        .item-chip.occupied { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.15); }
+
+        /* Actions & Right Col */
+        #action-buttons { display: flex; flex-direction: column; gap: 8px; }
+        .action-btn { background: rgba(59, 130, 246, 0.1); border: 1px solid var(--accent); color: var(--text-main); text-align: left;}
+        .action-btn:hover { background: var(--accent); }
+        
+        /* PPO Insights */
+        .insight-bar-container { background: rgba(0,0,0,0.3); border-radius: 4px; height: 24px; position: relative; margin-bottom: 6px; overflow: hidden;}
+        .insight-bar-fill { background: linear-gradient(90deg, var(--accent), #8b5cf6); height: 100%; transition: width 0.3s; }
+        .insight-bar-text { position: absolute; left: 8px; top: 0; bottom: 0; display: flex; align-items: center; font-size: 0.8rem; font-weight: 500;}
+        .insight-bar-percent { position: absolute; right: 8px; top: 0; bottom: 0; display: flex; align-items: center; font-size: 0.8rem; }
+
+        /* Error Banner */
+        #error-banner {
+            background: rgba(239, 68, 68, 0.2); border: 1px solid var(--danger);
+            color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        #log-list { list-style: none; padding: 0; margin: 0; font-size: 0.85rem; max-height: 200px; overflow-y: auto;}
+        #log-list li { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--text-muted);}
+        #log-list li:first-child { color: var(--text-main); font-weight: 500; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div id="setup-screen" class="glass-panel">
+    <h2 style="margin-top:0;">Puerto Rico AI Engine</h2>
+    <p style="color: var(--text-muted);">Set up your game. Select your seat and AI opponents.</p>
+    
+    <div class="setup-group">
+        <label>Seat 0 (Start Player)</label>
+        <select id="seat0">
+            <option value="Human">👨 Human</option>
+            <option value="PPO" selected>🧠 PPO Agent (Current Best)</option>
+            <option value="Random">🎲 Random Bot</option>
+            <option value="AdvRule_0">⚙️ Advanced Rule (Shipping Bias)</option>
+            <option value="AdvRule_1">⚙️ Advanced Rule (Building Bias)</option>
+        </select>
+    </div>
+    <div class="setup-group">
+        <label>Seat 1</label>
+        <select id="seat1">
+            <option value="Human" selected>👨 Human</option>
+            <option value="PPO">🧠 PPO Agent</option>
+            <option value="Random">🎲 Random Bot</option>
+            <option value="AdvRule_0">⚙️ Advanced Rule (Shipping Bias)</option>
+            <option value="AdvRule_1">⚙️ Advanced Rule (Building Bias)</option>
+        </select>
+    </div>
+    <div class="setup-group">
+        <label>Seat 2</label>
+        <select id="seat2">
+            <option value="Human">👨 Human</option>
+            <option value="PPO">🧠 PPO Agent</option>
+            <option value="Random" selected>🎲 Random Bot</option>
+            <option value="AdvRule_0">⚙️ Advanced Rule (Shipping Bias)</option>
+            <option value="AdvRule_1">⚙️ Advanced Rule (Building Bias)</option>
+        </select>
+    </div>
+    
+    <button id="start-btn" style="margin-top: 10px;">Initialize Simulation</button>
+</div>
+
+<div id="board-screen" class="hidden">
+    <div id="left-col">
+        <div id="error-banner" class="hidden"></div>
+        
+        <div class="glass-panel" style="margin-bottom: 20px;">
+            <h3 class="section-title">
+                Global State
+                <div>
+                    <span id="current-round-label" style="font-weight: 700; background: rgba(59, 130, 246, 0.15); color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 0.9rem; margin-right: 5px;">Round: 1</span>
+                    <span id="current-phase-label" style="color: var(--success); font-weight: 700; background: rgba(16,185,129,0.15); padding: 4px 12px; border-radius: 20px; font-size: 0.9rem;"></span>
+                </div>
+            </h3>
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--accent); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center; font-size: 1.1rem;">
+                <strong>Active Player:</strong> <span id="current-player-label" style="color: var(--accent);"></span> &nbsp;&nbsp;|&nbsp;&nbsp; <strong>Governor:</strong> <span id="governor-label" style="color: #fbbf24;"></span>
+            </div>
+            
+            <div class="global-grid">
+                <div class="stat-box">
+                    <div class="stat-label">VP & Colonists</div>
+                    <div class="stat-val">🎖️ <span id="g-vp"></span> &nbsp;|&nbsp; 👨 <span id="g-col"></span></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Cargo Ships</div>
+                    <div class="stat-val" id="g-ships" style="font-size:0.95rem;"></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Trading House</div>
+                    <div class="stat-val" id="g-trade" style="font-size:0.95rem;"></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Plantations Draft</div>
+                    <div class="stat-val" style="font-size:0.95rem" id="g-plant"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="players-container">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+    
+    <div id="right-col">
+        <div class="glass-panel" style="margin-bottom: 20px;">
+            <h3 class="section-title">Available Actions</h3>
+            <div id="action-buttons">Waiting for simulation to start...</div>
+        </div>
+        
+        <div class="glass-panel" style="margin-bottom: 20px;">
+            <h3 class="section-title">
+                PPO Insights
+                <span id="ppo-value" style="font-family: monospace; font-size: 0.9rem; color: var(--accent);">V: 0.00</span>
+            </h3>
+            <div id="ppo-probs-body">
+                <div style="font-size: 0.85rem; color: var(--text-muted);">Awaiting PPO inference...</div>
+            </div>
+        </div>
+        
+        <div class="glass-panel">
+            <h3 class="section-title">Event Log</h3>
+            <ul id="log-list"></ul>
+        </div>
+    </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

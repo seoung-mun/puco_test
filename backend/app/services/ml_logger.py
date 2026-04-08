@@ -4,6 +4,8 @@ import aiofiles
 from datetime import datetime, timezone
 from uuid import UUID
 
+from app.services.model_registry import enrich_actor_snapshot
+
 LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../data/logs"))
 GAME_LOG_DIR = os.path.join(LOG_DIR, "games")
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -53,7 +55,7 @@ class MLLogger:
         if current_player_idx_before is not None:
             record["current_player_idx_before"] = current_player_idx_before
         if model_info is not None:
-            record["model_info"] = model_info
+            record["model_info"] = enrich_actor_snapshot(model_info)
         
         # Async write to prevent blocking the WebSocket/Game event loop
         async with aiofiles.open(log_file, mode='a') as f:

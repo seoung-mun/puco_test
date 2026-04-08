@@ -59,6 +59,7 @@ def test_describe_action_matches_human_readable_replay_strings():
     assert describe_action(8, state_before=state) == "Settler: Take Corn Plantation"
     assert describe_action(16, state_before=state) == "Builder: Build Small Indigo Plant (cost 1, VP 1)"
     assert describe_action(39, state_before=state) == "Trader: Sell Coffee (base price 4)"
+    assert describe_action(69, state_before=state) == "Mayor: Strategy Captain Focus"
 
 
 def test_replay_logger_writes_human_readable_json(tmp_path, monkeypatch):
@@ -76,6 +77,24 @@ def test_replay_logger_writes_human_readable_json(tmp_path, monkeypatch):
     state_after = _sample_state()
     state_after["global_state"]["current_player"] = 1
     state_after["global_state"]["current_phase"] = 2
+    model_versions = {
+        "player_0": {
+            "actor_type": "human",
+            "player_id": "human-1",
+        },
+        "player_1": {
+            "actor_type": "bot",
+            "bot_type": "random",
+            "artifact_name": "random",
+            "metadata_source": "builtin",
+        },
+        "player_2": {
+            "actor_type": "bot",
+            "bot_type": "ppo",
+            "artifact_name": "ppo-test",
+            "metadata_source": "bootstrap_derived",
+        },
+    }
 
     ReplayLogger.initialize_game(
         game_id=game_id,
@@ -83,7 +102,7 @@ def test_replay_logger_writes_human_readable_json(tmp_path, monkeypatch):
         status="PROGRESS",
         host_id="human-1",
         players=players,
-        model_versions={"player_2": {"bot_type": "ppo", "artifact_name": "ppo-test"}},
+        model_versions=model_versions,
         initial_state_summary=summarize_transition_state(state_before),
     )
     ReplayLogger.append_entry(
@@ -92,7 +111,7 @@ def test_replay_logger_writes_human_readable_json(tmp_path, monkeypatch):
         status="FINISHED",
         host_id="human-1",
         players=players,
-        model_versions={"player_2": {"bot_type": "ppo", "artifact_name": "ppo-test"}},
+        model_versions=model_versions,
         entry=build_replay_entry(
             actor_id="human-1",
             actor_name="Alice",
@@ -119,6 +138,10 @@ def test_replay_logger_writes_human_readable_json(tmp_path, monkeypatch):
     assert data["title"] == "Replay Room"
     assert data["status"] == "FINISHED"
     assert data["players"][0]["display_name"] == "Alice"
+    assert data["parity"]["expected"]["action_space"] == "castone.action-space.strategy-first.v1"
+    assert data["parity"]["expected"]["mayor_semantics"] == "castone.mayor.strategy-first.v1"
+    assert "4949773" in data["parity"]["expected"]["env"]
+    assert data["parity"]["mismatched_players"] == []
     assert data["entries"][0]["action"] == "Select Role: Builder"
     assert data["entries"][0]["phase"] == "END_ROUND"
     assert data["entries"][0]["value_estimate"] is None
@@ -126,6 +149,7 @@ def test_replay_logger_writes_human_readable_json(tmp_path, monkeypatch):
     assert "Phase END_ROUND -> BUILDER" in data["entries"][0]["commentary"]
     assert data["entries"][0]["valid_action_count"] == 3
     assert data["entries"][0]["state_summary_before"]["players"]["player_0"]["plantations"]["corn"] == 1
+    assert data["entries"][0]["model_info"]["actor_type"] == "human"
     assert data["final_scores"][0]["winner"] is True
 
 

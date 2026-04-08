@@ -6,6 +6,8 @@ AgentWrapper — 모든 에이전트 알고리즘의 공통 ABC.
 2. agent_registry.py의 AGENT_REGISTRY에 한 줄 추가
 """
 from abc import ABC, abstractmethod
+from typing import Any
+
 import torch
 
 
@@ -20,6 +22,7 @@ class AgentWrapper(ABC):
         phase_id: int = 9,   # PuCo_RL Phase IntEnum 값 (0–8), 9는 폴백
         obs_dict: dict | None = None,
         player_idx: int | None = None,
+        env: Any | None = None,
     ) -> int:
         """유효한 행동 인덱스를 정수로 반환한다."""
         ...

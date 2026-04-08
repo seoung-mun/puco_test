@@ -4,7 +4,18 @@ import it from './locales/it.json';
 import en from './locales/en.json';
 import ko from './locales/ko.json';
 
-const savedLang = localStorage.getItem('lang') ?? 'ko';
+function readSavedLanguage(): string {
+  if (typeof globalThis === 'undefined') return 'ko';
+  if (!('localStorage' in globalThis)) return 'ko';
+
+  try {
+    return globalThis.localStorage?.getItem('lang') ?? 'ko';
+  } catch {
+    return 'ko';
+  }
+}
+
+const savedLang = readSavedLanguage();
 
 i18n
   .use(initReactI18next)

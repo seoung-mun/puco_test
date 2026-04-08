@@ -23,9 +23,23 @@ from typing import Optional, Dict, List, Any
 from env.pr_env import PuertoRicoEnv
 from utils.env_wrappers import flatten_dict_observation, get_flattened_obs_dim
 from agents.ppo_agent import PhasePPOAgent, Agent as PPOAgent
+from agents.shipping_rush_agent import ShippingRushAgent
+from agents.factory_rule_based_agent import FactoryRuleBasedAgent
+from agents.heuristic_bots import RandomBot
 from configs.constants import (
-    Phase, Role, Good, TileType, BuildingType, BUILDING_DATA, GOOD_PRICES
+    Phase, Role, Good, TileType, BuildingType, BUILDING_DATA, GOOD_PRICES,
+    MayorStrategy, MAYOR_STRATEGY_BUILDINGS
 )
+
+# Available bot names → label
+BOT_OPTIONS = ["ppo", "shipping", "factory", "random"]
+
+BOT_LABELS = {
+    "ppo":      "PPO Agent",
+    "shipping": "AdvRule Shipping",
+    "factory":  "Factory Bot",
+    "random":   "Random Bot",
+}
 
 # ──────────────────────── Human-readable Name Maps ────────────────────────
 ROLE_NAMES = {
@@ -92,9 +106,20 @@ def decode_action(action: int, game) -> str:
     elif 64 <= action <= 68:
         g = Good(action - 64)
         return f"Store (Windrose): Keep 1 {GOOD_NAMES[g]}"
-    elif 69 <= action <= 72:
-        amount = action - 69
-        return f"Mayor: Place {amount} colonist{'s' if amount != 1 else ''} on current slot"
+    elif 69 <= action <= 71:
+        strategy = MayorStrategy(action - 69)          # 69=CAPTAIN_FOCUS, 70=TRADE_FACTORY_FOCUS, 71=BUILDING_FOCUS
+        strategy_labels = {
+            MayorStrategy.CAPTAIN_FOCUS:       "Shipping Focus",
+            MayorStrategy.TRADE_FACTORY_FOCUS: "Trade/Factory Focus",
+            MayorStrategy.BUILDING_FOCUS:      "Building Focus",
+        }
+        # Show top-2 priority buildings for this strategy
+        priority_bldgs = MAYOR_STRATEGY_BUILDINGS.get(strategy, [])
+        priority_str = ", ".join(
+            b.name.replace("_", " ").title() for b in priority_bldgs[:2]
+        )
+        label = strategy_labels.get(strategy, strategy.name)
+        return f"Mayor: [{label}] — priority: {priority_str}..."
     elif 93 <= action <= 97:
         g = Good(action - 93)
         return f"Craftsman Privilege: Take 1 extra {GOOD_NAMES[g]}"
@@ -237,70 +262,122 @@ def load_model(path: str, obs_dim: int, action_dim: int):
     return model, is_phase
 
 
-def get_action_with_probs(model, is_phase: bool, obs, env) -> tuple:
-    """Get action, top-k action probabilities, and value estimate."""
+def build_bot(bot_type: str, action_dim: int, ppo_model=None, is_phase: bool = False):
+    """Return (agent_obj, is_ppo_flag, is_phase_flag, label)."""
+    if bot_type == "ppo":
+        assert ppo_model is not None
+        return ppo_model, True, is_phase, BOT_LABELS["ppo"]
+    elif bot_type == "shipping":
+        return ShippingRushAgent(action_dim, fixed_strategy=0).eval(), False, False, BOT_LABELS["shipping"]
+    elif bot_type == "factory":
+        return FactoryRuleBasedAgent(action_dim).eval(), False, False, BOT_LABELS["factory"]
+    elif bot_type == "random":
+        return RandomBot(action_dim).eval(), False, False, BOT_LABELS["random"]
+    else:
+        raise ValueError(f"Unknown bot type: '{bot_type}'. Choose from: {BOT_OPTIONS}")
+
+
+def get_bot_action(agent, is_ppo: bool, is_phase: bool, obs, env) -> tuple:
+    """
+    Unified action getter.
+    Returns (action_int, top_k_list, value_float).
+    top_k and value are only meaningful for PPO agents.
+    """
     flat_obs = flatten_dict_observation(
         obs["observation"],
         env.observation_space("player_0")["observation"]
     )
     mask = obs["action_mask"]
     phase_id = int(obs["observation"]["global_state"]["current_phase"])
+    player_idx = int(obs["observation"]["global_state"]["current_player"])
+    if hasattr(player_idx, "item"):
+        player_idx = player_idx.item()
 
-    obs_t = torch.as_tensor(flat_obs, dtype=torch.float32).unsqueeze(0)
-    mask_t = torch.as_tensor(mask, dtype=torch.float32).unsqueeze(0)
+    obs_t  = torch.as_tensor(flat_obs, dtype=torch.float32).unsqueeze(0)
+    mask_t = torch.as_tensor(mask,    dtype=torch.float32).unsqueeze(0)
 
     with torch.no_grad():
-        if is_phase:
-            phase_t = torch.tensor([phase_id], dtype=torch.long)
-            features = model._shared_features(obs_t, phase_t)
-            value = model.critic_head(features).item()
-            # Get logits from the correct head
-            from agents.ppo_agent import PHASE_TO_HEAD
-            head_key = PHASE_TO_HEAD.get(phase_id, "role_select")
-            logits = model.phase_heads[head_key](features).squeeze(0)
+        if is_ppo:
+            if is_phase:
+                phase_t  = torch.tensor([phase_id], dtype=torch.long)
+                features = agent._shared_features(obs_t, phase_t)
+                value    = agent.critic_head(features).item()
+                from agents.ppo_agent import PHASE_TO_HEAD
+                head_key = PHASE_TO_HEAD.get(phase_id, "role_select")
+                logits   = agent.phase_heads[head_key](features).squeeze(0)
+            else:
+                features = agent._shared_features(obs_t)
+                value    = agent.critic_head(features).item()
+                logits   = agent.actor_head(features).squeeze(0)
+
+            huge_neg    = torch.tensor(-1e8)
+            mask_bool   = torch.as_tensor(mask, dtype=torch.float32)
+            masked_logits = torch.where(mask_bool > 0.5, logits, huge_neg)
+            probs       = torch.softmax(masked_logits, dim=-1)
+            action      = int(torch.argmax(probs).item())
+
+            valid_indices = np.where(mask == 1)[0]
+            top_k = sorted([(int(i), probs[i].item()) for i in valid_indices],
+                           key=lambda x: x[1], reverse=True)[:5]
+            return action, top_k, value
+
         else:
-            features = model._shared_features(obs_t)
-            value = model.critic_head(features).item()
-            logits = model.actor_head(features).squeeze(0)
-
-        # Mask invalid actions
-        huge_neg = torch.tensor(-1e8)
-        mask_bool = torch.as_tensor(mask, dtype=torch.float32)
-        masked_logits = torch.where(mask_bool > 0.5, logits, huge_neg)
-        probs = torch.softmax(masked_logits, dim=-1)
-
-        # Sample action (deterministic=argmax for replay analysis)
-        action = torch.argmax(probs).item()
-
-        # Top-k valid probabilities for analysis
-        valid_indices = np.where(mask == 1)[0]
-        top_k_data = []
-        for idx in valid_indices:
-            top_k_data.append((idx, probs[idx].item()))
-        top_k_data.sort(key=lambda x: x[1], reverse=True)
-        top_k_data = top_k_data[:5]  # Top 5
-
-    return action, top_k_data, value
+            # Rule-based / heuristic bots
+            from agents.shipping_rush_agent import ShippingRushAgent
+            from agents.factory_rule_based_agent import FactoryRuleBasedAgent
+            if isinstance(agent, (ShippingRushAgent, FactoryRuleBasedAgent)):
+                act_t, _, _, _ = agent.get_action_and_value(
+                    obs_t, mask_t,
+                    obs_dict=obs["observation"], player_idx=int(player_idx)
+                )
+            else:
+                act_t, _, _, _ = agent.get_action_and_value(obs_t, mask_t)
+            return int(act_t.item()), [], 0.0
 
 
 # ──────────────────────── Main Replay Loop ────────────────────────
-def run_replay(model_path: str, seed: int = 42, deterministic: bool = True):
+def run_replay(model_path: str, seed: int = 42,
+               bot1: str = "shipping", bot2: str = "factory"):
     env = PuertoRicoEnv(num_players=3, max_game_steps=1500)
     obs_space = env.observation_space("player_0")["observation"]
-    obs_dim = get_flattened_obs_dim(obs_space)
+    obs_dim   = get_flattened_obs_dim(obs_space)
     action_dim = env.action_space("player_0").n
 
-    model, is_phase = load_model(model_path, obs_dim, action_dim)
+    # PPO Agent is always Player 0
+    ppo_model, is_phase = load_model(model_path, obs_dim, action_dim)
     arch_name = "PhasePPOAgent" if is_phase else "PPOAgent"
+
+    agents: list = [None, None, None]  # indexed by player seat
+    is_ppo_flags: list[bool]   = [False, False, False]
+    is_phase_flags: list[bool] = [False, False, False]
+    labels: list[str]          = ["", "", ""]
+
+    agents[0], is_ppo_flags[0], is_phase_flags[0], labels[0] = build_bot(
+        "ppo", action_dim, ppo_model, is_phase
+    )
+    agents[1], is_ppo_flags[1], is_phase_flags[1], labels[1] = build_bot(
+        bot1, action_dim, ppo_model, is_phase
+    )
+    agents[2], is_ppo_flags[2], is_phase_flags[2], labels[2] = build_bot(
+        bot2, action_dim, ppo_model, is_phase
+    )
+
     print(f"{'='*80}")
     print(f"  PUERTO RICO — SINGLE GAME REPLAY LOG")
-    print(f"  Model: {os.path.basename(model_path)}")
-    print(f"  Architecture: {arch_name}")
-    print(f"  Seed: {seed}  |  Players: 3 (all same agent)")
+    print(f"  PPO Model : {os.path.basename(model_path)}  ({arch_name})")
+    print(f"  Player 0  : {labels[0]}  ← PPO (you are watching this player)")
+    print(f"  Player 1  : {labels[1]}  [--bot1]")
+    print(f"  Player 2  : {labels[2]}  [--bot2]")
+    print(f"  Seed      : {seed}")
     print(f"{'='*80}\n")
 
     env.reset(seed=seed)
     game = env.game
+
+    # Reset strategy for rule-based bots
+    for a in agents:
+        if callable(getattr(a, "reset_strategy", None)):
+            a.reset_strategy()
 
     log_entries: List[Dict[str, Any]] = []
     step_count = 0
@@ -329,8 +406,7 @@ def run_replay(model_path: str, seed: int = 42, deterministic: bool = True):
         player_idx = int(agent_id.split("_")[1])
         current_phase = game.current_phase
 
-        # Detect REAL round boundaries: governor changes only when _end_round() is called
-        # (i.e., all N players have selected and resolved their roles)
+        # Round boundary detection
         current_governor = game.governor_idx
         if current_governor != last_governor_idx:
             round_num += 1
@@ -342,7 +418,6 @@ def run_replay(model_path: str, seed: int = 42, deterministic: bool = True):
             g_snap = snapshot_global(game)
             print(f"  Governor: {g_snap['governor']}  |  VP Pool: {g_snap['vp_pool']}  |  "
                   f"Colonist Supply: {g_snap['colonist_supply']}  |  Colonist Ship: {g_snap['colonist_ship']}")
-            # Show cargo ships
             for s in g_snap['cargo_ships']:
                 print(f"    {s['label']}: {s['load']}/{s['capacity']} ({s['good']})")
             if g_snap['role_bonuses'] and g_snap['role_bonuses'] != "(none)":
@@ -352,9 +427,12 @@ def run_replay(model_path: str, seed: int = 42, deterministic: bool = True):
 
         last_phase = current_phase
 
-        # Get action from model
-        action, top_k, value = get_action_with_probs(model, is_phase, obs, env)
+        # Dispatch to correct agent
+        action, top_k, value = get_bot_action(
+            agents[player_idx], is_ppo_flags[player_idx], is_phase_flags[player_idx], obs, env
+        )
         action_str = decode_action(action, game)
+        player_label = labels[player_idx]
 
         # Build log entry
         entry = {
@@ -381,32 +459,74 @@ def run_replay(model_path: str, seed: int = 42, deterministic: bool = True):
 
         # Print formatted log
         phase_label = current_phase.name if current_phase else "INIT"
-        print(f"  [{step_count:4d}] P{player_idx} | {phase_label:15s} | {action_str}")
+        is_ppo_player = is_ppo_flags[player_idx]
+        marker = "▶" if is_ppo_player else " "
+        print(f"  {marker}[{step_count:4d}] P{player_idx}({player_label:<16s}) | {phase_label:15s} | {action_str}")
 
-        # Show top alternatives if multiple valid actions
-        if len(top_k) > 1:
+        # Show top alternatives only for PPO agent
+        if is_ppo_player and len(top_k) > 1:
             chosen_prob = top_k[0][1]
             alts = []
-            for a_id, p in top_k[1:4]:  # Show up to 3 alternatives
+            for a_id, p in top_k[1:4]:
                 alts.append(f"{decode_action(a_id, game)} ({p:.1%})")
             print(f"         ↳ Confidence: {chosen_prob:.1%}  |  Alternatives: {', '.join(alts)}")
 
         if commentary:
             print(f"         ↳ Context: {commentary}")
 
-        # Show value estimate at key decisions
-        if current_phase in (Phase.END_ROUND, Phase.BUILDER, Phase.CAPTAIN) or (current_phase is None):
+        # Show value estimate only for PPO player at key decisions
+        if is_ppo_flags[player_idx] and current_phase in (
+            Phase.END_ROUND, Phase.BUILDER, Phase.CAPTAIN
+        ):
             print(f"         ↳ V(s) = {value:.4f}")
 
-        # Snapshot player state after building/settler actions
-        if 16 <= action <= 38 or 8 <= action <= 14:
-            pass  # Will be visible at next round summary
+        # ── Mayor: capture state before step, then show diff after ─────────
+        _pre_city_col: dict | None = None
+        _pre_island_occ: list | None = None
+        if 69 <= action <= 71:
+            p_obj = game.players[player_idx]
+            _pre_city_col = {
+                b.building_type: b.colonists for b in p_obj.city_board
+                if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE)
+            }
+            _pre_island_occ = [t.is_occupied for t in p_obj.island_board]
 
         entry["commentary"] = commentary
         log_entries.append(entry)
         step_count += 1
 
         env.step(action)
+
+        # Show Mayor colonist placement result
+        if _pre_city_col is not None:
+            p_obj = game.players[player_idx]
+            gained_bldg = []
+            for b in p_obj.city_board:
+                bt = b.building_type
+                if bt in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE):
+                    continue
+                before = _pre_city_col.get(bt, 0)
+                after  = b.colonists
+                if after > before:
+                    bname = BUILDING_NAMES[bt]
+                    gained_bldg.append(f"{bname} (+{after - before})")
+
+            gained_tile = []
+            for i, t in enumerate(p_obj.island_board):
+                if not _pre_island_occ[i] and t.is_occupied:
+                    tname = TILE_NAMES.get(t.tile_type, "?")
+                    gained_tile.append(tname)
+
+            parts = []
+            if gained_bldg:
+                parts.append("Buildings: " + ", ".join(gained_bldg))
+            if gained_tile:
+                parts.append("Tiles: " + ", ".join(gained_tile))
+            if parts:
+                print(f"         ↳ Colonists placed → {' | '.join(parts)}")
+            else:
+                print(f"         ↳ Colonists placed → (none placed or already recalled)")
+
 
     # ──────────────────────── GAME END ────────────────────────
     print(f"\n{'═'*80}")
@@ -458,13 +578,18 @@ def run_replay(model_path: str, seed: int = 42, deterministic: bool = True):
     log_path = f"{log_dir}/replay_seed{seed}_{timestamp}.json"
 
     output = {
-        "model": os.path.basename(model_path),
+        "ppo_model": os.path.basename(model_path),
         "architecture": arch_name,
         "seed": seed,
+        "players": [
+            {"seat": i, "label": labels[i], "is_ppo": is_ppo_flags[i]}
+            for i in range(3)
+        ],
         "num_players": 3,
         "total_steps": step_count,
         "final_scores": [
-            {"player": i, "vp": scores[i][0], "tiebreaker": scores[i][1], "winner": i == winner_idx}
+            {"player": i, "label": labels[i], "vp": scores[i][0],
+             "tiebreaker": scores[i][1], "winner": i == winner_idx}
             for i in range(3)
         ],
         "entries": log_entries,
@@ -487,11 +612,38 @@ def run_replay(model_path: str, seed: int = 42, deterministic: bool = True):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Puerto Rico Single Game Replay Logger")
+    parser = argparse.ArgumentParser(
+        description="Puerto Rico Single Game Replay — PPO vs configurable bots",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=f"""
+Player seats are fixed:
+  Player 0 = PPO Agent (always)
+  Player 1 = --bot1  (default: shipping)
+  Player 2 = --bot2  (default: factory)
+
+Available bot types: {', '.join(BOT_OPTIONS)}
+
+Examples:
+  # PPO vs Shipping vs Factory (default)
+  python evaluate/replay_single_game.py --model_path models/.../model.pth
+
+  # PPO vs two random bots
+  python evaluate/replay_single_game.py --model_path models/.../model.pth --bot1 random --bot2 random
+
+  # PPO vs Factory vs Shipping
+  python evaluate/replay_single_game.py --model_path models/.../model.pth --bot1 factory --bot2 shipping
+"""
+    )
     parser.add_argument("--model_path", type=str, required=True,
-                        help="Path to agent .pth checkpoint")
+                        help="Path to PPO agent .pth checkpoint")
+    parser.add_argument("--bot1", type=str, default="shipping",
+                        choices=BOT_OPTIONS,
+                        help="Opponent in seat 1 (default: shipping)")
+    parser.add_argument("--bot2", type=str, default="factory",
+                        choices=BOT_OPTIONS,
+                        help="Opponent in seat 2 (default: factory)")
     parser.add_argument("--seed", type=int, default=42,
-                        help="Random seed for reproducibility")
+                        help="Random seed for reproducibility (default: 42)")
     args = parser.parse_args()
 
-    run_replay(args.model_path, args.seed)
+    run_replay(args.model_path, args.seed, bot1=args.bot1, bot2=args.bot2)

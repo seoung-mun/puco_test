@@ -119,7 +119,7 @@ def action_mayor_pickup(body: MayorColonistBody, _=Depends(require_internal_key)
 @router.post("/mayor-finish-placement")
 def action_mayor_finish(body: MayorFinishBody, _=Depends(require_internal_key)):
     """Mayor 배치 종료 — 남은 슬롯을 모두 0으로 자동 스킵한다.
-    Mayor 페이즈에서 pass(15)는 금지됨. 대신 action 69(현재 슬롯에 0 배치)를
+    Mayor 페이즈에서 pass(15)는 금지됨. 대신 action 72(현재 슬롯에 0 배치)를
     반복하여 자연스럽게 페이즈를 종료시킨다.
     """
     _require_game()
@@ -136,13 +136,13 @@ def action_mayor_finish(body: MayorFinishBody, _=Depends(require_internal_key)):
         if game.current_player_idx != original_player_idx:
             break  # 다음 플레이어 차례 — 봇이 처리
         mask = session.game.get_action_mask()
-        if not mask[69]:
+        if not mask[72]:
             # min_place > 0: 반드시 이주민을 배치해야 하는 슬롯
             raise HTTPException(
                 status_code=400,
                 detail="현재 슬롯에 이주민을 배치해야 합니다. 배치 없이 종료할 수 없습니다."
             )
-        result = session.game.step(69)  # 현재 슬롯에 0 배치 → 다음 슬롯으로
+        result = session.game.step(72)  # 현재 슬롯에 0 배치 → 다음 슬롯으로
         if result.get("terminated", result["done"]):
             session.game_over = True
             break
@@ -161,7 +161,7 @@ def action_mayor_place_amount(body: MayorPlaceAmountBody, _=Depends(require_inte
     player_name = _current_player_name()
     if not (0 <= body.amount <= 3):
         raise HTTPException(status_code=400, detail="amount must be 0-3")
-    action = 69 + body.amount
+    action = 72 + body.amount
     _step(action)
     session.add_history("mayor_place", {"player": player_name, "amount": body.amount})
     _run_pending_bots()
@@ -206,9 +206,9 @@ def action_mayor_distribute(body: MayorDistributeBody, _=Depends(require_interna
             break
         amount = body.distribution[slot_i]
         mask = session.game.get_action_mask()
-        action = 69 + amount
+        action = 72 + amount
         if action >= len(mask) or not mask[action]:
-            valid_amounts = [a - 69 for a in range(69, 73) if a < len(mask) and mask[a]]
+            valid_amounts = [a - 72 for a in range(72, 76) if a < len(mask) and mask[a]]
 
             # 진단: 현재 슬롯의 capacity와 내용물 파악
             from configs.constants import TileType, BuildingType, BUILDING_DATA

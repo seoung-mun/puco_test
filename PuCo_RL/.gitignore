@@ -32,7 +32,7 @@ checkpoints/
 ### --- Project Specific --- ###
 rule_documents/
 .agents/
-command.txt
 
-# 만약 데이터셋 폴더가 있다면 추가하세요
-# data/
+# 에이전트 성능 분석 및 결과물
+report/
+logs/

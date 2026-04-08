@@ -1,12 +1,11 @@
-import os
-import sys
+import logging
+import inspect
 from typing import Any, Dict, List, Optional
 import numpy as np
+from app.services.engine_gateway.bootstrap import ensure_puco_rl_path
 
-# Ensure PuCo_RL is in path if running locally without Docker
-PUCO_RL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../PuCo_RL"))
-if PUCO_RL_PATH not in sys.path:
-    sys.path.append(PUCO_RL_PATH)
+# Keep all non-legacy PuCo_RL path bootstrapping routed through engine_gateway.
+ensure_puco_rl_path()
 
 try:
     from env.pr_env import PuertoRicoEnv
@@ -14,6 +13,8 @@ except ImportError:
     import traceback
     traceback.print_exc()
     PuertoRicoEnv = None
+
+logger = logging.getLogger(__name__)
 
 class EngineWrapper:
     def __init__(
@@ -26,10 +27,11 @@ class EngineWrapper:
     ):
         if PuertoRicoEnv is None:
             raise RuntimeError("PuertoRicoEnv could not be imported. Check PYTHONPATH.")
+        supported_env_kwargs = self._filter_env_kwargs(env_kwargs)
         self.env = PuertoRicoEnv(
             num_players=num_players,
             max_game_steps=max_game_steps,
-            **env_kwargs,
+            **supported_env_kwargs,
         )
 
         self._reset_environment(game_seed=game_seed, governor_idx=governor_idx)
@@ -40,6 +42,40 @@ class EngineWrapper:
         self._step_count = 0
         self._round_count = 0
         self._last_governor = self.env.game.governor_idx
+
+    @staticmethod
+    def _filter_env_kwargs(env_kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        """Drop backend-only kwargs when the upstream env signature does not support them."""
+        if not env_kwargs:
+            return {}
+        if PuertoRicoEnv is None:
+            return dict(env_kwargs)
+
+        signature = inspect.signature(PuertoRicoEnv.__init__)
+        supports_var_kwargs = any(
+            param.kind == inspect.Parameter.VAR_KEYWORD
+            for param in signature.parameters.values()
+        )
+        if supports_var_kwargs:
+            return dict(env_kwargs)
+
+        accepted = {
+            name
+            for name, param in signature.parameters.items()
+            if name != "self"
+            and param.kind in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.KEYWORD_ONLY,
+            )
+        }
+        filtered = {key: value for key, value in env_kwargs.items() if key in accepted}
+        dropped = sorted(set(env_kwargs) - set(filtered))
+        if dropped:
+            logger.warning(
+                "Dropping unsupported PuertoRicoEnv kwargs for current upstream signature: %s",
+                ", ".join(dropped),
+            )
+        return filtered
 
     def _reset_environment(self, game_seed: Optional[int], governor_idx: Optional[int]) -> None:
         if governor_idx is None:
@@ -87,6 +123,15 @@ class EngineWrapper:
         """
         state_before = self.get_state()
         mask_before = self.get_action_mask()
+        phase_before = getattr(self.env.game, "current_phase", None)
+        player_before = getattr(self.env.game, "current_player_idx", None)
+        logger.warning(
+            "[ACTION_TRACE] engine_step_enter action=%s phase_before=%s current_player_idx_before=%s agent_selection=%s",
+            action,
+            phase_before,
+            player_before,
+            getattr(self.env, "agent_selection", None),
+        )
         
         # apply action
         self.env.step(action)
@@ -114,6 +159,14 @@ class EngineWrapper:
         info["step"] = self._step_count
 
         state_after = self.get_state()
+        logger.warning(
+            "[ACTION_TRACE] engine_step_exit action=%s phase_after=%s current_player_idx_after=%s terminated=%s truncated=%s",
+            action,
+            getattr(self.env.game, "current_phase", None),
+            getattr(self.env.game, "current_player_idx", None),
+            bool(done),
+            bool(truncated),
+        )
         
         return {
             "state_before": state_before,

@@ -14,8 +14,7 @@ Action space (action_translator.py 참고):
   44-58:  load_ship
   59-63:  load_wharf
   64-68:  store_windrose
-  69-80:  mayor_island (slot index 0-11)
-  81-92:  mayor_city (slot index 0-11)
+  69-71:  mayor_strategy
   93-97:  craftsman_priv
   105:    hacienda_draw
   106-110: store_warehouse
@@ -31,6 +30,7 @@ import pytest
 
 from app.engine_wrapper.wrapper import create_game_engine
 from app.services.state_serializer import serialize_game_state_from_engine
+from configs.constants import BuildingType
 
 
 # ================================================================== #
@@ -201,6 +201,31 @@ class TestBuildingsActionIndex:
         if "small_indigo_plant" in buildings:
             ai = buildings["small_indigo_plant"]["action_index"]
             assert ai == 16, f"small_indigo_plant action_index={ai}, 기대=16"
+
+    def test_guild_hall_uses_snake_case_key(self, state):
+        """대형 건물 키는 snake_case여야 하며 guildhall 구키를 노출하면 안 된다."""
+        buildings = state["common_board"]["available_buildings"]
+        assert "guild_hall" in buildings
+        assert "guildhall" not in buildings
+
+    def test_city_buildings_serialize_guild_hall_name_and_slot_id(self, engine):
+        """플레이어 city 건물도 guild_hall / city:guild_hall:<idx> 계약을 따라야 한다."""
+        player = engine.env.game.players[0]
+        player.build_building(BuildingType.GUILDHALL)
+
+        state = serialize_game_state_from_engine(
+            engine=engine,
+            player_names=["Alice", "Bot1", "Bot2"],
+            game_id="test-game-id",
+            bot_players={1: "random", 2: "random"},
+        )
+
+        city_buildings = state["players"]["player_0"]["city"]["buildings"]
+        guild_hall = next((b for b in city_buildings if b["name"] == "guild_hall"), None)
+
+        assert guild_hall is not None, f"guild_hall building missing: {city_buildings}"
+        assert guild_hall["slot_id"] == "city:guild_hall:0"
+        assert not any(b["name"] == "guildhall" for b in city_buildings)
 
 
 # ================================================================== #

@@ -27,7 +27,7 @@ def _prepare_engine():
     player.build_building(BuildingType.SMALL_INDIGO_PLANT)
     player.build_building(BuildingType.SMALL_MARKET)
 
-    game._init_mayor_placement(0)
+    engine.env.agent_selection = "player_0"
     engine._refresh_cached_view()
     return engine
 

@@ -478,15 +478,16 @@ class TestCaptainPhase:
 class TestMayorPhase:
 
     def test_no_colonists_only_zero_placement(self):
-        """With no unplaced colonists, only action 69 (place 0) is valid."""
+        """With no unplaced colonists, only action 72 (place 0) is valid.
+        (Human sequential: 72-75, shifted from old 69-72)."""
         env = make_env()
         enter_phase(env, Role.MAYOR)
         p = cur_player(env)
         p.unplaced_colonists = 0
         mask = get_mask(env)
-        assert mask[69] == 1, "Place-0 must always be available"
-        for i in range(70, 73):
-            assert mask[i] == 0, f"Cannot place {i - 69} with no colonists"
+        assert mask[72] == 1, "Place-0 must always be available"
+        for i in range(73, 76):
+            assert mask[i] == 0, f"Cannot place {i - 72} with no colonists"
 
     def test_plantation_slot_capacity_is_one(self):
         """On a plantation slot, max placement is 1."""
@@ -501,9 +502,9 @@ class TestMayorPhase:
             p.island_board[0] = IslandTile(tile_type=TileType.CORN_PLANTATION)
         env.game.mayor_placement_idx = 0
         mask = get_mask(env)
-        assert mask[70] == 1, "Place 1 valid on plantation"
-        assert mask[71] == 0, "Place 2 invalid (plantation capacity = 1)"
-        assert mask[72] == 0, "Place 3 invalid (plantation capacity = 1)"
+        assert mask[73] == 1, "Place 1 valid on plantation"
+        assert mask[74] == 0, "Place 2 invalid (plantation capacity = 1)"
+        assert mask[75] == 0, "Place 3 invalid (plantation capacity = 1)"
 
     def test_empty_slot_forces_zero_placement(self):
         """On a slot with no tile/building (capacity=0), only place-0 is valid."""
@@ -517,7 +518,7 @@ class TestMayorPhase:
             # Slot 11 doesn't exist → capacity = 0
             pass
         mask = get_mask(env)
-        assert mask[69] == 1
+        assert mask[72] == 1
         # Only 0 allowed if capacity is 0 or colonists = 0
 
     def test_building_slot_capacity_matches_building_data(self):
@@ -536,9 +537,9 @@ class TestMayorPhase:
         env.game.mayor_placement_idx = 12  # first city slot (idx >= 12 → city slot 0)
         mask = get_mask(env)
         # future_capacity=0, min_place=3, max_place=3 → only placing 3 is valid
-        assert mask[69 + 3] == 1, "Must place all 3 (no future slots to absorb them)"
+        assert mask[72 + 3] == 1, "Must place all 3 (no future slots to absorb them)"
         for disallowed in range(0, 3):
-            assert mask[69 + disallowed] == 0, f"Placing {disallowed} forbidden when min_place=3"
+            assert mask[72 + disallowed] == 0, f"Placing {disallowed} forbidden when min_place=3"
 
 
 # ─── Craftsman Phase ────────────────────────────────────────────────────────

@@ -12,18 +12,17 @@ Action space summary:
   44-58:  load_ship         (ship_idx*5 + good_value)
   59-63:  load_wharf        (good_value, ship_idx=-1)
   64-68:  store_windrose    (good_value)
-  69-80:  mayor_island      (slot index 0-11)
-  81-92:  mayor_city        (slot index 0-11)
+  69-71:  mayor_strategy    (Human/Bot 공통: CAPTAIN_FOCUS=0, TRADE_FACTORY=1, BUILDING=2)
   93-97:  craftsman_priv    (good_value)
   105:    hacienda_draw
   106-110: store_warehouse  (good_value)
 """
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../PuCo_RL")))
 
 from typing import List, Optional, TYPE_CHECKING
-from configs.constants import Role, Good, BuildingType, TileType
+from app.services.engine_gateway.constants import Role, Good, BuildingType, TileType
+from app.services.building_names import BUILDING_NAME_TO_TYPE, normalize_building_name
 
 if TYPE_CHECKING:
     pass
@@ -52,11 +51,7 @@ GOOD_MAP = {
     "indigo": Good.INDIGO,
 }
 
-BUILDING_MAP = {
-    bt.name.lower(): bt
-    for bt in BuildingType
-    if bt not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE)
-}
+BUILDING_MAP = dict(BUILDING_NAME_TO_TYPE)
 
 TILE_MAP = {
     # long names (legacy)
@@ -111,7 +106,7 @@ def pass_action() -> int:
 
 
 def build(building: str) -> int:
-    bt = BUILDING_MAP.get(building.lower())
+    bt = BUILDING_MAP.get(normalize_building_name(building))
     if bt is None:
         raise ValueError(f"Unknown building: {building!r}")
     return 16 + bt.value   # 16-38
@@ -140,19 +135,10 @@ def craftsman_privilege(good: str) -> int:
     return 93 + g.value   # 93-97
 
 
-def mayor_toggle(target_type: str, target_index: int) -> int:
-    """Works for both place and pickup (same toggle mechanic).
-    Accepts 'island'/'plantation' for island slots and 'city'/'building' for city slots.
-    """
-    if target_type in ("island", "plantation"):
-        if not (0 <= target_index <= 11):
-            raise ValueError(f"Island target_index {target_index} out of range (0-11)")
-        return 69 + target_index   # 69-80
-    if target_type in ("city", "building"):
-        if not (0 <= target_index <= 11):
-            raise ValueError(f"City target_index {target_index} out of range (0-11)")
-        return 81 + target_index   # 81-92
-    raise ValueError(f"Unknown target_type: {target_type!r}")
+def mayor_strategy(strategy_index: int) -> int:
+    if not (0 <= strategy_index <= 2):
+        raise ValueError(f"Mayor strategy_index {strategy_index} out of range (0-2)")
+    return 69 + strategy_index
 
 
 def store_windrose(good: str) -> int:

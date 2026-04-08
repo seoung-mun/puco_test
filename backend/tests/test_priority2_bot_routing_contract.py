@@ -11,7 +11,7 @@ class _WrapperStub:
         self.action = action
         self.calls = []
 
-    def act(self, obs, mask, phase_id=9, obs_dict=None, player_idx=None):
+    def act(self, obs, mask, phase_id=9, obs_dict=None, player_idx=None, env=None):
         self.calls.append(
             {
                 "obs_shape": tuple(obs.shape),
@@ -19,6 +19,7 @@ class _WrapperStub:
                 "phase_id": phase_id,
                 "obs_dict": obs_dict,
                 "player_idx": player_idx,
+                "env": env,
             }
         )
         return self.action
@@ -62,6 +63,7 @@ class TestBotRoutingContract:
         assert wrapper.calls[0]["mask_shape"] == (1, 16)
         assert wrapper.calls[0]["player_idx"] == 2
         assert wrapper.calls[0]["obs_dict"] == {"global_state": {"current_phase": 8}}
+        assert wrapper.calls[0]["env"] is None
 
     def test_get_action_uses_requested_ppo_bot_type(self, monkeypatch):
         wrapper = _WrapperStub(action=3)

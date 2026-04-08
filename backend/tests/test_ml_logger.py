@@ -101,6 +101,11 @@ async def test_log_transition_includes_model_info_when_provided():
             "bot_type": "ppo",
             "artifact_name": "PPO_PR_Server_20260401_214532_step_99942400",
             "metadata_source": "bootstrap_derived",
+            "fingerprint": {
+                "action_space": "castone.action-space.strategy-first.v1",
+                "mayor_semantics": "castone.mayor.strategy-first.v1",
+                "env": "puco-upstream/main@4949773",
+            },
         },
     )
 
@@ -112,6 +117,7 @@ async def test_log_transition_includes_model_info_when_provided():
     assert matching, "기록된 transition이 없습니다"
     assert matching[-1]["model_info"]["bot_type"] == "ppo"
     assert matching[-1]["model_info"]["metadata_source"] == "bootstrap_derived"
+    assert matching[-1]["model_info"]["fingerprint"]["action_space"] == "castone.action-space.strategy-first.v1"
 
 
 def test_get_log_file_path_uses_per_game_jsonl_layout():

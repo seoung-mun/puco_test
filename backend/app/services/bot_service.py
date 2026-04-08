@@ -4,8 +4,6 @@ Supports Legacy PPO, Residual PPO, and PhasePPO with safe fallback.
 """
 import asyncio
 import logging
-import os
-import sys
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -14,24 +12,20 @@ import numpy as np
 from uuid import UUID
 
 from app.engine_wrapper.wrapper import EngineWrapper
+from app.services.engine_gateway.constants import Phase
+from app.services.engine_gateway.env import (
+    PuertoRicoEnv,
+    flatten_dict_observation,
+    get_flattened_obs_dim,
+)
 from app.services.agent_registry import (
     get_wrapper,
     require_valid_bot_type,
     resolve_bot_type_from_actor_id,
 )
-from app.services.mayor_strategy_adapter import MayorStrategyAdapter
 from app.services.state_serializer import apply_backend_action_mask_guards
 
 logger = logging.getLogger(__name__)
-
-# Ensure PuCo_RL is in path for utils
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../PuCo_RL")))
-try:
-    from utils.env_wrappers import flatten_dict_observation, get_flattened_obs_dim
-    from env.pr_env import PuertoRicoEnv
-    from configs.constants import Phase
-except ImportError:
-    logger.exception("Failed to import PuCo_RL modules")
 
 def _extract_phase_id(obs_dict: dict) -> int:
     """Extract current phase integer from observation dict with robustness."""
@@ -115,6 +109,11 @@ class BotService:
         action_mask = game_context["action_mask"]
         phase_id = game_context.get("phase_id", 8)
         current_player_idx = game_context.get("current_player_idx")
+        env_context = (
+            game_context.get("env")
+            or game_context.get("engine_env")
+            or game_context.get("engine_instance")
+        )
 
         # Flatten observation
         BotService._ensure_obs_space()
@@ -133,6 +132,7 @@ class BotService:
             phase_id=phase_id,
             obs_dict=raw_obs,
             player_idx=current_player_idx,
+            env=env_context,
         )
         logger.warning(
             "[BOT_TRACE] selected_action bot_type=%s phase_id=%s action=%s valid=%s",
@@ -141,6 +141,18 @@ class BotService:
             action,
             (0 <= action < len(action_mask) and bool(action_mask[action])) if action_mask else False,
         )
+        return action
+
+    @staticmethod
+    def normalize_selected_action(action: int, action_mask: list[int], phase: Any) -> int:
+        is_valid = 0 <= action < len(action_mask) and bool(action_mask[action])
+        if phase == Phase.MAYOR:
+            if 69 <= action <= 71 and is_valid:
+                return action
+            for strategy_action in range(69, 72):
+                if 0 <= strategy_action < len(action_mask) and action_mask[strategy_action]:
+                    return strategy_action
+            return 69
         return action
 
     @staticmethod
@@ -201,121 +213,64 @@ class BotService:
                 "action_mask": snapshot.action_mask,
                 "phase_id": snapshot.phase_id,
                 "current_player_idx": snapshot.current_player_idx,
+                "env": engine.env,
             }
 
-            # ── Mayor phase: adapter 경유 (봇 전용) ──
-            is_mayor_phase = getattr(engine.env.game, "current_phase", None) == Phase.MAYOR
+            phase = getattr(engine.env.game, "current_phase", None)
 
-            if is_mayor_phase:
-                # Mayor mask: action 72를 invalid로 설정 (봇은 strategy 0/1/2만 선택)
-                mayor_mask = list(mask)
-                mayor_mask[72] = 0
-                mayor_game_context = {
-                    "vector_obs": snapshot.obs,
-                    "action_mask": mayor_mask,
-                    "phase_id": snapshot.phase_id,
-                    "current_player_idx": snapshot.current_player_idx,
-                }
-
-                # 1. 봇 추론: strategy 선택 (action 69-71)
-                try:
-                    strategy_action = BotService.get_action(snapshot.bot_type, mayor_game_context)
-                    logger.warning(
-                        "[BOT_TRACE] mayor_strategy_selected game=%s actor=%s bot_type=%s strategy_action=%d",
-                        game_id, actor_id, snapshot.bot_type, strategy_action,
-                    )
-                except Exception as e:
-                    logger.exception("[BOT] Mayor inference error for game %s. Falling back to strategy 0.", game_id)
-                    strategy_action = 69  # fallback to CAPTAIN_FOCUS
-
-                # 봇이 69-71 범위 외의 action을 선택한 경우 fallback
-                if not (69 <= strategy_action <= 71):
-                    logger.warning(
-                        "[BOT_TRACE] mayor_strategy_out_of_range game=%s actor=%s action=%d, falling back to 69",
-                        game_id, actor_id, strategy_action,
-                    )
-                    strategy_action = 69
-
-                # 2. adapter로 expansion
-                adapter = MayorStrategyAdapter()
-                strategy = strategy_action - 69
-                sequential_actions = adapter.expand(
-                    strategy=strategy,
-                    game=engine.env.game,
-                    player_idx=engine.env.game.current_player_idx,
+            try:
+                action_int = BotService.get_action(snapshot.bot_type, game_context)
+                action_int = BotService.normalize_selected_action(
+                    action=action_int,
+                    action_mask=snapshot.action_mask,
+                    phase=phase,
                 )
                 logger.warning(
-                    "[BOT_TRACE] mayor_expand game=%s actor=%s strategy=%d actions=%s",
-                    game_id, actor_id, strategy, sequential_actions,
+                    "[BOT_TRACE] turn_action_selected game=%s actor=%s bot_type=%s action=%d phase=%d",
+                    game_id,
+                    actor_id,
+                    snapshot.bot_type,
+                    action_int,
+                    snapshot.phase_id,
                 )
-
-                # 3. sequential actions를 engine에 순차 적용
-                # 중간 step은 suppress_broadcast=True, 마지막 step만 broadcast
-                try:
-                    for i, seq_action in enumerate(sequential_actions):
-                        is_last = (i == len(sequential_actions) - 1)
-                        if asyncio.iscoroutinefunction(process_action_callback):
-                            await process_action_callback(game_id, actor_id, seq_action, suppress_broadcast=not is_last)
-                        else:
-                            process_action_callback(game_id, actor_id, seq_action, suppress_broadcast=not is_last)
-                    logger.warning(
-                        "[BOT_TRACE] mayor_complete game=%s actor=%s actions_applied=%d",
-                        game_id, actor_id, len(sequential_actions),
+            except Exception:
+                if phase == Phase.MAYOR:
+                    logger.exception("[BOT] Mayor inference error for game %s. Falling back to valid strategy.", game_id)
+                    action_int = BotService.normalize_selected_action(
+                        action=69,
+                        action_mask=snapshot.action_mask,
+                        phase=phase,
                     )
-                except Exception as e:
-                    logger.critical(
-                        "[BOT] Mayor sequential apply FAILED for game %s at action: %s",
-                        game_id, e, exc_info=True,
-                    )
-
-            else:
-                # ── 비-Mayor phase: 기존 로직 그대로 ──
-
-                # 1. Attempt Model Inference
-                try:
-                    action_int = BotService.get_action(snapshot.bot_type, game_context)
-                    logger.warning(
-                        "[BOT_TRACE] turn_action_selected game=%s actor=%s bot_type=%s action=%d phase=%d",
-                        game_id,
-                        actor_id,
-                        snapshot.bot_type,
-                        action_int,
-                        snapshot.phase_id,
-                    )
-                except Exception as e:
+                else:
                     logger.exception("[BOT] inference error for game %s. Falling back to random.", game_id)
                     valid_indices = [i for i, v in enumerate(mask) if v > 0.5]
                     action_int = int(np.random.choice(valid_indices)) if valid_indices else 15
 
-                # 2. Attempt Action Application with Retry Safety Net
+            try:
+                if asyncio.iscoroutinefunction(process_action_callback):
+                    await process_action_callback(game_id, actor_id, action_int)
+                else:
+                    process_action_callback(game_id, actor_id, action_int)
+                logger.warning("[BOT_TRACE] turn_action_applied game=%s actor=%s action=%d", game_id, actor_id, action_int)
+            except Exception as e:
+                logger.error("[BOT] action %d REJECTED for game %s: %s. Attempting fallback retry...", action_int, game_id, e)
+
                 try:
-                    if asyncio.iscoroutinefunction(process_action_callback):
-                        await process_action_callback(game_id, actor_id, action_int)
-                    else:
-                        process_action_callback(game_id, actor_id, action_int)
-                    logger.warning("[BOT_TRACE] turn_action_applied game=%s actor=%s action=%d", game_id, actor_id, action_int)
-                except Exception as e:
-                    logger.error("[BOT] action %d REJECTED for game %s: %s. Attempting fallback retry...", action_int, game_id, e)
+                    retry_mask = engine.get_action_mask()
+                    retry_mask = BotService.guard_action_mask(engine, retry_mask)
+                    valid_indices = [i for i, v in enumerate(retry_mask) if v > 0.5 and i != action_int]
 
-                    # Action was rejected (likely an engine rule violation like Mayor Pass)
-                    # Try a random valid action from the CURRENT mask to keep the game moving.
-                    try:
-                        # Refresh mask in case engine state changed (unlikely but safe)
-                        retry_mask = engine.get_action_mask()
-                        retry_mask = BotService.guard_action_mask(engine, retry_mask)
-                        valid_indices = [i for i, v in enumerate(retry_mask) if v > 0.5 and i != action_int]
-
-                        if valid_indices:
-                            fallback_action = int(np.random.choice(valid_indices))
-                            logger.warning("[BOT] retrying game %s with fallback action %d", game_id, fallback_action)
-                            if asyncio.iscoroutinefunction(process_action_callback):
-                                await process_action_callback(game_id, actor_id, fallback_action)
-                            else:
-                                process_action_callback(game_id, actor_id, fallback_action)
+                    if valid_indices:
+                        fallback_action = int(np.random.choice(valid_indices))
+                        logger.warning("[BOT] retrying game %s with fallback action %d", game_id, fallback_action)
+                        if asyncio.iscoroutinefunction(process_action_callback):
+                            await process_action_callback(game_id, actor_id, fallback_action)
                         else:
-                            logger.critical("[BOT] no valid fallback actions found for game %s. Game is likely STUCK.", game_id)
-                    except Exception as retry_err:
-                        logger.critical("[BOT] fallback retry ALSO FAILED for game %s: %s", game_id, retry_err, exc_info=True)
+                            process_action_callback(game_id, actor_id, fallback_action)
+                    else:
+                        logger.critical("[BOT] no valid fallback actions found for game %s. Game is likely STUCK.", game_id)
+                except Exception as retry_err:
+                    logger.critical("[BOT] fallback retry ALSO FAILED for game %s: %s", game_id, retry_err, exc_info=True)
         except Exception as e:
             logger.critical("[BOT] UNHANDLED ERROR in run_bot_turn game=%s actor=%s: %s", 
                             game_id, actor_id, e, exc_info=True)

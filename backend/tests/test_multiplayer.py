@@ -173,7 +173,7 @@ class TestLobbyStartRunsInitialBots:
         assert data["meta"]["phase"] in (
             "role_selection", "settler_action", "mayor_action",
             "builder_action", "craftsman_action", "trader_action",
-            "captain_action", "captain_discard", "mayor_distribution",
+            "captain_action", "captain_discard",
         ), f"유효하지 않은 phase: {data['meta']['phase']}"
 
     def test_history_has_at_least_new_game_entry_after_start(self, client):

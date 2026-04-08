@@ -154,13 +154,13 @@ def _action_to_history(action: int, game, sess) -> tuple:
         good = Good(action - 64)
         return "store_windrose", {"player": player_name, "good": good.name.lower()}
 
-    elif action <= 80:         # mayor_island (69-80, slot 0-11)
-        slot_idx = action - 69
-        return "mayor_toggle_island", {"player": player_name, "slot": str(slot_idx)}
+    elif action <= 71:         # mayor_strategy (69-71, Bot: S0/S1/S2)
+        strategy = action - 69
+        return "mayor_strategy", {"player": player_name, "strategy": str(strategy)}
 
-    elif action <= 92:         # mayor_city (81-92, slot 0-11)
-        slot_idx = action - 81
-        return "mayor_toggle_city", {"player": player_name, "slot": str(slot_idx)}
+    elif action <= 75:         # mayor_sequential (72-75, Human: place 0/1/2/3)
+        amount = action - 72
+        return "mayor_place", {"player": player_name, "amount": str(amount)}
 
     elif action <= 97:         # craftsman_privilege (93-97)
         good = Good(action - 93)
@@ -207,8 +207,9 @@ def _run_pending_bots():
         is_mayor = (game.current_phase == Phase.MAYOR)
         if is_mayor:
             mayor_toggle_count.setdefault(idx, 0)
-            if mayor_toggle_count[idx] >= MAX_MAYOR_TOGGLES and mask[15]:
-                action = 15  # 강제 pass
+            if mayor_toggle_count[idx] >= MAX_MAYOR_TOGGLES:
+                fallback_actions = [a for a in range(69, 72) if a < len(mask) and mask[a]]
+                action = fallback_actions[0] if fallback_actions else 15
                 mayor_toggle_count[idx] = 0
             else:
                 phase_id = engine.last_info.get("current_phase_id", 9) if engine.last_info else 9
@@ -223,7 +224,7 @@ def _run_pending_bots():
                 except Exception:
                     valid = [i for i, v in enumerate(mask) if v]
                     action = random.choice(valid) if valid else 15
-                if 69 <= action <= 92:
+                if 69 <= action <= 71:
                     mayor_toggle_count[idx] += 1
                 else:
                     mayor_toggle_count[idx] = 0

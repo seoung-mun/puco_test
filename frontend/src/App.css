@@ -768,6 +768,124 @@ th { color: #80a0cc; font-weight: normal; font-size: 0.8rem; }
   gap: 8px;
 }
 
+.mayor-strategy-card {
+  background: linear-gradient(180deg, #20150f 0%, #101d28 100%);
+  border-color: #9a6b2f;
+}
+
+.mayor-strategy-card__intro {
+  margin: 0 0 14px;
+  color: #d8d6c8;
+  line-height: 1.5;
+}
+
+.mayor-strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mayor-strategy-option {
+  background: #13212c;
+  border: 1px solid #37516a;
+  border-radius: 12px;
+  color: #dce7f2;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 100%;
+  padding: 14px;
+  text-align: left;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.mayor-strategy-option:hover:not(:disabled) {
+  border-color: #ffe066;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  transform: translateY(-2px);
+}
+
+.mayor-strategy-option:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.mayor-strategy-option--captain {
+  background: linear-gradient(180deg, #102a35 0%, #13212c 100%);
+  border-color: #2d7f96;
+}
+
+.mayor-strategy-option--trade {
+  background: linear-gradient(180deg, #2c2411 0%, #1f1c18 100%);
+  border-color: #9a7a28;
+}
+
+.mayor-strategy-option--building {
+  background: linear-gradient(180deg, #231631 0%, #1a1927 100%);
+  border-color: #7f56b2;
+}
+
+.mayor-strategy-option__top {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.mayor-strategy-option__title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.mayor-strategy-option__index {
+  color: #9cb2c8;
+  font-size: 0.85rem;
+}
+
+.mayor-strategy-option__summary {
+  color: #bfcad4;
+  line-height: 1.45;
+  margin: 0;
+  min-height: 44px;
+}
+
+.mayor-strategy-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mayor-strategy-preview__title {
+  color: #f0d68b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.mayor-strategy-preview__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mayor-strategy-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: #f3f5f7;
+  font-size: 0.82rem;
+  padding: 4px 9px;
+}
+
+.mayor-strategy-preview__empty {
+  color: #93a0ad;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
 .captain-good-row {
   display: flex;
   align-items: flex-start;
@@ -818,6 +936,16 @@ th { color: #80a0cc; font-weight: normal; font-size: 0.8rem; }
 .captain-discard-table th {
   background: #2a2a3a;
   color: #aaa;
+}
+
+@media (max-width: 900px) {
+  .mayor-strategy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mayor-strategy-option__summary {
+    min-height: 0;
+  }
 }
 
 /* ============================================================

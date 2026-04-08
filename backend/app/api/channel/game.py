@@ -1,18 +1,19 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.dependencies import get_db
-from app.schemas.game import AddBotRequest, GameAction, MayorDistributeRequest
+from app.schemas.game import AddBotRequest, GameAction
 from app.services.game_service import GameService
 from app.api.deps import get_current_user
 from app.db.models import User, GameSession
 from app.services.state_serializer import compute_score_breakdown
 from app.services.lobby_manager import lobby_manager, _build_lobby_payload
-from app.services.mayor_orchestrator import MayorPlacement
 from app.services.agent_registry import make_bot_player_id, require_valid_bot_type
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/{game_id}/start")
 async def start_game(
@@ -65,33 +66,32 @@ async def perform_action(
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="action_index must be an integer")
 
+        logger.warning(
+            "[ACTION_TRACE] channel_action_request game=%s actor=%s action=%s payload_keys=%s",
+            game_id,
+            actor_id,
+            action_int,
+            sorted(action_data.payload.keys()),
+        )
+
         result = service.process_action(game_id, actor_id, action_int)
         return {"status": "success", "state": result["state"], "action_mask": result["action_mask"]}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/{game_id}/mayor-distribute")
 async def perform_mayor_distribution(
     game_id: UUID,
-    body: MayorDistributeRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    *_args,
+    **_kwargs,
 ):
-    room = db.query(GameSession).filter(GameSession.id == game_id).first()
-    if not room:
-        raise HTTPException(status_code=404, detail="Game not found")
-    if str(current_user.id) not in (room.players or []):
-        raise HTTPException(status_code=403, detail="You are not a player in this game")
-
-    actor_id = str(current_user.id)
-    service = GameService(db)
-    try:
-        placements = [MayorPlacement(slot_id=item.slot_id, count=item.count) for item in body.placements]
-        result = service.process_mayor_distribution(game_id, actor_id, placements)
-        return {"status": "success", "state": result["state"], "action_mask": result["action_mask"]}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "Sequential Mayor distribution is no longer supported. "
+            "Use POST /api/puco/game/{game_id}/action with strategy action_index 69-71."
+        ),
+    )
 
 
 @router.post("/{game_id}/add-bot")

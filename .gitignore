@@ -23,6 +23,8 @@ __pycache__/
 venv/
 env/
 ENV/
+!PuCo_RL/env/
+!PuCo_RL/env/**/*.py
 
 # --- Node / Frontend ---
 node_modules/
