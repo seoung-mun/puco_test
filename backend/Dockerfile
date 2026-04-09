@@ -20,7 +20,7 @@ RUN uv pip install --system --no-cache -r requirements.txt
 RUN useradd -m appuser
 
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 # App code (volume mount in dev, COPY in prod)
 COPY . /app/
