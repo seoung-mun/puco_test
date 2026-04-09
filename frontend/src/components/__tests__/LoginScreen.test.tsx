@@ -66,6 +66,8 @@ describe('LoginScreen', () => {
 
     expect(screen.getByText('GOOGLE_LOGIN_BUTTON')).toBeTruthy();
     expect(screen.getByText(/Authorized JavaScript origins/i)).toBeTruthy();
-    expect(screen.getByText(new RegExp(window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeTruthy();
+    expect(
+      screen.getAllByText(new RegExp(window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))),
+    ).toHaveLength(2);
   });
 });

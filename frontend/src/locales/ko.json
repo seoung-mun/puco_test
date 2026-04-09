@@ -181,7 +181,36 @@
     "askAi":           "AI에게 질문 (비활성화됨)",
     "useHacienda":     "하시엔다 사용",
     "roundCompleted":  "{{n}} 라운드 종료!",
-    "decisionNeeded":  "결정 필요: {{note}}"
+    "decisionNeeded":  "결정 필요: {{note}}",
+    "mayorUnplaced":   "배치 대기 {{count}}명",
+    "mayorCapacity":   "현재 빈 슬롯 {{count}}칸",
+    "mayorStrategyIntro": "전략 하나를 고르면 엔진이 시장 배치를 한 번에 끝까지 계산합니다.",
+    "mayorPriorityNow": "현재 우선 배치 후보",
+    "mayorPriorityFallback": "지금 당장 맞는 핵심 빈 건물이 없어, 일반 우선순위로 넘어갑니다.",
+    "mayorProductionPairs": "생산 연계 후보",
+    "mayorProductionFallback": "열린 생산 연계가 없어 남는 인원은 다른 합법 슬롯으로 배치됩니다.",
+    "mayorOutcomeTitle": "예상 배치 결과",
+    "mayorOutcomePriorityDetailed": "이번에 배치 가능한 {{assignable}}명 중 최대 {{assigned}}명은 {{targets}}의 빈 슬롯 {{slots}}칸을 우선 채웁니다.",
+    "mayorOutcomePriorityFallbackDetailed": "이 전략에서 지금 바로 채울 핵심 건물이 없어, 일반 우선순위에 따라 합법적인 빈 슬롯부터 배치합니다.",
+    "mayorOutcomeProductionDetailed": "남는 {{remaining}}명은 {{goods}} 생산 라인과 이어지는 슬롯, 또는 다른 합법 슬롯으로 순차 배정됩니다.",
+    "mayorOutcomeProductionPriorityReady": "현재 우선 슬롯만으로도 배치가 대부분 소화되며, 다음 후보는 {{goods}} 생산 라인입니다.",
+    "mayorOutcomeProductionFallbackDetailed": "열린 생산 연계가 없어 남는 인원은 다른 합법 슬롯으로 자동 배치됩니다.",
+    "mayorOutcomeOverflowDetailed": "빈 슬롯은 {{slots}}칸뿐이라 즉시 배치 가능한 인원은 {{assignable}}명입니다. 나머지 {{remaining}}명은 대기 상태로 남을 수 있습니다.",
+    "mayorOutcomeSingleStepDetailed": "전략을 누르면 엔진이 시장 배치를 한 번에 처리하고 다음 턴으로 넘깁니다.",
+    "mayorStrategies": {
+      "captainFocus": {
+        "title": "선장 대비형",
+        "summary": "개인 부두, 항구, 창고를 먼저 채우고 고가 생산 라인까지 이어서 챙깁니다."
+      },
+      "tradeFactoryFocus": {
+        "title": "상인·공장 집중형",
+        "summary": "상관, 시장, 공장을 우선 활성화해 판매 수익과 생산 보너스를 빠르게 노립니다."
+      },
+      "buildingFocus": {
+        "title": "건축 지원형",
+        "summary": "대학교, 수도원, 건축 오두막, 하시엔다를 먼저 채워 다음 역할의 확장력을 키웁니다."
+      }
+    }
   },
 
   "history": {

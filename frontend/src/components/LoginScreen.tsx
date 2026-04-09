@@ -25,9 +25,11 @@ export default function LoginScreen({
   const { t } = useTranslation();
   const googleClientIdConfigured = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const preferredDevOrigin = 'http://localhost:3000';
   const isLocalOrigin =
     typeof window !== 'undefined' &&
     ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const isPreferredDevOrigin = currentOrigin === preferredDevOrigin;
 
   const cardStyle: React.CSSProperties = {
     background: '#0d1117',
@@ -104,13 +106,34 @@ export default function LoginScreen({
                   width="280"
                 />
                 {isLocalOrigin && (
-                  <p style={hintStyle}>
-                    {t(
-                      'login.googleOriginHint',
-                      'Google 로그인에서 400(origin_mismatch)이 나오면 Google Cloud Console의 Authorized JavaScript origins에 {{origin}} 을 추가하세요.',
-                      { origin: currentOrigin },
+                  <div style={warningStyle}>
+                    <strong style={{ display: 'block', marginBottom: 6 }}>
+                      {t('login.googleOriginGuideTitle', '개발용 Google 로그인 안내')}
+                    </strong>
+                    <p style={{ ...hintStyle, color: '#ffe7bf', textAlign: 'left' }}>
+                      {t(
+                        'login.googleOriginCurrent',
+                        '현재 접속 origin: {{origin}}',
+                        { origin: currentOrigin },
+                      )}
+                    </p>
+                    {!isPreferredDevOrigin && (
+                      <p style={{ ...hintStyle, color: '#ffe7bf', textAlign: 'left' }}>
+                        {t(
+                          'login.googleOriginPreferred',
+                          'dev에서는 {{origin}} 접속을 권장합니다. 127.0.0.1로 열었다면 localhost로 다시 접속하세요.',
+                          { origin: preferredDevOrigin },
+                        )}
+                      </p>
                     )}
-                  </p>
+                    <p style={{ ...hintStyle, color: '#ffe7bf', textAlign: 'left' }}>
+                      {t(
+                        'login.googleOriginHint',
+                        'Google Cloud Console의 Authorized JavaScript origins에 {{origin}} 을 정확히 추가해야 403 / origin not allowed 오류가 사라집니다.',
+                        { origin: isPreferredDevOrigin ? preferredDevOrigin : currentOrigin },
+                      )}
+                    </p>
+                  </div>
                 )}
               </>
             ) : (

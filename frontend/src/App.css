@@ -886,6 +886,19 @@ th { color: #80a0cc; font-weight: normal; font-size: 0.8rem; }
   margin: 0;
 }
 
+.mayor-strategy-preview__details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mayor-strategy-preview__detail {
+  color: #d8dde4;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
 .captain-good-row {
   display: flex;
   align-items: flex-start;

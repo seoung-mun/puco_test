@@ -106,6 +106,15 @@ describe('MayorStrategyPanel', () => {
     expect(screen.getByText('Small Market')).toBeTruthy();
     expect(screen.getByText('Construction Hut')).toBeTruthy();
     expect(screen.getAllByText('Corn').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Predicted allocation').length).toBe(3);
+    expect(
+      screen.getByText('1 of 3 assignable colonists will first fill 1 priority slot(s): Wharf.'),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByText(
+        'Then the remaining 2 colonist(s) will support Corn production lines or any other legal empty slot.',
+      ),
+    ).toHaveLength(3);
   });
 
   it('dispatches the selected strategy action when enabled', async () => {
