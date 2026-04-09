@@ -112,6 +112,15 @@ def test_auth_me_requires_auth(client):
     assert response.status_code == 401
 
 
+def test_auth_me_returns_401_when_token_user_is_missing(client):
+    headers = {"Authorization": f"Bearer {create_access_token(subject=str(uuid.uuid4()))}"}
+
+    response = client.get("/api/puco/auth/me", headers=headers)
+
+    assert response.status_code == 401
+    assert "credentials" in response.json()["detail"].lower()
+
+
 def test_list_rooms_requires_auth(client):
     response = client.get("/api/puco/rooms/")
 
