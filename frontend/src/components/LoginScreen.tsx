@@ -23,6 +23,11 @@ export default function LoginScreen({
   error,
 }: Props) {
   const { t } = useTranslation();
+  const googleClientIdConfigured = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const isLocalOrigin =
+    typeof window !== 'undefined' &&
+    ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
   const cardStyle: React.CSSProperties = {
     background: '#0d1117',
@@ -58,6 +63,26 @@ export default function LoginScreen({
     width: '100%',
   };
 
+  const hintStyle: React.CSSProperties = {
+    color: '#aab',
+    margin: 0,
+    fontSize: 12,
+    lineHeight: 1.5,
+    textAlign: 'center',
+  };
+
+  const warningStyle: React.CSSProperties = {
+    color: '#ffd7a1',
+    background: '#3a2400',
+    border: '1px solid #b36b00',
+    borderRadius: 6,
+    padding: '10px 14px',
+    fontSize: 13,
+    lineHeight: 1.5,
+    width: '100%',
+    boxSizing: 'border-box',
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 24 }}>
       <h1 style={{ color: '#f0c040', margin: 0, fontSize: 36 }}>Puerto Rico</h1>
@@ -68,14 +93,34 @@ export default function LoginScreen({
             <p style={{ color: '#aab', margin: 0, fontSize: 14 }}>
               {t('login.signInPrompt', 'Google 계정으로 로그인하세요')}
             </p>
-            <GoogleLogin
-              onSuccess={onGoogleLogin}
-              onError={() => {}}
-              theme="filled_black"
-              size="large"
-              shape="rectangular"
-              width="280"
-            />
+            {googleClientIdConfigured ? (
+              <>
+                <GoogleLogin
+                  onSuccess={onGoogleLogin}
+                  onError={() => {}}
+                  theme="filled_black"
+                  size="large"
+                  shape="rectangular"
+                  width="280"
+                />
+                {isLocalOrigin && (
+                  <p style={hintStyle}>
+                    {t(
+                      'login.googleOriginHint',
+                      'Google 로그인에서 400(origin_mismatch)이 나오면 Google Cloud Console의 Authorized JavaScript origins에 {{origin}} 을 추가하세요.',
+                      { origin: currentOrigin },
+                    )}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div style={warningStyle}>
+                {t(
+                  'login.googleConfigMissing',
+                  'Google 로그인 설정이 비어 있습니다. VITE_GOOGLE_CLIENT_ID를 설정한 뒤 frontend 이미지를 다시 빌드하세요.',
+                )}
+              </div>
+            )}
           </>
         )}
 

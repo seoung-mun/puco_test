@@ -59,14 +59,7 @@ vis/output/
 archive/
 backup/
 
-# --- Model Artifacts ---
-*.pth
-*.pt
-*.onnx
-*.pkl
-*.h5
-PuCo_RL/models/**/*.json
-!PuCo_RL/models/**/*.md
+
 
 # --- IDE / OS ---
 .DS_Store
