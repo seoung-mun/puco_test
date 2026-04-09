@@ -1,0 +1,40 @@
+{
+  "schema_version": "model-metadata.v1",
+  "artifact_name": "HPPO_PR_Server_1774241514_step_14745600",
+  "family": "hppo",
+  "architecture": "phase_ppo",
+  "training_script": "PuCo_RL/train_phase_ppo_selfplay_server.py",
+  "env_module": "PuCo_RL/env/pr_env.py",
+  "obs_dim": 211,
+  "action_dim": 200,
+  "num_players": 3,
+  "network": {
+    "hidden_dim": 512,
+    "num_res_blocks": 3,
+    "phase_embed_dim": 16,
+    "head_hidden_dims": {
+      "role_select": 512,
+      "settler": 256,
+      "builder": 512,
+      "mayor": 128,
+      "craftsman": 128,
+      "trader": 256,
+      "captain": 512
+    }
+  },
+  "environment": {
+    "max_game_steps": 1200
+  },
+  "reward": {
+    "potential_mode": "option3",
+    "shaping_gamma": 0.99,
+    "weights": {
+      "ship": 1.0,
+      "building": 1.0,
+      "doubloon": 1.0
+    }
+  },
+  "training": {
+    "self_play": true
+  }
+}

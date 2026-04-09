@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 from app.db.models import GameSession
 from app.services.game_service import GameService
+from app.services.model_registry import build_replay_parity_snapshot
 
 
 def _make_room(players):
@@ -18,19 +19,21 @@ def _make_room(players):
 
 def test_build_model_versions_snapshot_for_mixed_bot_room():
     service = GameService(MagicMock())
-    room = _make_room(["BOT_ppo", "BOT_random", "BOT_ppo"])
+    room = _make_room(["BOT_ppo", "BOT_hppo", "BOT_random"])
 
     snapshot = service._build_model_versions_snapshot(room)
 
     assert snapshot["player_0"]["bot_type"] == "ppo"
     assert snapshot["player_0"]["artifact_name"].startswith("PPO_PR_Server_")
-    assert snapshot["player_0"]["metadata_source"] == "bootstrap_derived"
-    assert snapshot["player_1"]["bot_type"] == "random"
-    assert snapshot["player_1"]["metadata_source"] == "builtin"
-    assert snapshot["player_2"]["bot_type"] == "ppo"
+    assert snapshot["player_0"]["metadata_source"] == "sidecar"
+    assert snapshot["player_1"]["bot_type"] == "hppo"
+    assert snapshot["player_1"]["metadata_source"] == "sidecar"
+    assert snapshot["player_1"]["architecture"] == "phase_ppo"
+    assert snapshot["player_2"]["bot_type"] == "random"
+    assert snapshot["player_2"]["metadata_source"] == "builtin"
     assert snapshot["player_0"]["fingerprint"]["action_space"] == "castone.action-space.strategy-first.v1"
     assert snapshot["player_1"]["fingerprint"]["mayor_semantics"] == "castone.mayor.strategy-first.v1"
-    assert "4949773" in snapshot["player_2"]["fingerprint"]["env"]
+    assert "4949773" in snapshot["player_0"]["fingerprint"]["env"]
 
 
 def test_build_model_versions_snapshot_marks_humans_separately():
@@ -60,6 +63,22 @@ def test_build_rich_state_includes_model_versions(monkeypatch):
     state = service._build_rich_state(room.id, engine=MagicMock(), room=room)
 
     assert state["model_versions"] == room.model_versions
+
+
+def test_build_replay_parity_accepts_ppo_and_hppo_obs_compatibility():
+    service = GameService(MagicMock())
+    room = _make_room(["BOT_ppo", "BOT_hppo", "BOT_random"])
+    snapshot = service._build_model_versions_snapshot(room)
+
+    parity = build_replay_parity_snapshot(
+        {
+            "player_0": snapshot["player_0"],
+            "player_1": snapshot["player_1"],
+        }
+    )
+
+    assert parity["mismatched_players"] == []
+    assert parity["matching_players"] == ["player_0", "player_1"]
 
 
 def test_resolve_actor_model_info_uses_room_snapshot():

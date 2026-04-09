@@ -8,16 +8,20 @@ from app.services.agent_registry import resolve_model_artifact
 from agents.ppo_agent import Agent
 
 
-def test_default_ppo_artifact_uses_bootstrap_metadata(monkeypatch):
-    monkeypatch.delenv("PPO_MODEL_FILENAME", raising=False)
+def test_allowlisted_ppo_checkpoint_uses_bootstrap_metadata(tmp_path):
+    checkpoint_path = tmp_path / "PPO_PR_Server_20260401_214532_step_99942400.pth"
+    agent = Agent(obs_dim=210, action_dim=200)
+    torch.save(agent.state_dict(), checkpoint_path)
 
-    artifact = resolve_model_artifact("ppo")
+    artifact = model_registry.resolve_model_artifact_from_path(
+        str(checkpoint_path),
+        family="ppo",
+    )
 
-    assert artifact is not None
     assert artifact.checkpoint_filename == "PPO_PR_Server_20260401_214532_step_99942400.pth"
     assert artifact.metadata_source == "bootstrap_derived"
     assert artifact.bootstrap_profile == "ppo_pr_server_v1"
-    assert artifact.obs_dim == 211
+    assert artifact.obs_dim == 210
     assert artifact.action_dim == 200
     assert artifact.potential_mode == "option3"
     assert artifact.fingerprint["action_space"] == "castone.action-space.strategy-first.v1"

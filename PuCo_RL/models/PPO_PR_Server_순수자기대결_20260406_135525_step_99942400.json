@@ -1,0 +1,30 @@
+{
+  "schema_version": "model-metadata.v1",
+  "artifact_name": "PPO_PR_Server_순수자기대결_20260406_135525_step_99942400",
+  "family": "ppo",
+  "architecture": "ppo_residual",
+  "training_script": "PuCo_RL/train/train_ppo_selfplay_server.py",
+  "env_module": "PuCo_RL/env/pr_env.py",
+  "obs_dim": 210,
+  "action_dim": 200,
+  "num_players": 3,
+  "network": {
+    "hidden_dim": 512,
+    "num_res_blocks": 3
+  },
+  "environment": {
+    "max_game_steps": 1200
+  },
+  "reward": {
+    "potential_mode": "option3",
+    "shaping_gamma": 0.99,
+    "weights": {
+      "ship": 1.0,
+      "building": 1.0,
+      "doubloon": 1.0
+    }
+  },
+  "training": {
+    "self_play": true
+  }
+}

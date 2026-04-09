@@ -15,13 +15,17 @@ __pycache__/
 
 # 머신러닝/강화학습 결과물 및 모델
 # (GitHub 용량 초과 방지를 위해 제외 권장)
-models/
+models/*
+!models/*.pth
+!models/*.json
+!models/README.md
 runs/
 checkpoints/
 *.pth
 *.h5
 *.ckpt
 *.onnx
+!models/*.pth
 
 ### --- Editor & System --- ###
 .vscode/

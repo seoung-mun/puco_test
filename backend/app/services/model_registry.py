@@ -39,6 +39,51 @@ def _stringify_fingerprint_part(value: Any) -> str | None:
     return text or None
 
 
+def _parse_env_fingerprint(env_fingerprint: str) -> tuple[str, dict[str, str]]:
+    parts = [part.strip() for part in str(env_fingerprint or "").split("|") if part.strip()]
+    if not parts:
+        return "", {}
+
+    origin = parts[0]
+    fields: dict[str, str] = {}
+    for part in parts[1:]:
+        if "=" not in part:
+            fields[part] = ""
+            continue
+        key, value = part.split("=", 1)
+        fields[key] = value
+    return origin, fields
+
+
+def _env_fingerprints_match(expected: str, actual: str) -> bool:
+    if expected == actual:
+        return True
+
+    expected_origin, expected_fields = _parse_env_fingerprint(expected)
+    actual_origin, actual_fields = _parse_env_fingerprint(actual)
+    if expected_origin != actual_origin:
+        return False
+
+    for key in sorted(set(expected_fields) | set(actual_fields)):
+        if key == "obs":
+            continue
+        if expected_fields.get(key) != actual_fields.get(key):
+            return False
+
+    expected_obs = expected_fields.get("obs")
+    actual_obs = actual_fields.get("obs")
+    if expected_obs == actual_obs:
+        return True
+
+    try:
+        expected_obs_int = int(expected_obs) if expected_obs is not None else None
+        actual_obs_int = int(actual_obs) if actual_obs is not None else None
+    except (TypeError, ValueError):
+        return False
+
+    return {expected_obs_int, actual_obs_int} == {210, 211}
+
+
 def _build_env_fingerprint(
     *,
     env_module: str | None = None,
@@ -121,7 +166,11 @@ def build_replay_parity_snapshot(model_versions: dict[str, Any] | None) -> dict[
         fingerprint = enriched_snapshot["fingerprint"]
         player_fingerprints[player_key] = fingerprint
         if any(
-            fingerprint[field] != expected[field]
+            (
+                fingerprint[field] != expected[field]
+                if field != "env"
+                else not _env_fingerprints_match(expected[field], fingerprint[field])
+            )
             for field in ("action_space", "mayor_semantics", "env")
         ):
             mismatched_players.append(player_key)

@@ -59,6 +59,12 @@ vis/output/
 archive/
 backup/
 
+# --- Shipped Model Artifacts ---
+!PuCo_RL/models/
+!PuCo_RL/models/*.pth
+!PuCo_RL/models/*.json
+!PuCo_RL/models/**/*.md
+
 
 
 # --- IDE / OS ---
