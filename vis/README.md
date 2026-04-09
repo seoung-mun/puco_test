@@ -23,8 +23,6 @@
   - `audit.md` 요구사항별로 현재 어떤 증거가 있고 무엇이 비어 있는지 요약
 - `db/README.md`
   - DB/로컬 로그를 사람이 수동으로 확인하는 방법
-- `output/README.md`
-  - 생성된 Markdown 리포트가 모이는 위치
 
 ## 빠른 사용 예시
 
@@ -72,6 +70,8 @@ python vis/render_audit_requirements.py \
 
 - 표: 실제 row count, 필드 커버리지, 불일치 목록
 - Mermaid: 흐름도, 시퀀스 다이어그램
+
+`--output`으로 넘긴 경로의 부모 디렉터리는 자동으로 생성된다. 즉 `vis/output/` 폴더는 미리 만들어 두지 않아도 된다.
 
 그래서 아래 어디에서든 바로 읽을 수 있다.
 

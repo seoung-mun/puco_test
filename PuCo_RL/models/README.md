@@ -15,3 +15,8 @@
 - `.env`의 `PPO_MODEL_FILENAME`, `HPPO_MODEL_FILENAME`는 이 디렉터리의 실제 파일명과 일치해야 합니다.
 - 새 체크포인트를 추가할 때는 같은 basename의 `.json` sidecar를 반드시 같이 커밋합니다.
 - replay / ML 로그의 `model_versions`, `parity` 필드는 이 sidecar 메타데이터를 기준으로 채워집니다.
+
+## 참고
+
+- 로컬 실험용 체크포인트 출력 자리는 [../../models/ppo_checkpoints/README.md](../../models/ppo_checkpoints/README.md)입니다.
+- `backend/app/services/model_registry.py`와 `agent_registry.py`가 기본적으로 이 폴더를 기준으로 모델을 찾습니다.

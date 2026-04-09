@@ -3,22 +3,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, defaultValueOrOptions?: string | { defaultValue?: string; origin?: string }, maybeOptions?: { origin?: string }) => {
+    t: (key: string, defaultValueOrOptions?: string | { defaultValue?: string }, maybeOptions?: Record<string, string>) => {
       const defaultValue =
         typeof defaultValueOrOptions === 'string'
           ? defaultValueOrOptions
           : defaultValueOrOptions?.defaultValue ?? key;
-      const options =
-        typeof defaultValueOrOptions === 'string'
-          ? maybeOptions
-          : defaultValueOrOptions;
-      return defaultValue.replace('{{origin}}', options?.origin ?? '');
+      return defaultValue;
     },
   }),
 }));
 
-vi.mock('@react-oauth/google', () => ({
-  GoogleLogin: () => <div>GOOGLE_LOGIN_BUTTON</div>,
+vi.mock('../GoogleIdentityButton', () => ({
+  default: () => <div>GOOGLE_LOGIN_BUTTON</div>,
 }));
 
 import LoginScreen from '../LoginScreen';
@@ -48,7 +44,7 @@ describe('LoginScreen', () => {
     expect(screen.queryByText('GOOGLE_LOGIN_BUTTON')).toBeNull();
   });
 
-  it('shows the Google login button and localhost origin hint when configured', () => {
+  it('shows the Google login button when configured', () => {
     vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-client-id.apps.googleusercontent.com');
 
     render(
@@ -65,9 +61,7 @@ describe('LoginScreen', () => {
     );
 
     expect(screen.getByText('GOOGLE_LOGIN_BUTTON')).toBeTruthy();
-    expect(screen.getByText(/Authorized JavaScript origins/i)).toBeTruthy();
-    expect(
-      screen.getAllByText(new RegExp(window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))),
-    ).toHaveLength(2);
+    expect(screen.queryByText(/Authorized JavaScript origins/i)).toBeNull();
+    expect(screen.queryByText(/현재 프런트가 쓰는 client ID/i)).toBeNull();
   });
 });

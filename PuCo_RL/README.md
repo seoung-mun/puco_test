@@ -14,7 +14,6 @@
 - [web/README.md](web/README.md)
 - [models/README.md](models/README.md)
 - [logs/README.md](logs/README.md)
-- [runs/README.md](runs/README.md)
 - [extract_documents/README.md](extract_documents/README.md)
 
 ## Castone에서의 역할
@@ -36,6 +35,34 @@
 2. [env/pr_env.py](env/pr_env.py)가 PettingZoo/Gym-style env와 action mask를 제공합니다.
 3. [agents/README.md](agents/README.md)의 agent들이 mask 기반으로 action을 선택합니다.
 4. [evaluate/README.md](evaluate/README.md)와 [train/README.md](train/README.md)가 학습/평가 루프를 돌립니다.
+
+## 현재 눈여겨볼 경로
+
+- `env/`
+  - 실제 규칙과 action space의 원천
+- `agents/`
+  - heuristic, MCTS, PPO agent 구현
+- `train/`
+  - 로컬/단일 진입점 학습 스크립트
+- 루트 `train_*.py`
+  - HPPO, phase PPO, self-play, league용 thin entrypoint
+- `evaluate/`
+  - 토너먼트, benchmark, replay 생성
+- `models/`
+  - 서버 기본 체크포인트와 sidecar 메타데이터
+- `logs/replay/`
+  - 오프라인 평가가 남긴 replay 산출물
+
+## 학습/평가 산출물
+
+스크립트 실행 시 아래 경로가 동적으로 생성될 수 있습니다.
+
+- `runs/<run_name>`
+  - TensorBoard/학습 로그
+- `models/ppo_checkpoints/`
+  - 로컬 학습 체크포인트
+- `logs/replay/`
+  - 평가/재현용 replay JSON
 
 ## 의존성
 

@@ -51,8 +51,9 @@ test_legacy.db
 
 # --- Logs & Runtime Data ---
 *.log
-data/logs/
+data/logs/*
 !data/logs/.gitkeep
+!data/logs/README.md
 vis/output/
 
 # --- Legacy / Backup Trees ---

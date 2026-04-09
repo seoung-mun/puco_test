@@ -1,5 +1,5 @@
-import { GoogleLogin } from '@react-oauth/google';
 import { useTranslation } from 'react-i18next';
+import GoogleIdentityButton from './GoogleIdentityButton';
 
 interface Props {
   onGoogleLogin: (credentialResponse: { credential?: string }) => void;
@@ -23,13 +23,8 @@ export default function LoginScreen({
   error,
 }: Props) {
   const { t } = useTranslation();
-  const googleClientIdConfigured = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-  const preferredDevOrigin = 'http://localhost:3000';
-  const isLocalOrigin =
-    typeof window !== 'undefined' &&
-    ['localhost', '127.0.0.1'].includes(window.location.hostname);
-  const isPreferredDevOrigin = currentOrigin === preferredDevOrigin;
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+  const googleClientIdConfigured = Boolean(googleClientId);
 
   const cardStyle: React.CSSProperties = {
     background: '#0d1117',
@@ -65,14 +60,6 @@ export default function LoginScreen({
     width: '100%',
   };
 
-  const hintStyle: React.CSSProperties = {
-    color: '#aab',
-    margin: 0,
-    fontSize: 12,
-    lineHeight: 1.5,
-    textAlign: 'center',
-  };
-
   const warningStyle: React.CSSProperties = {
     color: '#ffd7a1',
     background: '#3a2400',
@@ -96,46 +83,10 @@ export default function LoginScreen({
               {t('login.signInPrompt', 'Google 계정으로 로그인하세요')}
             </p>
             {googleClientIdConfigured ? (
-              <>
-                <GoogleLogin
-                  onSuccess={onGoogleLogin}
-                  onError={() => {}}
-                  theme="filled_black"
-                  size="large"
-                  shape="rectangular"
-                  width="280"
-                />
-                {isLocalOrigin && (
-                  <div style={warningStyle}>
-                    <strong style={{ display: 'block', marginBottom: 6 }}>
-                      {t('login.googleOriginGuideTitle', '개발용 Google 로그인 안내')}
-                    </strong>
-                    <p style={{ ...hintStyle, color: '#ffe7bf', textAlign: 'left' }}>
-                      {t(
-                        'login.googleOriginCurrent',
-                        '현재 접속 origin: {{origin}}',
-                        { origin: currentOrigin },
-                      )}
-                    </p>
-                    {!isPreferredDevOrigin && (
-                      <p style={{ ...hintStyle, color: '#ffe7bf', textAlign: 'left' }}>
-                        {t(
-                          'login.googleOriginPreferred',
-                          'dev에서는 {{origin}} 접속을 권장합니다. 127.0.0.1로 열었다면 localhost로 다시 접속하세요.',
-                          { origin: preferredDevOrigin },
-                        )}
-                      </p>
-                    )}
-                    <p style={{ ...hintStyle, color: '#ffe7bf', textAlign: 'left' }}>
-                      {t(
-                        'login.googleOriginHint',
-                        'Google Cloud Console의 Authorized JavaScript origins에 {{origin}} 을 정확히 추가해야 403 / origin not allowed 오류가 사라집니다.',
-                        { origin: isPreferredDevOrigin ? preferredDevOrigin : currentOrigin },
-                      )}
-                    </p>
-                  </div>
-                )}
-              </>
+              <GoogleIdentityButton
+                clientId={googleClientId}
+                onSuccess={onGoogleLogin}
+              />
             ) : (
               <div style={warningStyle}>
                 {t(

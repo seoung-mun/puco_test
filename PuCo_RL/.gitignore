@@ -39,4 +39,5 @@ rule_documents/
 
 # 에이전트 성능 분석 및 결과물
 report/
-logs/
+logs/*
+!logs/README.md

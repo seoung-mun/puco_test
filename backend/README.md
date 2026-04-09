@@ -18,6 +18,30 @@
 - `data/logs/games/*.jsonl`, `data/logs/replay/*.json` 기록
 - human/bot 공통 strategy-first Mayor contract 유지
 
+## 실행과 점검
+
+개발용 compose 기준:
+
+```bash
+docker compose up -d --build backend db redis
+curl http://localhost:8000/health
+docker compose exec backend pytest
+```
+
+로컬에서 직접 띄우는 경우:
+
+```bash
+cd backend
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+메모:
+
+- `entrypoint.sh`는 컨테이너 시작 시 자동으로 `alembic upgrade head`를 수행합니다.
+- 직접 실행할 때도 PostgreSQL, Redis, `.env`가 먼저 준비되어 있어야 합니다.
+
 ## 런타임 흐름
 
 1. [app/main.py](app/main.py)가 라우터와 미들웨어를 기동합니다.
