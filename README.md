@@ -61,6 +61,18 @@ castone/
 └── .env.example
 ```
 
+## Documentation Map
+
+상향식 문서 구조는 아래를 기준으로 봅니다. 하위 폴더 README가 역할과 의존성을 먼저 설명하고, 상위 폴더 README가 이를 묶습니다.
+
+- [backend/README.md](backend/README.md)
+- [frontend/README.md](frontend/README.md)
+- [PuCo_RL/README.md](PuCo_RL/README.md)
+- [data/README.md](data/README.md)
+- [vis/README.md](vis/README.md)
+- [imgs/README.md](imgs/README.md)
+- [models/README.md](models/README.md)
+
 ## 코드베이스가 동작하는 방식
 
 큰 흐름은 아래와 같습니다.
@@ -349,8 +361,12 @@ OpenAPI/Swagger는 `DEBUG=true` 일 때만 열립니다.
 
 ## 자주 참고할 문서
 
-- [backend/readme.md](backend/readme.md)
+- [backend/README.md](backend/README.md)
   - backend 구조, PostgreSQL/Redis 접속, 로그 읽기
+- [frontend/README.md](frontend/README.md)
+  - 프론트 화면 구조, socket 흐름, 타입 경계
+- [PuCo_RL/README.md](PuCo_RL/README.md)
+  - canonical engine, action/env/agent 구조
 - [vis/README.md](vis/README.md)
   - lineage/storage/behavior/audit 리포트 생성
 - [vis/db/README.md](vis/db/README.md)
@@ -360,7 +376,7 @@ OpenAPI/Swagger는 `DEBUG=true` 일 때만 열립니다.
 
 참고:
 
-- `frontend/README.md` 는 현재 거의 Vite 기본 템플릿 내용이라, 프로젝트 운영 기준 문서는 이 README와 `backend/readme.md` 쪽이 더 정확합니다.
+- 폴더별 세부 역할과 의존성은 각 `README.md`를 따라 내려가며 보는 방식이 가장 정확합니다.
 
 ## 개발 체크포인트
 
