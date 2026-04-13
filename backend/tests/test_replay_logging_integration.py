@@ -3,6 +3,7 @@ import uuid
 
 from app.core.security import create_access_token
 from app.db.models import GameSession, User
+from app.services import model_registry
 
 
 def test_action_request_writes_replay_json(client, db, tmp_path, monkeypatch):
@@ -52,11 +53,11 @@ def test_action_request_writes_replay_json(client, db, tmp_path, monkeypatch):
     data = json.loads(replay_path.read_text(encoding="utf-8"))
     assert data["game_id"] == str(game.id)
     assert data["title"] == "Replay Integration Room"
-    assert data["parity"]["expected"]["action_space"] == "castone.action-space.strategy-first.v1"
-    assert data["parity"]["expected"]["mayor_semantics"] == "castone.mayor.strategy-first.v1"
+    assert data["parity"]["expected"]["action_space"] == model_registry.ACTION_SPACE_FINGERPRINT_V1
+    assert data["parity"]["expected"]["mayor_semantics"] == model_registry.MAYOR_SEMANTICS_FINGERPRINT_V1
     assert data["players"][current_player_idx]["display_name"] == current_user.nickname
     assert data["entries"]
     assert data["entries"][0]["action_id"] == valid_action
     assert data["entries"][0]["actor_id"] == str(current_user.id)
-    assert data["entries"][0]["model_info"]["fingerprint"]["action_space"] == "castone.action-space.strategy-first.v1"
+    assert data["entries"][0]["model_info"]["fingerprint"]["action_space"] == model_registry.ACTION_SPACE_FINGERPRINT_V1
     assert isinstance(data["entries"][0]["commentary"], str)

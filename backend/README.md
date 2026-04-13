@@ -16,7 +16,7 @@
 - PostgreSQL `games`, `game_logs`, `users` 정본 저장
 - Redis 상태 캐시와 WebSocket fan-out
 - `data/logs/games/*.jsonl`, `data/logs/replay/*.json` 기록
-- human/bot 공통 strategy-first Mayor contract 유지
+- human/bot 공통 slot-direct Mayor contract 유지
 
 ## 런타임 흐름
 

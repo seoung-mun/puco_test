@@ -13,9 +13,14 @@ interface Props {
   isOffline?: boolean;
   isMe?: boolean;
   botType?: string;
+  isRolePicker?: boolean;
+  mayorLegalIslandSlots?: number[];
+  mayorLegalCitySlots?: number[];
+  onMayorIslandClick?: (slotIdx: number) => void;
+  onMayorCityClick?: (slotIdx: number) => void;
 }
 
-export default function PlayerPanel({ playerId, player, isActive, highlightLastPlantation, isOffline, isMe, botType }: Props) {
+export default function PlayerPanel({ playerId, player, isActive, highlightLastPlantation, isOffline, isMe, botType, isRolePicker, mayorLegalIslandSlots, mayorLegalCitySlots, onMayorIslandClick, onMayorCityClick }: Props) {
   const { t } = useTranslation();
 
   const sectionStyle: React.CSSProperties = {
@@ -38,6 +43,7 @@ export default function PlayerPanel({ playerId, player, isActive, highlightLastP
         {botType === 'scoring' && <span style={{ marginLeft: 4, fontSize: '0.85em' }}>⚙️</span>}
         {botType === 'random'  && <span style={{ marginLeft: 4, fontSize: '0.85em' }}>🎲</span>}
         {player.is_governor && ' 👑'}
+        {isRolePicker && <span style={{ color: '#ff4444', marginLeft: 4 }} title={t('player.rolePicker', { defaultValue: 'Role Picker' })}>●</span>}
         {isActive && ` ◀ ${t('player.active')}`}
       </h2>
 
@@ -87,10 +93,16 @@ export default function PlayerPanel({ playerId, player, isActive, highlightLastP
       <IslandGrid
         island={player.island}
         highlightLastTile={highlightLastPlantation}
+        mayorLegalSlots={mayorLegalIslandSlots}
+        onMayorSlotClick={onMayorIslandClick}
       />
 
       <h3 id={`player-${playerId}-city`}>{t('player.city')}</h3>
-      <CityGrid city={player.city} />
+      <CityGrid
+        city={player.city}
+        mayorLegalSlots={mayorLegalCitySlots}
+        onMayorSlotClick={onMayorCityClick}
+      />
     </section>
   );
 }

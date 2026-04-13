@@ -5,7 +5,7 @@
 ## 역할
 
 - Google auth, room lifecycle, game action, lobby/game websocket 제공
-- strategy-first Mayor를 포함한 현재 channel contract 유지
+- slot-direct Mayor를 포함한 현재 channel contract 유지
 - spectator/host/bot game 진입 흐름 지원
 
 ## 주요 파일
@@ -23,6 +23,7 @@
 
 ## 계약 메모
 
-- 인간 Mayor는 slot-by-slot이 아니라 `69-71` strategy action을 1회 전송합니다.
+- Mayor는 `POST /action`에 `120-131` island / `140-151` city action index를 보냅니다.
+- legacy `POST /mayor-distribute`는 `410 Gone`으로 막혀 있습니다.
 - 실시간 상태 전달의 기준은 WebSocket `STATE_UPDATE`입니다.
 - 새 프론트 기능은 가능하면 이 폴더에만 API를 추가합니다.

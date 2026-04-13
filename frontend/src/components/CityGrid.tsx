@@ -4,6 +4,8 @@ import type { City } from '../types/gameState';
 
 interface Props {
   city: City;
+  mayorLegalSlots?: number[];
+  onMayorSlotClick?: (slotIdx: number) => void;
 }
 
 const BUILDING_CONFIG: Record<string, { icon: string; color: string }> = {
@@ -88,11 +90,13 @@ function buildColumnLayout(buildings: City['buildings'], totalSpaces: number): S
   return entries;
 }
 
-function BuildingTile({ building, x, y, tileH, onHover, onLeave }: {
+function BuildingTile({ building, x, y, tileH, onHover, onLeave, mayorLegal, onMayorClick }: {
   building: City['buildings'][0];
   x: number; y: number; tileH: number;
   onHover?: (name: string, e: React.MouseEvent) => void;
   onLeave?: () => void;
+  mayorLegal?: boolean;
+  onMayorClick?: () => void;
 }) {
   const { t } = useTranslation();
   const cfg = BUILDING_CONFIG[building.name] ?? { icon: '🏗️', color: '#555' };
@@ -100,15 +104,20 @@ function BuildingTile({ building, x, y, tileH, onHover, onLeave }: {
   const [line1, line2] = wrapLabel(label);
   const midY = y + tileH / 2;
 
+  const strokeColor = mayorLegal ? '#66ff99' : building.is_active ? '#ffe066' : '#ffffff33';
+  const strokeW = mayorLegal ? 3 : building.is_active ? 2.5 : 1;
+
   return (
     <g
       onMouseEnter={onHover ? e => onHover(building.name, e) : undefined}
       onMouseLeave={onLeave}
+      onClick={mayorLegal && onMayorClick ? onMayorClick : undefined}
+      style={mayorLegal ? { cursor: 'pointer' } : undefined}
     >
       <rect x={x} y={y} width={TILE_W} height={tileH} rx={6}
         fill={cfg.color}
-        stroke={building.is_active ? '#ffe066' : '#ffffff33'}
-        strokeWidth={building.is_active ? 2.5 : 1}
+        stroke={strokeColor}
+        strokeWidth={strokeW}
       />
       {building.is_active && (
         <rect x={x} y={y} width={TILE_W} height={tileH} rx={6}
@@ -174,7 +183,7 @@ function EmptySlot({ x, y, tileH }: { x: number; y: number; tileH: number }) {
   );
 }
 
-export default function CityGrid({ city }: Props) {
+export default function CityGrid({ city, mayorLegalSlots, onMayorSlotClick }: Props) {
   const { t } = useTranslation();
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
   const rowsPerCol = Math.ceil(city.total_spaces / COLS);
@@ -197,9 +206,13 @@ export default function CityGrid({ city }: Props) {
           const x = PAD + entry.col * (TILE_W + GAP);
           const y = PAD + entry.unitRow * (TILE_H + GAP);
           const tileH = entry.large ? LARGE_TILE_H : TILE_H;
+          const legalSet = mayorLegalSlots ? new Set(mayorLegalSlots) : null;
+          const isLegal = legalSet != null && entry.building != null && legalSet.has(entry.originalIndex);
           return entry.building
             ? <BuildingTile key={i} building={entry.building} x={x} y={y} tileH={tileH}
-                onHover={handleHover} onLeave={() => setTooltip(null)} />
+                onHover={handleHover} onLeave={() => setTooltip(null)}
+                mayorLegal={isLegal}
+                onMayorClick={isLegal && onMayorSlotClick ? () => onMayorSlotClick(entry.originalIndex) : undefined} />
             : <EmptySlot key={i} x={x} y={y} tileH={tileH} />;
         })}
       </svg>

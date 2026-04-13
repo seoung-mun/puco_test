@@ -82,16 +82,18 @@ async def perform_action(
 
 async def perform_mayor_distribution(
     game_id: UUID,
-    *_args,
-    **_kwargs,
 ):
     raise HTTPException(
         status_code=410,
         detail=(
-            "Sequential Mayor distribution is no longer supported. "
-            "Use POST /api/puco/game/{game_id}/action with strategy action_index 69-71."
+            "Legacy Mayor distribution endpoint is removed. "
+            "Use POST /api/puco/game/{game_id}/action with slot-direct "
+            "action_index 120-131 (island) or 140-151 (city)."
         ),
     )
+
+
+router.post("/{game_id}/mayor-distribute")(perform_mayor_distribution)
 
 
 @router.post("/{game_id}/add-bot")

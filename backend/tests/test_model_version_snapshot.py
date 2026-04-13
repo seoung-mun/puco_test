@@ -2,6 +2,7 @@ import uuid
 from unittest.mock import MagicMock
 
 from app.db.models import GameSession
+from app.services import model_registry
 from app.services.game_service import GameService
 
 
@@ -28,8 +29,8 @@ def test_build_model_versions_snapshot_for_mixed_bot_room():
     assert snapshot["player_1"]["bot_type"] == "random"
     assert snapshot["player_1"]["metadata_source"] == "builtin"
     assert snapshot["player_2"]["bot_type"] == "ppo"
-    assert snapshot["player_0"]["fingerprint"]["action_space"] == "castone.action-space.strategy-first.v1"
-    assert snapshot["player_1"]["fingerprint"]["mayor_semantics"] == "castone.mayor.strategy-first.v1"
+    assert snapshot["player_0"]["fingerprint"]["action_space"] == model_registry.ACTION_SPACE_FINGERPRINT_V1
+    assert snapshot["player_1"]["fingerprint"]["mayor_semantics"] == model_registry.MAYOR_SEMANTICS_FINGERPRINT_V1
     assert "4949773" in snapshot["player_2"]["fingerprint"]["env"]
 
 
@@ -42,7 +43,7 @@ def test_build_model_versions_snapshot_marks_humans_separately():
 
     assert snapshot["player_0"]["actor_type"] == "human"
     assert snapshot["player_0"]["player_id"] == human_id
-    assert snapshot["player_0"]["fingerprint"]["action_space"] == "castone.action-space.strategy-first.v1"
+    assert snapshot["player_0"]["fingerprint"]["action_space"] == model_registry.ACTION_SPACE_FINGERPRINT_V1
     assert snapshot["player_1"]["actor_type"] == "bot"
     assert snapshot["player_2"]["bot_type"] == "ppo"
 

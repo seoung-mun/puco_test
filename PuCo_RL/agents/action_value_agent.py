@@ -136,7 +136,7 @@ class ActionValueAgent(nn.Module):
         """Set the environment reference for state access."""
         self._env = env
         
-    def get_action_and_value(self, obs_t, mask_t, phase_ids=None, action=None):
+    def get_action_and_value(self, obs_t, mask_t, phase_ids=None, action=None, **kwargs):
         """
         Select action using one-step lookahead heuristic evaluation.
         
@@ -237,10 +237,11 @@ class ActionValueAgent(nn.Module):
             if building_idx < len(building_types):
                 bonus = self._building_bonus(game, player_idx, building_types[building_idx], decay)
         
-        # ═══ Mayor Phase (39-43) ═══
+        # ═══ Trader Phase: Good Selection (39-43) ═══
         elif 39 <= action_idx < 44:
-            # Mayor actions are complex - use neutral bonus
-            bonus = 0.0
+            good_idx = action_idx - 39
+            good = Good(good_idx)
+            bonus = self._trade_bonus(game, player_idx, good, decay)
         
         # ═══ Captain Phase: Ship Selection (44-63) ═══
         elif 44 <= action_idx < 64:
@@ -255,12 +256,33 @@ class ActionValueAgent(nn.Module):
             good_idx = action_idx - 64
             good = Good(good_idx)
             bonus = self._store_bonus(game, player_idx, good, decay)
-        
-        # ═══ Trader Phase: Good Selection (69-73) ═══
-        elif 69 <= action_idx < 74:
-            good_idx = action_idx - 69
-            good = Good(good_idx)
-            bonus = self._trade_bonus(game, player_idx, good, decay)
+            
+        # ═══ Mayor Phase: Colonist Placement ═══
+        elif 120 <= action_idx < 132:
+            slot_idx = action_idx - 120
+            t = p.island_board[slot_idx]
+            bonus = 0.5
+            if t.tile_type == TileType.QUARRY:
+                bonus = 1.0
+            else:
+                good = self._PLANTATION_TO_GOOD.get(t.tile_type)
+                if good == Good.CORN:
+                    bonus = 0.8
+                elif good is not None and self._has_production_building(game, player_idx, good):
+                    bonus = 0.9
+            bonus *= decay
+            
+        elif 140 <= action_idx < 152:
+            slot_idx = action_idx - 140
+            b = p.city_board[slot_idx]
+            bonus = 1.0
+            if b.building_type in self._COMMERCIAL_ABILITY_VALUES:
+                bonus = 1.5
+            elif b.building_type in self._PRODUCTION_BUILDING_TO_GOOD:
+                bonus = 1.2
+            if BUILDING_DATA.get(b.building_type, [0,0,0,0,False])[4]: # is_large 
+                bonus = 2.0
+            bonus *= decay
         
         # ═══ Wharf Phase (74-78) ═══
         elif 74 <= action_idx < 79:

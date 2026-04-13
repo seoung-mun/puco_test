@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 
 interface Props {
   onGoogleLogin: (credentialResponse: { credential?: string }) => void;
+  onGoogleLoginError: () => void;
+  googleLoginAvailable: boolean;
   isLoggedIn: boolean;
   needsNickname: boolean;
   nicknameInput: string;
@@ -14,6 +16,8 @@ interface Props {
 
 export default function LoginScreen({
   onGoogleLogin,
+  onGoogleLoginError,
+  googleLoginAvailable,
   isLoggedIn,
   needsNickname,
   nicknameInput,
@@ -68,14 +72,20 @@ export default function LoginScreen({
             <p style={{ color: '#aab', margin: 0, fontSize: 14 }}>
               {t('login.signInPrompt', 'Google 계정으로 로그인하세요')}
             </p>
-            <GoogleLogin
-              onSuccess={onGoogleLogin}
-              onError={() => {}}
-              theme="filled_black"
-              size="large"
-              shape="rectangular"
-              width="280"
-            />
+            {googleLoginAvailable ? (
+              <GoogleLogin
+                onSuccess={onGoogleLogin}
+                onError={onGoogleLoginError}
+                theme="filled_black"
+                size="large"
+                shape="rectangular"
+                width="280"
+              />
+            ) : (
+              <div style={{ color: '#f0c040', fontSize: 13, textAlign: 'center' }}>
+                {t('login.googleSetupRequired', 'Google 로그인 설정이 비어 있어 버튼을 표시할 수 없습니다.')}
+              </div>
+            )}
           </>
         )}
 

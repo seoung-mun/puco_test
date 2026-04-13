@@ -1,5 +1,9 @@
 # Dual Mayor Engine Design
 
+> Deprecated: 이 문서는 human sequential Mayor 와 bot strategy Mayor 공존안을 설명하는 historical design 이다.
+> 현재 canonical contract는 strategy-first Mayor 이며 `contract.md` 와
+> `design/2026-04-08_engine_cutover_task_breakdown.md` 를 우선한다.
+
 ## Date: 2026-04-07
 
 ## 1. Overview

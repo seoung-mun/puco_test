@@ -23,6 +23,11 @@ export interface Meta {
   // Channel API action indices
   pass_action_index?: number;
   hacienda_action_index?: number;
+  // Mayor slot-direct convenience fields (present only during mayor_action phase)
+  mayor_phase_mode?: 'slot-direct';
+  mayor_remaining_colonists?: number;
+  mayor_legal_island_slots?: number[];
+  mayor_legal_city_slots?: number[];
 }
 
 export interface Role {

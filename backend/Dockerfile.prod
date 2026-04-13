@@ -22,7 +22,9 @@ COPY PuCo_RL /PuCo_RL
 # 백엔드 앱 코드
 COPY backend/ /app/
 
-RUN useradd -m -u 1001 appuser
+RUN useradd -m -u 1001 appuser \
+    && mkdir -p /data/logs/games /data/logs/replay \
+    && chown -R appuser:appuser /data
 
 COPY backend/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

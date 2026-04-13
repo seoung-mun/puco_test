@@ -2,6 +2,7 @@ import json
 import uuid
 
 from app.engine_wrapper.wrapper import create_game_engine
+from app.services import model_registry
 from app.services.replay_logger import (
     ReplayLogger,
     build_final_scores_payload,
@@ -59,7 +60,9 @@ def test_describe_action_matches_human_readable_replay_strings():
     assert describe_action(8, state_before=state) == "Settler: Take Corn Plantation"
     assert describe_action(16, state_before=state) == "Builder: Build Small Indigo Plant (cost 1, VP 1)"
     assert describe_action(39, state_before=state) == "Trader: Sell Coffee (base price 4)"
-    assert describe_action(69, state_before=state) == "Mayor: Strategy Captain Focus"
+    assert describe_action(69, state_before=state) == "Mayor: (legacy) Strategy Captain Focus"
+    assert describe_action(120, state_before=state) == "Mayor: Place colonist on Island slot 0"
+    assert describe_action(140, state_before=state) == "Mayor: Place colonist on City slot 0"
 
 
 def test_replay_logger_writes_human_readable_json(tmp_path, monkeypatch):
@@ -138,8 +141,8 @@ def test_replay_logger_writes_human_readable_json(tmp_path, monkeypatch):
     assert data["title"] == "Replay Room"
     assert data["status"] == "FINISHED"
     assert data["players"][0]["display_name"] == "Alice"
-    assert data["parity"]["expected"]["action_space"] == "castone.action-space.strategy-first.v1"
-    assert data["parity"]["expected"]["mayor_semantics"] == "castone.mayor.strategy-first.v1"
+    assert data["parity"]["expected"]["action_space"] == model_registry.ACTION_SPACE_FINGERPRINT_V1
+    assert data["parity"]["expected"]["mayor_semantics"] == model_registry.MAYOR_SEMANTICS_FINGERPRINT_V1
     assert "4949773" in data["parity"]["expected"]["env"]
     assert data["parity"]["mismatched_players"] == []
     assert data["entries"][0]["action"] == "Select Role: Builder"

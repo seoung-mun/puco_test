@@ -45,7 +45,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         "policy_tag": "champion",
         "wrapper_cls": PPOWrapper,
         "model_env_key": "PPO_MODEL_FILENAME",
-        "model_default": "PPO_PR_Server_20260401_214532_step_99942400.pth",
+        "model_default": "PPO_PR_Server_hybrid_selfplay_curriculum_5billion_from_scratch_20260412_122638_step_481689600.pth",
     },
     "hppo": {
         "name": "HPPO Bot",

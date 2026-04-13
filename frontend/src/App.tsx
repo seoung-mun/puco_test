@@ -7,6 +7,7 @@ import type { FinalScoreSummary, GameState } from './types/gameState';
 import AppScreenGate from './components/AppScreenGate';
 import GameScreen from './components/GameScreen';
 import type { LobbyPlayer } from './types/gameState';
+import { buildGoogleLoginSetupMessage, googleLoginConfigured } from './googleOAuth';
 import './App.css';
 
 type Screen = 'loading' | 'login' | 'home' | 'rooms' | 'join' | 'lobby' | 'game';
@@ -276,8 +277,14 @@ export default function App() {
     };
   }, [bootstrapAuth]);
 
+  useEffect(() => {
+    if (authToken || googleLoginConfigured) return;
+    setError(buildGoogleLoginSetupMessage({ googleClientConfigured: false }));
+  }, [authToken]);
+
   async function handleGoogleLogin(credentialResponse: { credential?: string }) {
     if (!credentialResponse.credential) return;
+    setError(null);
     try {
       const res = await apiFetch(`${BACKEND}/api/puco/auth/google`, {
         method: 'POST',
@@ -301,6 +308,10 @@ export default function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed');
     }
+  }
+
+  function handleGoogleLoginError() {
+    setError(buildGoogleLoginSetupMessage());
   }
 
   async function handleSetNickname() {
@@ -753,7 +764,7 @@ export default function App() {
     doSettlePlantation(type, useHospice);
   }
 
-  async function selectMayorStrategy(actionIndex: 69 | 70 | 71) {
+  async function placeMayorColonist(actionIndex: number) {
     if (!state || notMyTurn()) return;
     await channelAction(actionIndex);
   }
@@ -848,6 +859,8 @@ export default function App() {
         lobbyHost={lobbyHost}
         lobbyError={lobbyError}
         onGoogleLogin={handleGoogleLogin}
+        onGoogleLoginError={handleGoogleLoginError}
+        googleLoginAvailable={googleLoginConfigured}
         onNicknameChange={setNicknameInput}
         onSetNickname={handleSetNickname}
         onGoToRooms={handleGoToRooms}
@@ -927,7 +940,7 @@ export default function App() {
       onSelectRole={selectRole}
       onSettlePlantation={settlePlantation}
       onUseHacienda={useHacienda}
-      onSelectMayorStrategy={selectMayorStrategy}
+      onPlaceMayorColonist={placeMayorColonist}
       onPassAction={passAction}
       onSellGood={sellGood}
       onCraftsmanPrivilege={craftsmanPrivilege}

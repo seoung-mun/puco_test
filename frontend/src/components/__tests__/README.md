@@ -4,7 +4,7 @@
 
 ## 현재 검증 축
 
-- `MayorStrategyPanel.test.tsx`: Mayor strategy 버튼과 disabled state
+- `MayorSequentialPanel.test.tsx`: Mayor slot 버튼과 disabled state
 - `AvailablePlantations.test.tsx`: Hacienda pending 보호
 - `RoomListScreen.test.tsx`, `LobbyScreen.test.tsx`: 방/로비 흐름
 - `CommonBoardPanel.test.tsx`, `EndGamePanel.test.tsx`, `SanJuan.test.tsx`: 핵심 패널 렌더링

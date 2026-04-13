@@ -4,13 +4,12 @@ rich GameState JSON format expected by the frontend.
 """
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from app.services.engine_gateway.constants import BUILDING_DATA, BuildingType
+from app.services.engine_gateway.constants import BUILDING_DATA, BuildingType, Phase, TileType
 from app.services.state_serializer_support import (
     GOOD_TO_STR,
     PHASE_TO_STR,
     ROLE_TO_STR,
     TILE_TO_STR,
-    apply_backend_action_mask_guards,
     building_name,
     compute_display_order,
     compute_score_breakdown,
@@ -22,6 +21,29 @@ from app.services.state_serializer_support import (
 if TYPE_CHECKING:
     from app.engine_wrapper.wrapper import EngineWrapper
     from app.services.session_manager import SessionManager
+
+
+def _build_mayor_meta(game: Any) -> Dict[str, Any]:
+    """Build Mayor convenience fields when phase is MAYOR."""
+    if game.current_phase != Phase.MAYOR:
+        return {}
+    player = game.players[game.current_player_idx]
+    legal_island: List[int] = []
+    legal_city: List[int] = []
+    for i, t in enumerate(player.island_board):
+        if t.tile_type != TileType.EMPTY and not t.is_occupied:
+            legal_island.append(i)
+    for i, b in enumerate(player.city_board):
+        if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE):
+            cap = BUILDING_DATA[b.building_type][2]
+            if b.colonists < cap:
+                legal_city.append(i)
+    return {
+        "mayor_phase_mode": "slot-direct",
+        "mayor_remaining_colonists": player.unplaced_colonists,
+        "mayor_legal_island_slots": legal_island,
+        "mayor_legal_city_slots": legal_city,
+    }
 
 
 def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
@@ -59,6 +81,7 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
         "bot_thinking": session.bot_thinking,
         "pass_action_index": 15,
         "hacienda_action_index": 105,
+        **_build_mayor_meta(game),
     }
 
     decision = {
@@ -115,7 +138,7 @@ def serialize_game_state_from_engine(
         name = player_names[i] if i < len(player_names) else f"Player {i}"
         players[f"player_{i}"] = serialize_player(p, game, name, i, display_order[i])
 
-    action_mask = apply_backend_action_mask_guards(game, engine.get_action_mask())
+    action_mask = engine.get_action_mask()
 
     meta = {
         "game_id": game_id,
@@ -136,6 +159,7 @@ def serialize_game_state_from_engine(
         "bot_thinking": False,
         "pass_action_index": 15,
         "hacienda_action_index": 105,
+        **_build_mayor_meta(game),
     }
 
     decision = {
@@ -211,7 +235,6 @@ def serialize_compact_summary(engine: "EngineWrapper") -> Dict[str, Any]:
 
 __all__ = [
     "PHASE_TO_STR",
-    "apply_backend_action_mask_guards",
     "compute_display_order",
     "compute_score_breakdown",
     "serialize_compact_summary",

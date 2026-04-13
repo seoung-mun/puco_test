@@ -219,9 +219,9 @@ class ShippingRushAgent(nn.Module):
 
     def _choose_mayor_strategy(self, my_state: dict, mask: np.ndarray,
                                 priority: np.ndarray):
-        """Mayor actions: 69=CAPTAIN_FOCUS, 70=TRADE_FACTORY_FOCUS, 71=BUILDING_FOCUS"""
+        """Mayor actions: 120-131 (Island), 140-151 (City). Prioritize Shipping Rush targets."""
         city_b = my_state["city_buildings"]
-        city_c = my_state["city_colonists"]
+        island_tiles = my_state["island_tiles"]
 
         shipping_bldgs = {BuildingType.HARBOR, BuildingType.WHARF,
                           BuildingType.SMALL_WAREHOUSE, BuildingType.LARGE_WAREHOUSE}
@@ -231,38 +231,35 @@ class ShippingRushAgent(nn.Module):
                              BuildingType.SMALL_SUGAR_MILL, BuildingType.SUGAR_MILL,
                              BuildingType.TOBACCO_STORAGE, BuildingType.COFFEE_ROASTER}
 
-        captain_slots = trade_slots = building_slots = 0
-
         for slot, b in enumerate(city_b):
-            if _iv(b) >= 23:
-                continue
-            try:
-                b_type = BuildingType(_iv(b))
-            except ValueError:
-                continue
-            capacity = BUILDING_DATA[b_type][2]
-            colonists = _iv(city_c[slot])
-            empty_slots = max(0, capacity - colonists)
-            if empty_slots == 0:
-                continue
-            if b_type in shipping_bldgs:
-                captain_slots += empty_slots
-            elif b_type in trade_bldgs:
-                trade_slots += empty_slots
-            elif b_type in production_bldgs:
-                building_slots += empty_slots
-
-        # For Shipping Rush: prioritize captain focus
-        scores = {69: captain_slots + 5, 70: trade_slots, 71: building_slots + 2}
-
-        for action_id, score in sorted(scores.items(), key=lambda x: -x[1]):
+            action_id = 140 + slot
             if mask[action_id]:
-                priority[action_id] = 200.0 + score * 10
-                break
+                try:
+                    b_type = BuildingType(_iv(b))
+                except ValueError:
+                    continue
+                score = 50.0
+                if b_type.value >= 18:
+                    score = 250.0 # Large buildings
+                elif b_type in shipping_bldgs:
+                    score = 240.0
+                elif b_type in production_bldgs:
+                    score = 230.0
+                elif b_type in trade_bldgs:
+                    score = 210.0
+                priority[action_id] = score + np.random.uniform(0, 5.0)
 
-        for action_id in (69, 70, 71):
-            if mask[action_id] and priority[action_id] < 50.0:
-                priority[action_id] = 50.0
+        for slot, t in enumerate(island_tiles):
+            action_id = 120 + slot
+            if mask[action_id]:
+                try:
+                    t_type = TileType(_iv(t))
+                except ValueError:
+                    continue
+                score = 220.0 # Plantations high priority early on
+                if t_type == TileType.QUARRY:
+                    score = 150.0 # Quarries less important than production for Shipping Rush
+                priority[action_id] = score + np.random.uniform(0, 5.0)
 
     # ------------------------------------------------------------------
     # Main inference

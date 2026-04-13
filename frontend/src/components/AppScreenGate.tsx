@@ -21,6 +21,8 @@ interface Props {
   lobbyHost: string | null;
   lobbyError: string | null;
   onGoogleLogin: (credentialResponse: { credential?: string }) => void;
+  onGoogleLoginError: () => void;
+  googleLoginAvailable: boolean;
   onNicknameChange: (value: string) => void;
   onSetNickname: () => void;
   onGoToRooms: () => void;
@@ -49,6 +51,8 @@ export default function AppScreenGate({
   lobbyHost,
   lobbyError,
   onGoogleLogin,
+  onGoogleLoginError,
+  googleLoginAvailable,
   onNicknameChange,
   onSetNickname,
   onGoToRooms,
@@ -69,6 +73,8 @@ export default function AppScreenGate({
   if (screen === 'login') {
     return <LoginScreen
       onGoogleLogin={onGoogleLogin}
+      onGoogleLoginError={onGoogleLoginError}
+      googleLoginAvailable={googleLoginAvailable}
       isLoggedIn={!!authToken}
       needsNickname={authUser?.needs_nickname ?? false}
       nicknameInput={nicknameInput}

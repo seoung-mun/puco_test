@@ -1,9 +1,8 @@
-from agents.action_value_agent import (
-    ActionValueAgent,
-    ActionValueAgentSimple,
-    DaehanHeuristicAgent,
-    DaehanHeuristicAgentSimple,
-)
+from agents.action_value_agent import ActionValueAgent, ActionValueAgentSimple
+from agents.shipping_rush_agent import ShippingRushAgent
 from agents.factory_rule_based_agent import FactoryRuleBasedAgent
 from agents.heuristic_bots import RandomBot
-from agents.shipping_rush_agent import AdvancedRuleBasedAgent, ShippingRushAgent
+
+# Backward compatibility aliases (deprecated)
+from agents.action_value_agent import DaehanHeuristicAgent, DaehanHeuristicAgentSimple
+from agents.shipping_rush_agent import AdvancedRuleBasedAgent

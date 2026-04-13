@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from app.services import model_registry
-from app.services.agent_registry import resolve_model_artifact
+from app.services.agent_registry import AGENT_REGISTRY, resolve_model_artifact
 from agents.ppo_agent import Agent
 
 
@@ -14,14 +14,14 @@ def test_default_ppo_artifact_uses_bootstrap_metadata(monkeypatch):
     artifact = resolve_model_artifact("ppo")
 
     assert artifact is not None
-    assert artifact.checkpoint_filename == "PPO_PR_Server_20260401_214532_step_99942400.pth"
+    assert artifact.checkpoint_filename == AGENT_REGISTRY["ppo"]["model_default"]
     assert artifact.metadata_source == "bootstrap_derived"
     assert artifact.bootstrap_profile == "ppo_pr_server_v1"
-    assert artifact.obs_dim == 211
+    assert artifact.obs_dim == 210
     assert artifact.action_dim == 200
     assert artifact.potential_mode == "option3"
-    assert artifact.fingerprint["action_space"] == "castone.action-space.strategy-first.v1"
-    assert artifact.fingerprint["mayor_semantics"] == "castone.mayor.strategy-first.v1"
+    assert artifact.fingerprint["action_space"] == model_registry.ACTION_SPACE_FINGERPRINT_V1
+    assert artifact.fingerprint["mayor_semantics"] == model_registry.MAYOR_SEMANTICS_FINGERPRINT_V1
     assert "4949773" in artifact.fingerprint["env"]
 
 
@@ -83,7 +83,7 @@ def test_v1_sidecar_metadata_is_parsed(tmp_path):
     assert artifact.hidden_dim == 512
     assert artifact.num_res_blocks == 3
     assert artifact.fingerprint["action_space"] == "custom.action-space.v99"
-    assert artifact.fingerprint["mayor_semantics"] == "castone.mayor.strategy-first.v1"
+    assert artifact.fingerprint["mayor_semantics"] == model_registry.MAYOR_SEMANTICS_FINGERPRINT_V1
     assert "4949773" in artifact.fingerprint["env"]
 
 

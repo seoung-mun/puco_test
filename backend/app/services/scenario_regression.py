@@ -112,11 +112,11 @@ def high_doubloon_role_priority_scenario() -> ScenarioSpec:
 
 def mayor_strategy_scenario() -> ScenarioSpec:
     return ScenarioSpec(
-        name="mayor-strategy-band",
-        description="Mayor decisions must stay inside the single-step strategy band.",
+        name="mayor-slot-direct-band",
+        description="Mayor decisions must use slot-direct actions (120-131 island, 140-151 city).",
         actor_id="BOT_factory_rule",
-        expected_actions=frozenset({69, 70, 71}),
-        forbidden_actions=frozenset({72, 73, 74, 75}),
+        expected_actions=frozenset(range(120, 132)) | frozenset(range(140, 152)),
+        forbidden_actions=frozenset({69, 70, 71, 72, 73, 74, 75}),
         prepare=prepare_mayor_strategy_scenario,
     )
 

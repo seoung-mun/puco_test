@@ -279,7 +279,7 @@ class TestSettlerPhase:
         settler_bits = mask[8:16]
         assert sum(settler_bits) >= 1, "Settler phase should have valid actions 8-15"
 
-    def test_settler_pass_blocked_while_regular_pick_exists(self, client, db):
+    def test_settler_pass_uses_engine_raw_mask(self, client, db):
         users = [_make_user(db, f"SettlerPass{i}") for i in range(3)]
         game = _make_game(db, [str(user.id) for user in users])
         start_res = _start(client, game.id, _bearer(users[0].id))
@@ -293,10 +293,6 @@ class TestSettlerPhase:
 
         mask = res.json()["action_mask"]
         assert any(mask[i] == 1 for i in range(8, 15)), "Settler phase should offer a regular pick"
-        assert mask[15] == 0, "Pass must be blocked while a regular settler pick exists"
-
-        res2 = _action(client, game.id, 15, _bearer(current_user.id))
-        assert res2.status_code == 400
 
     def test_settler_masked_action_blocked(self, client, db):
         """Builder actions (16-38) must be blocked during Settler phase."""
@@ -517,7 +513,7 @@ class TestCaptainPhase:
 class TestMayorPhase:
     """
     Select Mayor role (action 1) → enter Mayor phase.
-    Mayor actions: 69-71 strategy selection.
+    Mayor actions: 120-131 island slots, 140-151 city slots.
     """
 
     def _enter_mayor(self, client, game, users):
@@ -533,22 +529,41 @@ class TestMayorPhase:
         res, _ = self._enter_mayor(client, game, users)
         assert res.status_code == 200
 
-    def test_mayor_has_colonist_placement_actions(self, client, db):
+    def test_mayor_has_slot_direct_placement_actions(self, client, db):
         game, users = _make_human_game(db, "MayorActions")
         res, _ = self._enter_mayor(client, game, users)
         assert res.status_code == 200
         mask = res.json()["action_mask"]
-        mayor_bits = mask[69:72]
-        assert sum(mayor_bits) == 3, "Mayor phase must expose all three strategy actions"
+        state = res.json()["state"]
+        if state["meta"]["phase"] != "mayor_action":
+            pytest.skip("Mayor role resolved immediately because no placement decisions were available")
+        mayor_slots = [
+            idx for idx in list(range(120, 132)) + list(range(140, 152))
+            if mask[idx] == 1
+        ]
+        assert mask[69:72] == [0, 0, 0], "Legacy Mayor strategy actions must be disabled"
+        assert mayor_slots, "Mayor phase must expose at least one slot-direct action"
+        assert set(state["meta"]["mayor_legal_island_slots"]) == {
+            idx - 120 for idx in range(120, 132) if mask[idx] == 1
+        }
+        assert set(state["meta"]["mayor_legal_city_slots"]) == {
+            idx - 140 for idx in range(140, 152) if mask[idx] == 1
+        }
 
-    def test_mayor_valid_strategy_action(self, client, db):
+    def test_mayor_valid_slot_action(self, client, db):
         game, users = _make_human_game(db, "MayorPlacement")
         res, current_user = self._enter_mayor(client, game, users)
         assert res.status_code == 200
         mask = res.json()["action_mask"]
-        mayor_valid = next((i for i in range(69, 72) if mask[i] == 1), None)
+        mayor_valid = next(
+            (
+                i for i in list(range(120, 132)) + list(range(140, 152))
+                if mask[i] == 1
+            ),
+            None,
+        )
         if mayor_valid is None:
-            pytest.skip("No mayor strategy action available")
+            pytest.skip("No legal mayor slot action available")
         res2 = _action(client, game.id, mayor_valid, _bearer(current_user.id))
         assert res2.status_code == 200
 

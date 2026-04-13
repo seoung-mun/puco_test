@@ -165,13 +165,17 @@ function makeMayorState() {
       num_players: 3,
       player_order: ['player_0', 'player_1', 'player_2'],
       governor: 'player_0',
-      phase: 'mayor_action',
-      phase_id: 1,
-      active_role: 'mayor',
-      active_player: 'player_0',
-      end_game_triggered: false,
-      bot_thinking: false,
-    },
+        phase: 'mayor_action',
+        phase_id: 1,
+        active_role: 'mayor',
+        active_player: 'player_0',
+        end_game_triggered: false,
+        bot_thinking: false,
+        mayor_phase_mode: 'slot-direct',
+        mayor_remaining_colonists: 3,
+        mayor_legal_island_slots: [0, 1],
+        mayor_legal_city_slots: [0, 1],
+      },
     common_board: {
       roles: {
         settler: { taken_by: null },
@@ -205,7 +209,10 @@ function makeMayorState() {
     bot_players: {},
     model_versions: {},
     result_summary: null,
-    action_mask: Array.from({ length: 200 }, (_, idx) => (idx >= 69 && idx <= 71 ? 1 : 0)),
+    action_mask: Array.from(
+      { length: 200 },
+      (_, idx) => (idx === 120 || idx === 121 || idx === 140 || idx === 141 ? 1 : 0),
+    ),
   };
 }
 
@@ -249,13 +256,14 @@ describe('App mayor flow', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows the strategy-first mayor panel after lobby start enters a mayor turn', async () => {
+  it('shows the slot-direct mayor panel after lobby start enters a mayor turn', async () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Captain Focus/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /^corn$/i })).toBeTruthy();
     });
-    expect(screen.getByRole('button', { name: /Trade \/ Factory/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Building Focus/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^indigo$/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /wharf/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Captain Focus/i })).toBeNull();
   });
 });

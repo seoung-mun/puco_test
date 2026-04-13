@@ -4,6 +4,8 @@ import type { Island } from '../types/gameState';
 interface Props {
   island: Island;
   highlightLastTile?: boolean;
+  mayorLegalSlots?: number[];
+  onMayorSlotClick?: (slotIdx: number) => void;
 }
 
 const TILE_CONFIG: Record<string, { bg: string; icon: string }> = {
@@ -20,7 +22,7 @@ const TILE_W = 72;
 const TILE_H = 64;
 const GAP = 8;
 
-export default function IslandGrid({ island, highlightLastTile }: Props) {
+export default function IslandGrid({ island, highlightLastTile, mayorLegalSlots, onMayorSlotClick }: Props) {
   const { t } = useTranslation();
   const totalSlots = island.total_spaces;
   const slots: (typeof island.plantations[0] | null)[] = [...island.plantations];
@@ -68,12 +70,20 @@ export default function IslandGrid({ island, highlightLastTile }: Props) {
             );
           }
 
+          const legalSet = mayorLegalSlots ? new Set(mayorLegalSlots) : null;
+          const isMayorLegal = legalSet != null && legalSet.has(i);
+          const tileStroke = isMayorLegal ? '#66ff99' : colonized ? '#fff' : '#00000055';
+          const tileStrokeW = isMayorLegal ? 3 : colonized ? 2 : 1;
+
           return (
-            <g key={i}>
+            <g key={i}
+              onClick={isMayorLegal && onMayorSlotClick ? () => onMayorSlotClick(i) : undefined}
+              style={isMayorLegal ? { cursor: 'pointer' } : undefined}
+            >
               {/* Tile card */}
               <rect x={x} y={y} width={TILE_W} height={TILE_H} rx={6}
-                fill={cfg.bg} stroke={colonized ? '#fff' : '#00000055'} strokeWidth={colonized ? 2 : 1}
-                opacity={colonized ? 1 : 0.6}
+                fill={cfg.bg} stroke={tileStroke} strokeWidth={tileStrokeW}
+                opacity={colonized ? 1 : isMayorLegal ? 0.9 : 0.6}
               />
               {/* Icon */}
               <text x={x + TILE_W / 2} y={y + TILE_H / 2 - 6}

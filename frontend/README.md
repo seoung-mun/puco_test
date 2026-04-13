@@ -13,7 +13,7 @@
 - 방 생성/입장/봇전 생성
 - 로비 WebSocket 연결과 게임 시작 전환
 - 게임 WebSocket 상태 수신과 액션 dispatch
-- strategy-first Mayor를 포함한 인간 플레이 UI
+- slot-direct Mayor를 포함한 인간 플레이 UI
 - 관리자 디버그 패널과 최종 결과 화면 표시
 
 ## 현재 구조 요약
@@ -36,8 +36,8 @@
 ## 현재 핵심 계약
 
 - 기본 실시간 경로는 WebSocket이며 SSE는 레거시 보조 경로입니다.
-- Mayor는 `69-71` strategy action 중 하나를 단일 제출합니다.
-- 프론트는 slot-by-slot Mayor payload를 더 이상 정식 계약으로 보지 않습니다.
+- Mayor는 `120-131` island / `140-151` city action 중 하나를 매번 제출합니다.
+- 프론트는 `mayor_legal_island_slots`, `mayor_legal_city_slots`, `action_mask`를 함께 사용해 slot-direct Mayor UI를 렌더링합니다.
 - `GameState`는 backend serializer가 만든 rich state shape를 기준으로 유지합니다.
 
 ## 실행

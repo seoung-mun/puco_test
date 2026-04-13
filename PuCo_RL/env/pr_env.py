@@ -45,7 +45,8 @@ class PuertoRicoEnv(AECEnv):
         # 44-58:   Captain - Load (ship_idx * 5 + good_type)
         # 59-63:   Captain - Load via Wharf (Good 0~4)
         # 64-68:   Captain Store Windrose - Keep Good (Good 0~4)
-        # 69-71:   Mayor - Strategy selection (0=Captain, 1=Trade/Factory, 2=Building)
+        # 120-131: Mayor - Place colonist on Island slot 0-11
+        # 140-151: Mayor - Place colonist on City slot 0-11
         # 93-97:   Craftsman - Privilege good selection (Good 0~4)
         # 98-103:  (Deprecated) Settler WITH Hacienda - Face up plantation (index 0~5)
         # 104:     (Deprecated) Settler WITH Hacienda - Take Quarry
@@ -211,7 +212,28 @@ class PuertoRicoEnv(AECEnv):
             if phase == Phase.CRAFTSMAN and action == 15:
                 self.game.action_craftsman(player_idx, privilege_good=None)
                 return True
-        
+                
+        # 3. Mayor phase auto-fill
+        if phase == Phase.MAYOR:
+            empty_slots = []
+            for i, t in enumerate(p.island_board):
+                if t.tile_type != TileType.EMPTY and not t.is_occupied:
+                    empty_slots.append((False, i, 120 + i))
+            for i, b in enumerate(p.city_board):
+                if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE):
+                    from configs.constants import BUILDING_DATA
+                    cap = BUILDING_DATA[b.building_type][2]
+                    for _ in range(cap - b.colonists):
+                        empty_slots.append((True, i, 140 + i))
+            
+            if p.unplaced_colonists >= len(empty_slots) and len(empty_slots) > 0:
+                first_action = empty_slots[0][2]
+                if first_action >= 140:
+                    self.game.action_mayor_place_colonist(player_idx, is_city=True, slot_idx=first_action - 140)
+                else:
+                    self.game.action_mayor_place_colonist(player_idx, is_city=False, slot_idx=first_action - 120)
+                return True
+                
         return False
 
     def step(self, action):
@@ -276,10 +298,13 @@ class PuertoRicoEnv(AECEnv):
                 g_type = Good(action - 106)
                 self.game.action_captain_store_warehouse(player_idx, g_type)
                 
-            elif 69 <= action <= 71:
-                # Mayor Strategy Selection
-                strategy = MayorStrategy(action - 69)
-                self.game.action_mayor_strategy(player_idx, strategy)
+            elif 120 <= action <= 131:
+                # Mayor Placement (Island)
+                self.game.action_mayor_place_colonist(player_idx, is_city=False, slot_idx=action - 120)
+                
+            elif 140 <= action <= 151:
+                # Mayor Placement (City)
+                self.game.action_mayor_place_colonist(player_idx, is_city=True, slot_idx=action - 140)
                             
             elif 93 <= action <= 97:
                 # Craftsman Privilege
@@ -510,6 +535,14 @@ class PuertoRicoEnv(AECEnv):
         dynamic_large_vp = 0.0
         occupied_city = 0
         
+        # 게임 진행도(Progress) 추정 (최대 1.0)
+        # - 빈 City 칸 보유 현황, 남아있는 VP칩, 그리고 식민지 이민선 잔량을 기준으로 추정
+        city_fullness = sum(1 for b in p.city_board if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE)) / 12.0
+        vp_progress = max(0, (122 - self.game.vp_chips)) / 122.0 if self.game.num_players == 5 else max(0, (100 - self.game.vp_chips)) / 100.0  # approximate
+        colonist_progress = max(0, (100 - self.game.colonists_supply)) / 100.0 # approximate
+        progress = min(1.0, max(city_fullness, vp_progress, colonist_progress))
+        decay = max(0.0, 1.0 - progress)
+        
         for b in p.city_board:
             if b.building_type in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE): continue
             b_type = b.building_type
@@ -544,7 +577,15 @@ class PuertoRicoEnv(AECEnv):
                     elif b_type == BuildingType.GUILDHALL:
                         dynamic_large_vp += (num_large_prod * 2) + (num_small_prod * 1)
 
-        total_vp = chip_vp + building_vps + dynamic_large_vp
+        # 4. 객관적 순수 가치 자산 (Asset-Based PBRS)
+        # 4.1 더블론 (Doubloons): 평균 3~4원이 1VP 건물을 짓는 데 사용됨 (기댓값: 0.25 VP/원)
+        asset_doubloons = p.doubloons * 0.25 * decay
+        
+        # 4.2 상품 (Goods): Captain Phase에서 1개당 1VP로 확정 변환 가치를 가짐. (선적 제한 등 위험요소 고려해 0.5 승수 적용)
+        total_goods = sum(p.goods.values())
+        asset_goods = total_goods * 0.5 * decay
+
+        total_vp = chip_vp + building_vps + dynamic_large_vp + asset_doubloons + asset_goods
         
         return total_vp * 0.01  # Critic Value 폭발 방지용 스케일링
 
@@ -688,11 +729,14 @@ class PuertoRicoEnv(AECEnv):
                         mask[106 + g.value] = True
                     
         elif phase == Phase.MAYOR:
-            # Strategy-based placement: all 3 strategies are always valid
-            # 69 = CAPTAIN_FOCUS, 70 = TRADE_FACTORY_FOCUS, 71 = BUILDING_FOCUS
-            mask[69] = True
-            mask[70] = True
-            mask[71] = True
+            if p.unplaced_colonists > 0:
+                for i, t in enumerate(p.island_board):
+                    if t.tile_type != TileType.EMPTY and not t.is_occupied:
+                        mask[120 + i] = True
+                for i, b in enumerate(p.city_board):
+                    if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE):
+                        if b.colonists < BUILDING_DATA[b.building_type][2]:
+                            mask[140 + i] = True
 
         elif phase == Phase.CRAFTSMAN:
             has_privilege = (game.current_player_idx == game.active_role_player_idx())

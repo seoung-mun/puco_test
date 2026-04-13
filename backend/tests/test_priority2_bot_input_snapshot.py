@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from app.engine_wrapper.wrapper import create_game_engine
 from app.services.agent_registry import valid_bot_types
 from app.services.bot_service import BotService
-from app.services.state_serializer import PHASE_TO_STR, apply_backend_action_mask_guards, serialize_game_state_from_engine
+from app.services.state_serializer import PHASE_TO_STR, serialize_game_state_from_engine
 from configs.constants import Phase
 
 
@@ -31,8 +31,7 @@ def test_bot_input_snapshot_matches_serializer_after_engine_step():
         bot_players={1: "random", 2: "ppo"},
     )
 
-    guarded_mask = apply_backend_action_mask_guards(engine.env.game, snapshot.action_mask)
-    assert guarded_mask == state["action_mask"]
+    assert list(snapshot.action_mask) == state["action_mask"]
     assert snapshot.current_player_idx == int(state["meta"]["active_player"].split("_")[1])
     assert snapshot.step_count == engine._step_count
     assert state["meta"]["step_count"] == snapshot.step_count
@@ -64,7 +63,6 @@ def test_factory_rule_bot_returns_valid_settler_choice():
 
     snapshot = BotService.build_input_snapshot(engine, "BOT_factory_rule")
     assert snapshot.phase_id == Phase.SETTLER
-    assert snapshot.action_mask[15] == 0, "일반 개척 선택이 가능하면 Settler pass 는 guard 되어야 합니다"
 
     action = BotService.get_action(
         "factory_rule",

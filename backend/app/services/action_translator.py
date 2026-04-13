@@ -12,8 +12,10 @@ Action space summary:
   44-58:  load_ship         (ship_idx*5 + good_value)
   59-63:  load_wharf        (good_value, ship_idx=-1)
   64-68:  store_windrose    (good_value)
-  69-71:  mayor_strategy    (Human/Bot 공통: CAPTAIN_FOCUS=0, TRADE_FACTORY=1, BUILDING=2)
+  69-71:  (reserved legacy — no longer Mayor public contract)
   93-97:  craftsman_priv    (good_value)
+  120-131: mayor_place_island (slot 0-11)
+  140-151: mayor_place_city   (slot 0-11)
   105:    hacienda_draw
   106-110: store_warehouse  (good_value)
 """
@@ -136,9 +138,24 @@ def craftsman_privilege(good: str) -> int:
 
 
 def mayor_strategy(strategy_index: int) -> int:
+    """Legacy — kept for backward-compatibility references only."""
     if not (0 <= strategy_index <= 2):
         raise ValueError(f"Mayor strategy_index {strategy_index} out of range (0-2)")
     return 69 + strategy_index
+
+
+def mayor_place_island(slot_idx: int) -> int:
+    """Mayor slot-direct: place colonist on island slot 0-11 → action 120-131."""
+    if not (0 <= slot_idx <= 11):
+        raise ValueError(f"Island slot_idx {slot_idx} out of range (0-11)")
+    return 120 + slot_idx
+
+
+def mayor_place_city(slot_idx: int) -> int:
+    """Mayor slot-direct: place colonist on city slot 0-11 → action 140-151."""
+    if not (0 <= slot_idx <= 11):
+        raise ValueError(f"City slot_idx {slot_idx} out of range (0-11)")
+    return 140 + slot_idx
 
 
 def store_windrose(good: str) -> int:

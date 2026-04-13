@@ -239,7 +239,13 @@ def describe_action(action_id: int, *, state_before: dict[str, Any] | None = Non
             70: "Trade / Factory Focus",
             71: "Building Focus",
         }[action_id]
-        return f"Mayor: Strategy {strategy_name}"
+        return f"Mayor: (legacy) Strategy {strategy_name}"
+
+    if 120 <= action_id <= 131:
+        return f"Mayor: Place colonist on Island slot {action_id - 120}"
+
+    if 140 <= action_id <= 151:
+        return f"Mayor: Place colonist on City slot {action_id - 140}"
 
     if 93 <= action_id <= 97:
         return f"Craftsman: Choose Privilege {_good_name(action_id - 93)}"

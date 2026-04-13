@@ -17,7 +17,7 @@
 - 플레이어/보드 표현
   - `PlayerPanel.tsx`, `PlayerAdvantages.tsx`, `CityGrid.tsx`, `IslandGrid.tsx`, `SanJuan.tsx`
 - 액션 서브패널
-  - `AvailablePlantations.tsx`, `CargoShips.tsx`, `TradingHouse.tsx`, `ColonistShip.tsx`, `MayorStrategyPanel.tsx`
+  - `AvailablePlantations.tsx`, `CargoShips.tsx`, `TradingHouse.tsx`, `ColonistShip.tsx`, `MayorSequentialPanel.tsx`
 - 운영 보조
   - `AdminPanel.tsx`
 
@@ -29,4 +29,4 @@
 ## 설계 메모
 
 - `GameScreen.tsx`가 현재 게임 화면의 container 역할을 하고, 나머지는 주로 presentational or focused interaction component입니다.
-- Mayor 관련 UI는 `MayorStrategyPanel.tsx` 하나로 strategy-first contract를 드러냅니다.
+- Mayor 관련 UI는 `MayorSequentialPanel.tsx`와 보드 slot highlight를 통해 slot-direct contract를 드러냅니다.

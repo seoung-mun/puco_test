@@ -3,10 +3,11 @@ import sys
 
 import torch
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../PuCo_RL")))
 
 from agents.ppo_agent import Agent
-from agents.wrappers import PPOWrapper
+from app.services.agents.wrappers import PPOWrapper
 
 
 def test_serving_ppo_wrapper_adapts_210_checkpoint_to_211_runtime_obs(tmp_path):

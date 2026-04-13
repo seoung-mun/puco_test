@@ -9,7 +9,6 @@ import AdminPanel from './AdminPanel';
 import PlayerAdvantages from './PlayerAdvantages';
 import HistoryPanel from './HistoryPanel';
 import EndGamePanel from './EndGamePanel';
-import MayorStrategyPanel from './MayorStrategyPanel';
 
 type Advantage = { label: string; tooltip: string; cls: string };
 type BuildConfirm = { name: string; cost: number; vp: number } | null;
@@ -50,7 +49,7 @@ type Props = {
   onSelectRole: (role: string) => Promise<void>;
   onSettlePlantation: (type: string) => void;
   onUseHacienda: () => Promise<void>;
-  onSelectMayorStrategy: (actionIndex: 69 | 70 | 71) => Promise<void>;
+  onPlaceMayorColonist: (actionIndex: number) => Promise<void>;
   onPassAction: () => Promise<void>;
   onSellGood: (good: string) => Promise<void>;
   onCraftsmanPrivilege: (good: string) => Promise<void>;
@@ -130,7 +129,7 @@ export default function GameScreen({
   onSelectRole,
   onSettlePlantation,
   onUseHacienda,
-  onSelectMayorStrategy,
+  onPlaceMayorColonist,
   onPassAction,
   onSellGood,
   onCraftsmanPrivilege,
@@ -217,7 +216,7 @@ export default function GameScreen({
   }
 
   const activeMayorPlayer = isMayorPhase ? state.players[state.meta.active_player] : null;
-  const showMayorStrategyPanel = isMayorPhase && activeMayorPlayer != null && !isBotTurn;
+  const showMayorPanel = isMayorPhase && activeMayorPlayer != null && !isBotTurn;
 
   return (
     <div className="app">
@@ -494,14 +493,7 @@ export default function GameScreen({
         />
       </div>
 
-      {showMayorStrategyPanel && (
-        <MayorStrategyPanel
-          player={activeMayorPlayer}
-          actionMask={state.action_mask}
-          disabled={!isMyTurn || interactionLocked}
-          onSelectStrategy={onSelectMayorStrategy}
-        />
-      )}
+      {/* Mayor: 그리드 타일 직접 클릭으로 일꾼 배치 (MayorSequentialPanel 제거) */}
 
       {!isBlocked && (isTraderPhase || isCaptainPhase || isCaptainDiscard) && (() => {
         if (isTraderPhase) {
@@ -722,6 +714,26 @@ export default function GameScreen({
               : undefined}
             isMe={isMultiplayer ? state.players[id]?.display_name === myName : undefined}
             botType={state.bot_players ? state.bot_players[id] : undefined}
+            mayorLegalIslandSlots={
+              showMayorPanel && id === state.meta.active_player
+                ? state.meta.mayor_legal_island_slots
+                : undefined
+            }
+            mayorLegalCitySlots={
+              showMayorPanel && id === state.meta.active_player
+                ? state.meta.mayor_legal_city_slots
+                : undefined
+            }
+            onMayorIslandClick={
+              showMayorPanel && id === state.meta.active_player && isMyTurn && !interactionLocked
+                ? (slotIdx) => onPlaceMayorColonist(120 + slotIdx)
+                : undefined
+            }
+            onMayorCityClick={
+              showMayorPanel && id === state.meta.active_player && isMyTurn && !interactionLocked
+                ? (slotIdx) => onPlaceMayorColonist(140 + slotIdx)
+                : undefined
+            }
           />
         ))}
       </div>

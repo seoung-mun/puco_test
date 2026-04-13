@@ -5,7 +5,7 @@
 ## 현재 테스트
 
 - `App.auth-flow.test.tsx`: 로그인/부트스트랩 흐름
-- `App.mayor-flow.test.tsx`: Mayor strategy panel 노출과 흐름
+- `App.mayor-flow.test.tsx`: Mayor sequential panel 노출과 흐름
 
 ## 의존성
 

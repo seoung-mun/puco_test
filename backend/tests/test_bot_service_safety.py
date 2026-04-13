@@ -19,7 +19,7 @@ class TestBotServiceSafety:
         # 5. 범위 초과 클램핑
         assert _extract_phase_id({"global_state": {"current_phase": 15}}) == 9
 
-    def test_build_input_snapshot_applies_backend_settler_guard(self):
+    def test_build_input_snapshot_uses_raw_engine_mask(self):
         engine = MagicMock()
         raw_mask = [0] * 200
         raw_mask[8] = 1
@@ -40,7 +40,7 @@ class TestBotServiceSafety:
         snapshot = BotService.build_input_snapshot(engine, "BOT_factory_rule")
 
         assert snapshot.action_mask[8] == 1
-        assert snapshot.action_mask[15] == 0
+        assert snapshot.action_mask[15] == 1  # 엔진 raw mask를 그대로 전달
 
     @pytest.mark.asyncio
     async def test_run_bot_turn_recovery_on_callback_failure(self):
@@ -77,7 +77,7 @@ class TestBotServiceSafety:
         assert mask[call_results[1]] == 1
 
     @pytest.mark.asyncio
-    async def test_run_bot_turn_retry_uses_guarded_settler_mask(self):
+    async def test_run_bot_turn_retry_uses_raw_settler_mask(self):
         engine = MagicMock()
         raw_mask = [0] * 200
         raw_mask[8] = 1
@@ -111,7 +111,9 @@ class TestBotServiceSafety:
                     process_action_callback=failing_callback,
                 )
 
-        assert call_results == [0, 8]
+        assert len(call_results) == 2
+        assert call_results[0] == 0
+        assert call_results[1] in (8, 15)  # 엔진 raw mask에서 유효한 액션 중 선택
 
 class TestRunBotTurnTopLevelSafety:
     """run_bot_turn 최상위에서 예외가 발생해도 crash하지 않아야 한다."""

@@ -104,7 +104,7 @@
 - bot-only spectator room에서는 host가 `players` 바깥에 있어도 `start`와 `final-score` 접근이 허용된다.
 - 일반 액션은 `payload.action_index` 정수 하나로 전달한다.
 - `action` 호출자는 room의 실제 `players` 멤버여야 하며, 현재 턴 actor와 일치해야 한다.
-- Mayor도 human / bot 공통으로 `POST /action` 한 번에 처리한다.
+- Mayor는 human / bot 공통으로 `POST /action`에 slot-direct action index (`120-131` island, `140-151` city)를 보낸다. 한 번 호출에 colonist 1명씩 순차 배치한다.
 - `add-bot` / `remove-bot`은 host만 가능하고 `WAITING` room에서만 허용된다.
 - `add-bot`의 `bot_type` 기본값은 `random`이다.
 - `final-score`는 player 또는 host만 조회 가능하며, active engine이 없으면 404가 날 수 있다.
@@ -204,7 +204,12 @@
 - `phase_id`는 엔진 `Phase` enum 정수다.
 - `pass_action_index`는 항상 `15`다.
 - `hacienda_action_index`는 항상 `105`다.
-- sequential Mayor cursor용 `mayor_slot_idx`, `mayor_can_skip`는 더 이상 포함되지 않는다.
+- Mayor phase일 때 추가 convenience fields:
+  - `mayor_phase_mode`: `"slot-direct"` (고정)
+  - `mayor_remaining_colonists`: 현재 플레이어의 남은 배치 colonist 수
+  - `mayor_legal_island_slots`: 합법 island slot index 배열 (예: `[0, 2, 5]`)
+  - `mayor_legal_city_slots`: 합법 city slot index 배열 (예: `[1, 4]`)
+- 과거 cursor용 `mayor_slot_idx`, `mayor_can_skip`는 포함되지 않는다.
 
 ### 3.2 `common_board`
 
@@ -332,27 +337,30 @@ terminal state에서 `result_summary`는 다음 구조를 따른다.
 - `44-58`: captain ship load
 - `59-63`: captain wharf load
 - `64-68`: captain windrose keep
-- `69-71`: Mayor strategy
+- `69-71`: (reserved legacy — no longer Mayor public contract)
 - `93-97`: craftsman privilege
 - `105`: hacienda draw
 - `106-110`: captain warehouse keep
+- `120-131`: Mayor sequential island slot placement (slot 0-11)
+- `140-151`: Mayor sequential city slot placement (slot 0-11)
 
 ### 4.1 Mayor
 
 현재 supported Mayor contract:
 
-- Human / Bot 공통 단일 액션 `69-71`
-- 의미
-  - `69`: `CAPTAIN_FOCUS`
-  - `70`: `TRADE_FACTORY_FOCUS`
-  - `71`: `BUILDING_FOCUS`
-- Mayor 선택은 `POST /api/puco/game/{game_id}/action` 단일 호출로 처리한다.
+- Human / Bot 공통 slot-direct sequential placement
+- `120-131`: island slot 0-11에 colonist 1명 배치
+- `140-151`: city slot 0-11에 colonist 1명 배치
+- 각 배치는 `POST /api/puco/game/{game_id}/action`으로 1회 호출한다.
+- 이미 점유된 slot이나 capacity가 찬 building에 대한 action은 400 에러다.
+- unplaced colonists가 0이 되거나 legal slot이 없으면 자동으로 다음 player로 넘어간다.
+- 한번 확정된 배치는 되돌릴 수 없다.
 
 명시적 비지원:
 
-- `POST /api/puco/game/{game_id}/mayor-distribute`
-- sequential Mayor cursor/meta (`mayor_slot_idx`, `mayor_can_skip`)
-- slot-by-slot Mayor placement REST / public contract
+- `69-71`: Mayor strategy band (legacy, 더 이상 Mayor public contract가 아님)
+- `POST /api/puco/game/{game_id}/mayor-distribute` (410 Gone)
+- cursor metadata (`mayor_slot_idx`, `mayor_can_skip`)
 
 ### 4.2 Settler Guard
 
@@ -433,7 +441,7 @@ Builder phase 유효성 계약:
 - `backend/tests/test_room_title_uniqueness.py`
 - `backend/tests/test_channel_bot_endpoint.py`
 - `backend/tests/test_final_score_access.py`
-- `backend/tests/test_mayor_strategy_contract.py`
+- `backend/tests/test_mayor_slot_contract.py`
 - `backend/tests/test_phase_action_edge_cases.py`
 - `backend/tests/test_state_serializer_action_index.py`
 - `backend/tests/test_model_version_snapshot.py`
@@ -444,7 +452,7 @@ Builder phase 유효성 계약:
 - `PuCo_RL/tests/test_phase_edge_cases.py`
 - `frontend/src/__tests__/App.auth-flow.test.tsx`
 - `frontend/src/__tests__/App.mayor-flow.test.tsx`
-- `frontend/src/components/__tests__/MayorStrategyPanel.test.tsx`
+- `frontend/src/components/__tests__/MayorSequentialPanel.test.tsx`
 - `frontend/src/components/__tests__/RoomListScreen.test.tsx`
 - `frontend/src/components/__tests__/SanJuan.test.tsx`
 - `frontend/vite.config.test.ts`

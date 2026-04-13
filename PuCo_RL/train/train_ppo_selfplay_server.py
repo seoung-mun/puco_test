@@ -371,6 +371,10 @@ def train():
             "Only Shipping Rush (strategy=0) is used — Fusion was sub-random."
         )
     )
+    parser.add_argument(
+        "--load_ckpt", type=str, default="",
+        help="Path to an existing .pth checkpoint to resume/finetune from."
+    )
     args = parser.parse_args()
 
     try:
@@ -410,6 +414,11 @@ def train():
     )
 
     agent     = Agent(obs_dim=obs_dim, action_dim=action_dim).to(device)
+    
+    if args.load_ckpt:
+        print(f"[Init] Loading weights from {args.load_ckpt} ...")
+        agent.load_state_dict(torch.load(args.load_ckpt, map_location=device, weights_only=True))
+
     optimizer = optim.Adam(agent.parameters(), lr=LEARNING_RATE, eps=1e-5)
 
     opponent_pool = mp.Manager().list()

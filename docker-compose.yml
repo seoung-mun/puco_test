@@ -74,6 +74,7 @@ services:
     container_name: puco_frontend
     environment:
       - VITE_API_TARGET=http://backend:8000
+      - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
     ports:
       - "127.0.0.1:3000:3000"
     volumes:

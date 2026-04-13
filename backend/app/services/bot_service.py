@@ -23,7 +23,6 @@ from app.services.agent_registry import (
     require_valid_bot_type,
     resolve_bot_type_from_actor_id,
 )
-from app.services.state_serializer import apply_backend_action_mask_guards
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +75,7 @@ class BotService:
         engine: EngineWrapper,
         action_mask: Optional[list[int]] = None,
     ) -> list[int]:
-        raw_mask = list(action_mask if action_mask is not None else engine.get_action_mask())
-        return apply_backend_action_mask_guards(engine.env.game, raw_mask)
+        return list(action_mask if action_mask is not None else engine.get_action_mask())
 
     @staticmethod
     def build_input_snapshot(
@@ -147,12 +145,20 @@ class BotService:
     def normalize_selected_action(action: int, action_mask: list[int], phase: Any) -> int:
         is_valid = 0 <= action < len(action_mask) and bool(action_mask[action])
         if phase == Phase.MAYOR:
-            if 69 <= action <= 71 and is_valid:
+            # New slot-direct contract: legal actions are 120-131 (island) and 140-151 (city)
+            if is_valid and (120 <= action <= 131 or 140 <= action <= 151):
                 return action
-            for strategy_action in range(69, 72):
-                if 0 <= strategy_action < len(action_mask) and action_mask[strategy_action]:
-                    return strategy_action
-            return 69
+            # Heuristic bridge: if model returned legacy 69-71 or any invalid action,
+            # pick the first legal island slot, then city slot.
+            for a in range(120, 132):
+                if a < len(action_mask) and action_mask[a]:
+                    return a
+            for a in range(140, 152):
+                if a < len(action_mask) and action_mask[a]:
+                    return a
+            # No legal Mayor slot — should not happen; engine auto-advances turn
+            logger.warning("[BOT] Mayor normalize: no legal slot-direct action found, returning original %d", action)
+            return action
         return action
 
     @staticmethod
@@ -235,9 +241,9 @@ class BotService:
                 )
             except Exception:
                 if phase == Phase.MAYOR:
-                    logger.exception("[BOT] Mayor inference error for game %s. Falling back to valid strategy.", game_id)
+                    logger.exception("[BOT] Mayor inference error for game %s. Falling back to legal slot heuristic.", game_id)
                     action_int = BotService.normalize_selected_action(
-                        action=69,
+                        action=-1,
                         action_mask=snapshot.action_mask,
                         phase=phase,
                     )

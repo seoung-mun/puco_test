@@ -368,143 +368,60 @@ class PuertoRicoGame:
         """Returns the idx of the player who picked the current active role."""
         return self.active_role_player
 
-    def action_mayor_strategy(self, player_idx: int, strategy: MayorStrategy):
+    def action_mayor_place_colonist(self, player_idx: int, is_city: bool, slot_idx: int):
         """
-        Strategy-based colonist placement (replaces sequential slot-by-slot).
-        Auto-fills colonists based on the chosen strategy priority.
-        
-        Strategy Priority:
-        1. Large VP Buildings (common to all strategies)
-        2. Strategy-specific buildings
-        3. Production pairs (by good value: Coffee > Tobacco > Sugar > Indigo > Corn)
-        4. Remaining colonists to any valid slots
+        Place a single colonist into an empty slot on the island or city.
+        The phase automatically advances if the player runs out of colonists 
+        or has no more valid empty slots.
         """
         if self.current_phase != Phase.MAYOR or self.current_player_idx != player_idx:
             raise ValueError("Not this player's turn in Mayor phase.")
-        
+            
         p = self.players[player_idx]
         
-        # Helper: place colonists on a building (returns number actually placed)
-        def fill_building(building_type: BuildingType, max_colonists: int) -> int:
-            for i, b in enumerate(p.city_board):
-                if b.building_type == building_type and b.colonists == 0:
-                    capacity = BUILDING_DATA[building_type][2]
-                    to_place = min(capacity, max_colonists, p.unplaced_colonists)
-                    if to_place > 0:
-                        b.colonists = to_place
-                        p.unplaced_colonists -= to_place
-                        return to_place
-            return 0
-        
-        # Helper: fill building to exact count (for production pairing)
-        def fill_building_exact(building_type: BuildingType, exact_count: int) -> int:
-            for i, b in enumerate(p.city_board):
-                if b.building_type == building_type and b.colonists == 0:
-                    capacity = BUILDING_DATA[building_type][2]
-                    to_place = min(capacity, exact_count, p.unplaced_colonists)
-                    if to_place > 0:
-                        b.colonists = to_place
-                        p.unplaced_colonists -= to_place
-                        return to_place
-            return 0
-        
-        # STEP 1: Large VP Buildings (always first priority)
-        for b_type in LARGE_VP_BUILDINGS:
-            if p.unplaced_colonists <= 0:
-                break
-            if p.has_building(b_type):
-                fill_building(b_type, p.unplaced_colonists)
-        
-        # STEP 2: Strategy-specific buildings
-        strategy_buildings = MAYOR_STRATEGY_BUILDINGS[strategy]
-        for b_type in strategy_buildings:
-            if p.unplaced_colonists <= 0:
-                break
-            if p.has_building(b_type):
-                fill_building(b_type, p.unplaced_colonists)
-        
-        # STEP 3: Production pairs (by good value order)
-        for good in GOOD_VALUE_ORDER:
-            if p.unplaced_colonists <= 0:
-                break
+        if p.unplaced_colonists <= 0:
+            raise ValueError("No unplaced colonists available.")
             
-            if good == Good.CORN:
-                # Corn only needs plantations (no production building)
-                corn_farms = [i for i, t in enumerate(p.island_board) 
-                              if t.tile_type == TileType.CORN_PLANTATION and not t.is_occupied]
-                for farm_idx in corn_farms:
-                    if p.unplaced_colonists <= 0:
-                        break
-                    p.island_board[farm_idx].is_occupied = True
-                    p.unplaced_colonists -= 1
-            else:
-                # Count available plantations for this good
-                plantation_type = None
-                for pt, g in PLANTATION_TO_GOOD.items():
-                    if g == good:
-                        plantation_type = pt
-                        break
+        if not (0 <= slot_idx < 12):
+            raise ValueError("Invalid slot index (must be 0-11).")
+            
+        if is_city:
+            b = p.city_board[slot_idx]
+            if b.building_type in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE):
+                raise ValueError("No valid building in this slot.")
+            capacity = BUILDING_DATA[b.building_type][2]
+            if b.colonists >= capacity:
+                raise ValueError("Building is already full.")
+            
+            b.colonists += 1
+        else:
+            t = p.island_board[slot_idx]
+            if t.tile_type == TileType.EMPTY:
+                raise ValueError("No tile in this slot.")
+            if t.is_occupied:
+                raise ValueError("Tile is already occupied.")
                 
-                if plantation_type is None:
-                    continue
-                
-                # Count unoccupied plantations
-                available_farms = [i for i, t in enumerate(p.island_board)
-                                   if t.tile_type == plantation_type and not t.is_occupied]
-                
-                # Find production buildings for this good
-                prod_buildings = PRODUCTION_BUILDINGS.get(good, [])
-                
-                # Calculate total building capacity (unfilled)
-                total_building_capacity = 0
-                for b_type in prod_buildings:
-                    for b in p.city_board:
-                        if b.building_type == b_type and b.colonists == 0:
-                            total_building_capacity += BUILDING_DATA[b_type][2]
-                
-                # Production = min(farms, building_capacity)
-                producible = min(len(available_farms), total_building_capacity)
-                
-                if producible > 0:
-                    # Fill farms first (up to producible amount)
-                    farms_to_fill = min(producible, len(available_farms))
-                    for i in range(farms_to_fill):
-                        if p.unplaced_colonists <= 0:
-                            break
-                        farm_idx = available_farms[i]
-                        p.island_board[farm_idx].is_occupied = True
-                        p.unplaced_colonists -= 1
-                        farms_to_fill -= 1
-                    
-                    # Fill buildings (up to producible amount)
-                    buildings_to_fill = producible
-                    for b_type in prod_buildings:
-                        if buildings_to_fill <= 0 or p.unplaced_colonists <= 0:
-                            break
-                        placed = fill_building_exact(b_type, buildings_to_fill)
-                        buildings_to_fill -= placed
+            t.is_occupied = True
+            
+        p.unplaced_colonists -= 1
         
-        # STEP 4: Fill remaining colonists to any valid empty slots
-        # First: remaining buildings (non-production, non-strategy)
-        for b in p.city_board:
-            if p.unplaced_colonists <= 0:
-                break
-            if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE) and b.colonists == 0:
-                capacity = BUILDING_DATA[b.building_type][2]
-                to_place = min(capacity, p.unplaced_colonists)
-                b.colonists = to_place
-                p.unplaced_colonists -= to_place
-        
-        # Then: remaining plantations/quarries
-        for t in p.island_board:
-            if p.unplaced_colonists <= 0:
-                break
-            if t.tile_type != TileType.EMPTY and not t.is_occupied:
-                t.is_occupied = True
-                p.unplaced_colonists -= 1
-        
-        # Advance to next player
-        self._advance_phase_turn()
+        # Check if player should pass turn (no colonists left, or no empty slots left)
+        should_advance = False
+        if p.unplaced_colonists == 0:
+            should_advance = True
+        else:
+            empty_slots = 0
+            for b_test in p.city_board:
+                if b_test.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE):
+                    empty_slots += BUILDING_DATA[b_test.building_type][2] - b_test.colonists
+            for t_test in p.island_board:
+                if t_test.tile_type != TileType.EMPTY and not t_test.is_occupied:
+                    empty_slots += 1
+            if empty_slots == 0:
+                should_advance = True
+                
+        if should_advance:
+            self._advance_phase_turn()
 
     def _execute_craftsman_production(self):
         """Auto-produce goods for all players strictly in order starting from active_role_player."""

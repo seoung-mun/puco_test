@@ -4,6 +4,7 @@ import pytest
 import asyncio
 from uuid import uuid4
 
+from app.services import model_registry
 from app.services.ml_logger import MLLogger
 
 
@@ -99,11 +100,11 @@ async def test_log_transition_includes_model_info_when_provided():
         model_info={
             "actor_type": "bot",
             "bot_type": "ppo",
-            "artifact_name": "PPO_PR_Server_20260401_214532_step_99942400",
+            "artifact_name": "PPO_PR_Server_hybrid_selfplay_curriculum_5billion_from_scratch_20260412_122638_step_481689600",
             "metadata_source": "bootstrap_derived",
             "fingerprint": {
-                "action_space": "castone.action-space.strategy-first.v1",
-                "mayor_semantics": "castone.mayor.strategy-first.v1",
+                "action_space": model_registry.ACTION_SPACE_FINGERPRINT_V1,
+                "mayor_semantics": model_registry.MAYOR_SEMANTICS_FINGERPRINT_V1,
                 "env": "puco-upstream/main@4949773",
             },
         },
@@ -117,7 +118,7 @@ async def test_log_transition_includes_model_info_when_provided():
     assert matching, "기록된 transition이 없습니다"
     assert matching[-1]["model_info"]["bot_type"] == "ppo"
     assert matching[-1]["model_info"]["metadata_source"] == "bootstrap_derived"
-    assert matching[-1]["model_info"]["fingerprint"]["action_space"] == "castone.action-space.strategy-first.v1"
+    assert matching[-1]["model_info"]["fingerprint"]["action_space"] == model_registry.ACTION_SPACE_FINGERPRINT_V1
 
 
 def test_get_log_file_path_uses_per_game_jsonl_layout():

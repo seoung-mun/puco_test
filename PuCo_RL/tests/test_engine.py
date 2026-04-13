@@ -114,11 +114,23 @@ class TestPuertoRicoGame2Player(unittest.TestCase):
                 self.game.action_settler(expected_player, tile_choice=-2)
                 self.game.action_settler((expected_player + 1) % 2, tile_choice=-2)
             elif role == Role.MAYOR:
-                # Mayor phase now uses strategy-based auto-fill (1 step per player)
-                from configs.constants import MayorStrategy
                 while self.game.current_phase == Phase.MAYOR:
                     cp = self.game.current_player_idx
-                    self.game.action_mayor_strategy(cp, MayorStrategy.CAPTAIN_FOCUS)
+                    p = self.game.players[cp]
+                    placed = False
+                    for i, t in enumerate(p.island_board):
+                        if t.tile_type != TileType.EMPTY and not t.is_occupied:
+                            self.game.action_mayor_place_colonist(cp, is_city=False, slot_idx=i)
+                            placed = True
+                            break
+                    if not placed:
+                        from configs.constants import BUILDING_DATA
+                        for i, b in enumerate(p.city_board):
+                            if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE):
+                                if b.colonists < BUILDING_DATA[b.building_type][2]:
+                                    self.game.action_mayor_place_colonist(cp, is_city=True, slot_idx=i)
+                                    placed = True
+                                    break
 
             elif role == Role.BUILDER:
                 self.game.action_builder(expected_player, building_choice=None)

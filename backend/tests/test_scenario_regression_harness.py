@@ -48,8 +48,9 @@ def test_mayor_strategy_scenario_exposes_strategy_band_only():
     scenario.prepare(engine)
     snapshot = engine.get_action_mask()
 
-    assert snapshot[69:72] == [1, 1, 1]
-    assert snapshot[72:76] == [0, 0, 0, 0]
+    assert snapshot[69:72] == [0, 0, 0]
+    assert any(snapshot[idx] == 1 for idx in range(120, 132))
+    assert any(snapshot[idx] == 1 for idx in range(140, 152))
 
 
 def test_mayor_strategy_scenario_accepts_real_bot_service_action():
@@ -61,4 +62,4 @@ def test_mayor_strategy_scenario_accepts_real_bot_service_action():
 
     assert result.valid is True
     assert result.passed is True
-    assert result.selected_action in {69, 70, 71}
+    assert result.selected_action in {*range(120, 132), *range(140, 152)}

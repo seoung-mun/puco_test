@@ -20,7 +20,9 @@ FROM deps AS build
 WORKDIR /app
 COPY . .
 ARG VITE_API_TARGET
+ARG VITE_GOOGLE_CLIENT_ID
 ENV VITE_API_TARGET=${VITE_API_TARGET}
+ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
 RUN npm run build
 
 # ── Stage 4: 프로덕션 서빙 (nginx) ──
@@ -31,9 +33,17 @@ RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001 -G appgroup
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+RUN sed -i 's|^user .*|# user disabled for non-root runtime|' /etc/nginx/nginx.conf \
+    && sed -i 's|^pid.*;|pid /tmp/nginx.pid;|' /etc/nginx/nginx.conf \
+    && rm /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh \
+    && mkdir -p /tmp/nginx /var/cache/nginx \
+    && chown -R appuser:appgroup /tmp/nginx /var/cache/nginx /usr/share/nginx/html
+
+USER appuser
+
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -q --spider http://127.0.0.1:80/ || exit 1
+    CMD wget -q --spider http://127.0.0.1:8080/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

@@ -21,7 +21,6 @@ from app.services.game_service_support import (
 from app.schemas.game import GameRoomCreate
 from app.services.ws_manager import manager
 from app.services.state_serializer import (
-    apply_backend_action_mask_guards,
     serialize_compact_summary,
     serialize_game_state_from_engine,
 )
@@ -150,7 +149,7 @@ class GameService:
                     raise ValueError(f"Not your turn. Current player: {current_idx}")
 
         # TDD Defense: Validate action against the current action mask
-        current_mask = apply_backend_action_mask_guards(engine.env.game, engine.get_action_mask())
+        current_mask = engine.get_action_mask()
         current_player_idx = engine.env.game.current_player_idx
         current_phase_id = engine.last_info.get("current_phase_id") if engine.last_info else None
         actor_model_info = resolve_actor_model_info(room, actor_id)

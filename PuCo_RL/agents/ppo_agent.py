@@ -100,13 +100,13 @@ PHASE_TO_HEAD = {
 
 # Adaptive hidden dimensions by decision complexity
 HEAD_HIDDEN_DIMS = {
-    "role_select": 512,   # Strategic role choice — most important
-    "settler":     256,   # ~8 options (plantations + quarry + pass)
-    "builder":     512,   # 23 buildings — complex long-term investment
-    "mayor":       128,   # Sequential decision (0-3 options), simple context
-    "craftsman":   128,   # 5 goods at most — simplest decision, fewest samples
-    "trader":      256,   # ~6 options (5 goods + pass)
-    "captain":     512,   # ship×good combos + wharf + store — multi-step
+    "role_select": 256,   # 512 → 256: 선택지 적음, 전략 정보는 trunk에서 처리
+    "settler":     256,   # 유지
+    "builder":     512,   # 유지: 23개 건물, 비용 최적화 필요
+    "mayor":        64,   # 128 → 64: 고정 3개 전략, 자동 배치가 92%
+    "craftsman":   128,   # 유지
+    "trader":      256,   # 유지
+    "captain":     512,   # 유지: 가장 복잡한 Phase
 }
 
 PHASE_EMBED_DIM = 16
