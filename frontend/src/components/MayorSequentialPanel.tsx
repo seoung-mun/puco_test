@@ -90,9 +90,10 @@ export default function MayorSequentialPanel({
           <h4 className="mayor-sequential-section__title">City</h4>
           <div className="mayor-sequential-slots">
             {legalCity.map((idx) => {
-              const actionIdx = CITY_BASE + idx;
-              const isLegal = (actionMask?.[actionIdx] ?? 0) === 1;
               const building = player.city.buildings[idx];
+              const engineSlot = building?.engine_slot_idx ?? idx;
+              const actionIdx = CITY_BASE + engineSlot;
+              const isLegal = (actionMask?.[actionIdx] ?? 0) === 1;
               const capacityInfo = building
                 ? `(${building.current_colonists}/${building.max_colonists})`
                 : '';

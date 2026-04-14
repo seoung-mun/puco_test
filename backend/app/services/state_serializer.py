@@ -30,14 +30,26 @@ def _build_mayor_meta(game: Any) -> Dict[str, Any]:
     player = game.players[game.current_player_idx]
     legal_island: List[int] = []
     legal_city: List[int] = []
+
     for i, t in enumerate(player.island_board):
         if t.tile_type != TileType.EMPTY and not t.is_occupied:
             legal_island.append(i)
+
+    # Build raw→filtered index mapping (skip OCCUPIED_SPACE)
+    raw_to_filtered: Dict[int, int] = {}
+    filtered_idx = 0
+    for i, b in enumerate(player.city_board):
+        if b.building_type in (BuildingType.OCCUPIED_SPACE,):
+            continue
+        raw_to_filtered[i] = filtered_idx
+        filtered_idx += 1
+
     for i, b in enumerate(player.city_board):
         if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE):
             cap = BUILDING_DATA[b.building_type][2]
             if b.colonists < cap:
-                legal_city.append(i)
+                legal_city.append(raw_to_filtered[i])
+
     return {
         "mayor_phase_mode": "slot-direct",
         "mayor_remaining_colonists": player.unplaced_colonists,

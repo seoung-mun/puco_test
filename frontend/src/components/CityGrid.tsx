@@ -212,7 +212,7 @@ export default function CityGrid({ city, mayorLegalSlots, onMayorSlotClick }: Pr
             ? <BuildingTile key={i} building={entry.building} x={x} y={y} tileH={tileH}
                 onHover={handleHover} onLeave={() => setTooltip(null)}
                 mayorLegal={isLegal}
-                onMayorClick={isLegal && onMayorSlotClick ? () => onMayorSlotClick(entry.originalIndex) : undefined} />
+                onMayorClick={isLegal && onMayorSlotClick ? () => onMayorSlotClick(entry.building!.engine_slot_idx) : undefined} />
             : <EmptySlot key={i} x={x} y={y} tileH={tileH} />;
         })}
       </svg>

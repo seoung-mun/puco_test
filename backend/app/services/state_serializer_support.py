@@ -274,6 +274,7 @@ def serialize_player(
         current_colonists = safe_int(safe_get(b, "colonists", "worker_count", default=0))
         buildings_data.append({
             "name": building_name(bt),
+            "engine_slot_idx": idx,
             "max_colonists": max_col,
             "current_colonists": current_colonists,
             "empty_slots": max(0, max_col - current_colonists),

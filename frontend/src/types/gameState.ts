@@ -111,6 +111,7 @@ export interface Plantation {
 
 export interface PlayerBuilding {
   name: string;
+  engine_slot_idx: number;
   max_colonists: number;
   current_colonists: number;
   empty_slots: number;
