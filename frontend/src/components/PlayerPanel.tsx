@@ -42,8 +42,28 @@ export default function PlayerPanel({ playerId, player, isActive, highlightLastP
         {botType === 'gemini'  && <span style={{ marginLeft: 4, fontSize: '0.85em' }}>🤖</span>}
         {botType === 'scoring' && <span style={{ marginLeft: 4, fontSize: '0.85em' }}>⚙️</span>}
         {botType === 'random'  && <span style={{ marginLeft: 4, fontSize: '0.85em' }}>🎲</span>}
-        {player.is_governor && ' 👑'}
-        {isRolePicker && <span style={{ color: '#ff4444', marginLeft: 4 }} title={t('player.rolePicker', { defaultValue: 'Role Picker' })}>●</span>}
+        {(player.is_governor || isRolePicker) && (
+          <span className="player-panel__status-icons">
+            {player.is_governor && (
+              <span
+                aria-label={t('player.governor')}
+                className="player-panel__badge player-panel__badge--governor"
+                title={t('player.governor')}
+              >
+                👑
+              </span>
+            )}
+            {isRolePicker && (
+              <span
+                aria-label={t('player.rolePicker', { defaultValue: 'Current role picker' })}
+                className="player-panel__badge player-panel__badge--role-picker"
+                title={t('player.rolePicker', { defaultValue: 'Current role picker' })}
+              >
+                ●
+              </span>
+            )}
+          </span>
+        )}
         {isActive && ` ◀ ${t('player.active')}`}
       </h2>
 

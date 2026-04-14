@@ -8,6 +8,11 @@ import AppScreenGate from './components/AppScreenGate';
 import GameScreen from './components/GameScreen';
 import type { LobbyPlayer } from './types/gameState';
 import { buildGoogleLoginSetupMessage, googleLoginConfigured } from './googleOAuth';
+import {
+  getTurnFocusBlock,
+  getTurnFocusTargetId,
+  shouldAutoFocusTurn,
+} from './utils/turnFocus';
 import './App.css';
 
 type Screen = 'loading' | 'login' | 'home' | 'rooms' | 'join' | 'lobby' | 'game';
@@ -84,6 +89,7 @@ export default function App() {
   const prevRoundRef = useRef<number | null>(null);
   const prevPhaseRef = useRef<string | null>(null);
   const prevActivePlayerRef = useRef<string | null>(null);
+  const prevIsMyTurnRef = useRef<boolean>(false);
   const prevHaciendaUsedRef = useRef<boolean>(false);
   const [popups, setPopups] = useState<{ id: number; text: string; isRoundEnd: boolean; role: string | null }[]>([]);
   const popupTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -116,6 +122,15 @@ export default function App() {
   const [lobbyError, setLobbyError] = useState<string | null>(null);
 
   const lobbyWsRef = useRef<WebSocket | null>(null);
+  const isBotTurn = !!(state?.bot_players && state?.decision?.player && state.bot_players[state.decision.player] !== undefined);
+  const isMyTurn = isSpectator
+    ? false
+    : !isMultiplayer
+      ? !isBotTurn
+      : (myPlayerId !== null && state?.decision?.player === myPlayerId);
+  const isBlocked = !!state?.meta.bot_thinking || isBotTurn;
+  const interactionLocked = isBlocked || saving;
+  const canPass = (state?.action_mask?.[15] ?? 1) === 1;
 
 
   useEffect(() => {
@@ -131,46 +146,28 @@ export default function App() {
     if (!state) return;
     const phase = state.meta.phase;
     const player = state.meta.active_player;
-    if (phase === prevPhaseRef.current && player === prevActivePlayerRef.current) return;
-    const isFirstLoad = prevPhaseRef.current === null;
+    const prevPhase = prevPhaseRef.current;
+    const prevActivePlayer = prevActivePlayerRef.current;
+    const prevIsMyTurn = prevIsMyTurnRef.current;
+    const isFirstLoad = prevPhase === null;
+    const phaseChanged = phase !== prevPhase;
+    const playerChanged = player !== prevActivePlayer;
+    const didBecomeMyTurn = !prevIsMyTurn && isMyTurn;
+
     prevPhaseRef.current = phase;
     prevActivePlayerRef.current = player;
-    if (isFirstLoad) return;
+    prevIsMyTurnRef.current = isMyTurn;
+    if (!shouldAutoFocusTurn({ isFirstLoad, isMyTurn, phaseChanged, playerChanged, didBecomeMyTurn })) return;
 
-    let targetId: string;
-    switch (phase) {
-      case 'role_selection':
-        targetId = 'common-board';
-        break;
-      case 'settler_action':
-        targetId = 'section-plantations';
-        break;
-      case 'mayor_action':
-        targetId = 'action-card';
-        break;
-      case 'builder_action':
-        targetId = 'san-juan';
-        break;
-      case 'craftsman_action':
-        targetId = `player-${player}`;
-        break;
-      case 'trader_action':
-      case 'captain_action':
-      case 'captain_discard':
-        targetId = 'action-card';
-        break;
-      default:
-        targetId = 'common-board';
-    }
-
+    const targetId = getTurnFocusTargetId(phase, player);
     const el = document.getElementById(targetId);
     if (el) {
-      const block = targetId === 'action-card' ? 'end' : 'center';
+      const block = getTurnFocusBlock(targetId);
       el.scrollIntoView({ behavior: 'smooth', block });
       el.classList.add('focus-highlight');
       setTimeout(() => el.classList.remove('focus-highlight'), 1800);
     }
-  }, [state?.meta.phase, state?.meta.active_player]);
+  }, [isMyTurn, state?.meta.phase, state?.meta.active_player]);
 
   // Scroll to island + highlight when hacienda ability is used
   useEffect(() => {
@@ -179,6 +176,7 @@ export default function App() {
     const usedNow = state.players[player]?.hacienda_used_this_phase ?? false;
     const usedBefore = prevHaciendaUsedRef.current;
     prevHaciendaUsedRef.current = usedNow;
+    if (!isMyTurn) return;
     if (!usedBefore && usedNow && state.meta.phase === 'settler_action') {
       const el = document.getElementById(`player-${player}-island`);
       if (el) {
@@ -191,7 +189,7 @@ export default function App() {
           ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 1600);
     }
-  }, [state?.players[state?.meta?.active_player ?? '']?.hacienda_used_this_phase]);
+  }, [isMyTurn, state?.players[state?.meta?.active_player ?? '']?.hacienda_used_this_phase]);
 
   useEffect(() => {
     const newLen = state?.history?.length ?? 0;
@@ -670,6 +668,7 @@ export default function App() {
     prevRoundRef.current = null;
     prevPhaseRef.current = null;
     prevActivePlayerRef.current = null;
+    prevIsMyTurnRef.current = false;
     prevHaciendaUsedRef.current = false;
     prevHistoryLenRef.current = -1;
   }
@@ -831,19 +830,6 @@ export default function App() {
     if (!buildingData?.action_index) return;
     await channelAction(buildingData.action_index);
   }
-
-
-
-  const isBotTurn = !!(state?.bot_players && state?.decision?.player && state.bot_players[state.decision.player] !== undefined);
-  const isMyTurn = isSpectator
-    ? false
-    : !isMultiplayer
-      ? !isBotTurn
-      : (myPlayerId !== null && state?.decision?.player === myPlayerId);
-  const isBlocked = !!state?.meta.bot_thinking || isBotTurn;
-  const interactionLocked = isBlocked || saving;
-  const canPass = (state?.action_mask?.[15] ?? 1) === 1;
-
   if (screen !== 'game') {
     return (
       <AppScreenGate

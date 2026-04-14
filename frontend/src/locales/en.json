@@ -96,6 +96,7 @@
 
   "player": {
     "governor":          "Governor",
+    "rolePicker":        "Current role picker",
     "active":            "active",
     "goods":             "Goods",
     "production":        "Production (if Craftsman now)",

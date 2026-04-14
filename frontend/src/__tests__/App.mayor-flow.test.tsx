@@ -62,7 +62,24 @@ vi.mock('../components/CommonBoardPanel', () => ({
 }));
 
 vi.mock('../components/PlayerPanel', () => ({
-  default: () => null,
+  default: ({
+    playerId,
+    mayorLegalIslandSlots,
+    mayorLegalCitySlots,
+  }: {
+    playerId: string;
+    mayorLegalIslandSlots?: number[];
+    mayorLegalCitySlots?: number[];
+  }) => (
+    <div data-testid={`player-panel-${playerId}`}>
+      {mayorLegalIslandSlots?.map((slotIdx) => (
+        <button key={`island-${slotIdx}`}>{`island-${slotIdx}`}</button>
+      ))}
+      {mayorLegalCitySlots?.map((slotIdx) => (
+        <button key={`city-${slotIdx}`}>{`city-${slotIdx}`}</button>
+      ))}
+    </div>
+  ),
 }));
 
 vi.mock('../components/SanJuan', () => ({
@@ -260,10 +277,11 @@ describe('App mayor flow', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^corn$/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /^island-0$/i })).toBeTruthy();
     });
-    expect(screen.getByRole('button', { name: /^indigo$/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /wharf/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^island-1$/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^city-0$/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^city-1$/i })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Captain Focus/i })).toBeNull();
   });
 });

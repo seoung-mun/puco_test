@@ -9,6 +9,7 @@ import AdminPanel from './AdminPanel';
 import PlayerAdvantages from './PlayerAdvantages';
 import HistoryPanel from './HistoryPanel';
 import EndGamePanel from './EndGamePanel';
+import { getTurnFocusBlock, getTurnFocusTargetId } from '../utils/turnFocus';
 
 type Advantage = { label: string; tooltip: string; cls: string };
 type BuildConfirm = { name: string; cost: number; vp: number } | null;
@@ -157,6 +158,9 @@ export default function GameScreen({
   const isCaptainPhase = state.meta.phase === 'captain_action';
   const isCaptainDiscard = state.meta.phase === 'captain_discard';
   const captainRolePicker = state.common_board.roles.captain?.taken_by ?? null;
+  const currentRolePickerId = state.meta.active_role
+    ? state.common_board.roles[state.meta.active_role]?.taken_by ?? null
+    : null;
 
   const settlerRolePicker = state.common_board.roles.settler?.taken_by ?? null;
   const builderRolePicker = state.common_board.roles.builder?.taken_by ?? null;
@@ -438,20 +442,9 @@ export default function GameScreen({
               onClick={() => {
                 const phase = state.meta.phase;
                 const player = state.meta.active_player;
-                let targetId: string;
-                switch (phase) {
-                  case 'role_selection':    targetId = 'common-board'; break;
-                  case 'settler_action':    targetId = 'section-plantations'; break;
-                  case 'mayor_action':      targetId = 'action-card'; break;
-                  case 'builder_action':    targetId = 'san-juan'; break;
-                  case 'craftsman_action':  targetId = `player-${player}`; break;
-                  case 'trader_action':
-                  case 'captain_action':
-                  case 'captain_discard':   targetId = 'action-card'; break;
-                  default:                  targetId = 'common-board';
-                }
+                const targetId = getTurnFocusTargetId(phase, player);
                 const el = document.getElementById(targetId);
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: targetId === 'action-card' ? 'end' : 'center' });
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: getTurnFocusBlock(targetId) });
               }}
             >
               <span>🎯</span>
@@ -714,6 +707,7 @@ export default function GameScreen({
               : undefined}
             isMe={isMultiplayer ? state.players[id]?.display_name === myName : undefined}
             botType={state.bot_players ? state.bot_players[id] : undefined}
+            isRolePicker={id === currentRolePickerId}
             mayorLegalIslandSlots={
               showMayorPanel && id === state.meta.active_player
                 ? state.meta.mayor_legal_island_slots

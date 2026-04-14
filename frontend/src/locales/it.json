@@ -96,6 +96,7 @@
 
   "player": {
     "governor":          "Governatore",
+    "rolePicker":        "Giocatore che ha scelto il ruolo",
     "active":            "attivo",
     "goods":             "Merci",
     "production":        "Produzione",

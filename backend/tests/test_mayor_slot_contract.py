@@ -121,6 +121,49 @@ async def test_bot_mayor_turn_normalizes_invalid_action_to_legal_slot_direct_act
     assert captured_actions[0][2] in {*range(120, 132), *range(140, 152)}
 
 
+@pytest.mark.asyncio
+async def test_bot_mayor_turn_batches_all_colonists_with_single_delay_and_final_broadcast():
+    engine = _prepare_slot_direct_mayor_engine(current_player_idx=1)
+    captured_actions = []
+    sleep_calls = []
+
+    async def _callback(_game_id, _actor_id, action, suppress_broadcast=False):
+        captured_actions.append((action, suppress_broadcast))
+        engine.step(action)
+
+    async def _no_sleep(seconds):
+        sleep_calls.append(seconds)
+        return None
+
+    def _first_legal_mayor_action(_bot_type, game_context):
+        mask = game_context["action_mask"]
+        for idx in range(120, 132):
+            if idx < len(mask) and mask[idx]:
+                return idx
+        for idx in range(140, 152):
+            if idx < len(mask) and mask[idx]:
+                return idx
+        return 15
+
+    with patch.object(BotService, "get_action", side_effect=_first_legal_mayor_action):
+        with patch("app.services.bot_service.asyncio.sleep", _no_sleep):
+            await BotService.run_bot_turn(
+                game_id=uuid.uuid4(),
+                engine=engine,
+                actor_id="BOT_ppo",
+                process_action_callback=_callback,
+            )
+
+    assert sleep_calls == [2.0]
+    assert len(captured_actions) == 3
+    assert [suppress for _action, suppress in captured_actions] == [True, True, False]
+    assert all(
+        action in {*range(120, 132), *range(140, 152)}
+        for action, _suppress in captured_actions
+    )
+    assert engine.env.game.players[1].unplaced_colonists == 0
+
+
 def test_channel_api_mayor_distribute_endpoint_returns_gone(client):
     response = client.post(
         f"/api/puco/game/{uuid.uuid4()}/mayor-distribute",

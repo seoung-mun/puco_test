@@ -96,6 +96,7 @@
 
   "player": {
     "governor":          "총독",
+    "rolePicker":        "현재 역할 선택자",
     "active":            "활성",
     "goods":             "상품",
     "production":        "예상 생산량 (생산자 선택 시)",
