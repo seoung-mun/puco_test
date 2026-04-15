@@ -250,6 +250,12 @@ class GameService:
                 player_names=player_names,
                 actor_ids=[str(player_id) for player_id in (room.players or [])],
             )
+            winner_entry = next(
+                (s for s in replay_final_scores if s.get("winner")),
+                None,
+            )
+            if winner_entry and winner_entry.get("actor_id"):
+                room.winner_id = str(winner_entry["actor_id"])
             # Update Redis meta to reflect finished status
             try:
                 redis_client.hset(f"game:{game_id}:meta", "status", "FINISHED")
@@ -258,6 +264,14 @@ class GameService:
                 logger.warning("Redis meta update failed: %s", e)
 
         self.db.commit()
+
+        terminated = result.get("terminated", result["done"])
+        if room:
+            rich_state = build_rich_state(self.db, game_id, engine, room)
+        else:
+            rich_state = result["state_after"]
+        new_action_mask = rich_state.get("action_mask", engine.get_action_mask()) if isinstance(rich_state, dict) else engine.get_action_mask()
+
         if room:
             ReplayLogger.append_entry(
                 game_id=game_id,
@@ -267,17 +281,10 @@ class GameService:
                 players=build_replay_players_snapshot(room, player_names),
                 model_versions=dict(room.model_versions or {}),
                 entry=replay_entry,
+                rich_state=rich_state if not suppress_broadcast else None,
                 final_scores=replay_final_scores,
                 result_summary=replay_result_summary,
             )
-
-        # Update Redis for WebSocket broadcast (Bot actions are also blasted through this channel)
-        terminated = result.get("terminated", result["done"])
-        if room:
-            rich_state = build_rich_state(self.db, game_id, engine, room)
-        else:
-            rich_state = result["state_after"]
-        new_action_mask = rich_state.get("action_mask", engine.get_action_mask()) if isinstance(rich_state, dict) else engine.get_action_mask()
 
         if not suppress_broadcast:
             self._sync_to_redis(game_id, rich_state, finished=terminated)

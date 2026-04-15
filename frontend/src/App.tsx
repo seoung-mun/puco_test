@@ -15,7 +15,16 @@ import {
 } from './utils/turnFocus';
 import './App.css';
 
-type Screen = 'loading' | 'login' | 'home' | 'rooms' | 'join' | 'lobby' | 'game';
+type Screen =
+  | 'loading'
+  | 'login'
+  | 'home'
+  | 'rooms'
+  | 'join'
+  | 'lobby'
+  | 'game'
+  | 'replay_list'
+  | 'replay_view';
 
 // Maps history action → role key (for popup coloring)
 const ACTION_TO_ROLE: Record<string, string> = {
@@ -112,6 +121,7 @@ export default function App() {
 
   // --- Multiplayer / screen routing ---
   const [screen, setScreen] = useState<Screen>('loading');
+  const [replayGameId, setReplayGameId] = useState<string | null>(null);
   const [gameId, setGameId] = useState<string | null>(null);
   const [myName, setMyName] = useState<string | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
@@ -865,6 +875,19 @@ export default function App() {
         onBackFromLobby={async () => {
           await leaveLobbyRoom();
           goToRoomsPreservingAuth();
+        }}
+        replayGameId={replayGameId}
+        onOpenReplayList={() => setScreen('replay_list')}
+        onOpenReplay={(gameId) => {
+          setReplayGameId(gameId);
+          setScreen('replay_view');
+        }}
+        onCloseReplay={() => {
+          setReplayGameId(null);
+          setScreen('replay_list');
+        }}
+        onCloseReplayList={() => {
+          setScreen('rooms');
         }}
       />
     );

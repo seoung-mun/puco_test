@@ -374,5 +374,39 @@
     "geminiThinking": "Gemini AI가 생각 중입니다...",
     "noGame":        "진행 중인 게임이 없습니다.",
     "startNew":      "새 게임 시작"
+  },
+
+  "replay": {
+    "title":   "리플레이",
+    "back":    "뒤로",
+    "loading": "불러오는 중...",
+    "empty":   "저장된 리플레이가 없습니다.",
+    "search": {
+      "placeholder": "플레이어 이름으로 검색",
+      "submit":      "검색",
+      "reset":       "초기화"
+    },
+    "column": {
+      "label":   "제목",
+      "players": "플레이어",
+      "date":    "진행일"
+    },
+    "action": {
+      "watch": "관전"
+    },
+    "confirm": {
+      "title":  "리플레이 관전",
+      "watch":  "관전하기",
+      "cancel": "취소"
+    },
+    "player": {
+      "play":    "재생",
+      "pause":   "일시정지",
+      "prev":    "이전",
+      "next":    "다음",
+      "speed":   "배속",
+      "frame":   "{{current}} / {{total}}",
+      "noRich":  "이 프레임은 상세 상태 정보가 없습니다."
+    }
   }
 }

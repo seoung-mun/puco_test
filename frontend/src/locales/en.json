@@ -375,5 +375,39 @@
     "geminiThinking": "Gemini AI is thinking...",
     "noGame":        "No game in progress.",
     "startNew":      "Start new game"
+  },
+
+  "replay": {
+    "title":   "Replays",
+    "back":    "Back",
+    "loading": "Loading...",
+    "empty":   "No replays saved.",
+    "search": {
+      "placeholder": "Search by player name",
+      "submit":      "Search",
+      "reset":       "Reset"
+    },
+    "column": {
+      "label":   "Title",
+      "players": "Players",
+      "date":    "Date"
+    },
+    "action": {
+      "watch": "Watch"
+    },
+    "confirm": {
+      "title":  "Watch replay",
+      "watch":  "Watch",
+      "cancel": "Cancel"
+    },
+    "player": {
+      "play":   "Play",
+      "pause":  "Pause",
+      "prev":   "Previous",
+      "next":   "Next",
+      "speed":  "Speed",
+      "frame":  "{{current}} / {{total}}",
+      "noRich": "This frame has no rich state."
+    }
   }
 }

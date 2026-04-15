@@ -373,5 +373,39 @@
     "geminiThinking": "Gemini AI sta pensando...",
     "noGame":        "Nessuna partita in corso.",
     "startNew":      "Inizia nuova partita"
+  },
+
+  "replay": {
+    "title":   "Replay",
+    "back":    "Indietro",
+    "loading": "Caricamento...",
+    "empty":   "Nessun replay salvato.",
+    "search": {
+      "placeholder": "Cerca per nome giocatore",
+      "submit":      "Cerca",
+      "reset":       "Reimposta"
+    },
+    "column": {
+      "label":   "Titolo",
+      "players": "Giocatori",
+      "date":    "Data"
+    },
+    "action": {
+      "watch": "Guarda"
+    },
+    "confirm": {
+      "title":  "Guarda il replay",
+      "watch":  "Guarda",
+      "cancel": "Annulla"
+    },
+    "player": {
+      "play":   "Riproduci",
+      "pause":  "Pausa",
+      "prev":   "Precedente",
+      "next":   "Successivo",
+      "speed":  "Velocità",
+      "frame":  "{{current}} / {{total}}",
+      "noRich": "Questo frame non ha lo stato dettagliato."
+    }
   }
 }

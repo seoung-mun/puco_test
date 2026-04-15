@@ -38,6 +38,7 @@ type Props = {
   isBlocked: boolean;
   interactionLocked: boolean;
   canPass: boolean;
+  replayMode?: boolean;
   onStateLoaded: (state: GameState) => void;
   onGoToRoomsPreservingAuth: () => void;
   onLogoutToLogin: () => void;
@@ -116,8 +117,9 @@ export default function GameScreen({
   isMyTurn,
   isBotTurn,
   isBlocked,
-  interactionLocked,
+  interactionLocked: interactionLockedRaw,
   canPass,
+  replayMode = false,
   onStateLoaded,
   onGoToRoomsPreservingAuth,
   onLogoutToLogin,
@@ -147,6 +149,8 @@ export default function GameScreen({
   const playerNames = Object.fromEntries(
     Object.entries(state.players).map(([id, p]) => [id, p.display_name]),
   );
+
+  const interactionLocked = interactionLockedRaw || replayMode;
 
   const canSelectRole = state.meta.phase === 'role_selection' && !state.meta.end_game_triggered && isMyTurn;
   const isMayorPhase = state.meta.phase === 'mayor_action';
