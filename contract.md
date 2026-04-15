@@ -229,6 +229,33 @@ Mayor 관련 계약:
   - `player_disconnect_timeout`
 - `END_GAME_REQUEST`는 즉시 DB status를 `FINISHED`로 바꾸고 `GAME_ENDED`를 브로드캐스트한다.
 
+### 2.8 Replay REST
+
+- `GET /api/puco/replays/` — 종료(FINISHED) 게임의 리플레이 목록
+- `GET /api/puco/replays/{game_id}` — 단일 리플레이 상세
+
+계약:
+
+- 두 경로 모두 `Authorization: Bearer <token>` 필요. 미첨부 시 401.
+- 목록 파라미터: `page` (≥1, 기본 1), `size` (1~100, 기본 10), `player` (선택, 플레이어 닉네임 또는 봇 타입 완전 일치).
+- 목록 응답 shape:
+
+  ```json
+  {
+    "replays": [ "ReplayListItem", "..." ],
+    "page": 1,
+    "size": 10,
+    "total_items": 0,
+    "total_pages": 0
+  }
+  ```
+
+- `ReplayListItem` 주요 키: `game_id`, `display_label`, `title`, `players[]`, `played_date` (YYYY-MM-DD), `created_at`, `finished_at`, `winner_id`.
+- `display_label` 포맷: `MM_DD_{Player1}_{Player2}_..._{NN:02d}` (NN은 FINISHED 전체 기준 날짜별 전역 순번).
+- 상세 응답은 위 필드에 `frames: ReplayFrame[]`을 추가. `ReplayFrame`은 `{turn, phase, actor_id, action, rich_state}`.
+- `rich_state`가 `null`인 entry는 목록/상세 응답의 `frames`에서 제외된다 (리플레이 재생 가능한 스텝만 노출).
+- 해당 `game_id`가 FINISHED가 아니거나 파일이 없으면 404 `{"detail": "replay_not_found"}` 또는 `{"detail": "replay_file_not_found"}`.
+
 ### 2.7 Legacy Compatibility
 
 - `GET /api/bot-types`
@@ -593,7 +620,7 @@ Builder phase 유효성 계약:
   - table: `game_logs`
 - 파일 로그 / replay
   - `data/logs/games/{game_id}.jsonl`
-  - `data/logs/replay/{game_id}.json`
+  - `data/logs/replay/{game_id}.json` — format `"v2"`. 각 `entries[i]`는 공통 배치 로그 필드에 더해 `rich_state` 필드를 포함한다. broadcast-suppressed 스텝(엔진 내부 단계, 봇 체인 등)은 `rich_state: null`로 남고, 리플레이 API는 이를 `frames`에서 제외한다.
 
 계약:
 
@@ -620,6 +647,8 @@ Builder phase 유효성 계약:
 - `backend/tests/test_mayor_large_building_masking.py`
 - `backend/tests/test_model_version_snapshot.py`
 - `backend/tests/test_redis_service.py`
+- `backend/tests/test_replay_api.py`
+- `backend/tests/test_replay_logger_rich_state.py`
 - `frontend/src/__tests__/App.auth-flow.test.tsx`
 - `frontend/src/__tests__/App.mayor-flow.test.tsx`
 - `frontend/src/hooks/__tests__/useGameWebSocket.test.ts`
@@ -628,5 +657,11 @@ Builder phase 유효성 계약:
 - `frontend/src/components/__tests__/LobbyScreen.test.tsx`
 - `frontend/src/components/__tests__/GameScreen.test.tsx`
 - `frontend/src/components/__tests__/SanJuan.test.tsx`
+- `frontend/src/components/__tests__/Pagination.test.tsx`
+- `frontend/src/components/__tests__/ReplayConfirmModal.test.tsx`
+- `frontend/src/components/__tests__/ReplayListScreen.test.tsx`
+- `frontend/src/components/__tests__/ReplayViewScreen.test.tsx`
+- `frontend/src/hooks/__tests__/useReplayList.test.ts`
+- `frontend/src/hooks/__tests__/useReplayPlayer.test.ts`
 
 이 문서를 다시 바꾸는 변경은 최소한 위 계약 테스트와, 변경이 런타임 경로에 닿는 경우 Docker/통합 실행까지 같이 확인하는 쪽을 권장한다.

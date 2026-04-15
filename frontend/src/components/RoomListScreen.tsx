@@ -27,11 +27,12 @@ interface Props {
   onJoinRoom: (roomId: string) => void;
   onCreateRoom: (title: string, isPrivate: boolean, password: string | null) => Promise<string | null>;
   onCreateBotGame?: (botTypes: string[]) => Promise<string | null | void> | string | null | void;
+  onOpenReplayList?: () => void;
   onLogout: () => void;
   error?: string | null;
 }
 
-export default function RoomListScreen({ token, userNickname, onJoinRoom, onCreateRoom, onCreateBotGame, onLogout, error: externalError }: Props) {
+export default function RoomListScreen({ token, userNickname, onJoinRoom, onCreateRoom, onCreateBotGame, onOpenReplayList, onLogout, error: externalError }: Props) {
   const { t } = useTranslation();
   const defaultBotTypes = ['random', 'random', 'random'];
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
@@ -240,6 +241,14 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
               style={{ background: '#1a3a2a', border: '1px solid #2a5a3a', borderRadius: 6, color: '#4f8', cursor: 'pointer', padding: '8px 16px', fontSize: 14 }}
             >
               🤖 {t('rooms.createBotGame', '봇전')}
+            </button>
+          )}
+          {onOpenReplayList && (
+            <button
+              onClick={onOpenReplayList}
+              style={{ background: 'none', border: '1px solid #2a5a8a', borderRadius: 6, color: '#8cf', cursor: 'pointer', padding: '7px 14px', fontSize: 13 }}
+            >
+              🎬 {t('replay.title')}
             </button>
           )}
           <button onClick={fetchRooms} style={{ background: 'none', border: '1px solid #2a2a5a', borderRadius: 6, color: '#88a', cursor: 'pointer', padding: '7px 14px', fontSize: 13 }}>

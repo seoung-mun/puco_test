@@ -160,60 +160,75 @@ function makeState(): GameState {
   };
 }
 
+function commonProps(overrides: Partial<React.ComponentProps<typeof GameScreen>> = {}) {
+  return {
+    backend: '',
+    state: makeState(),
+    error: null,
+    saving: false,
+    passing: false,
+    buildConfirm: null,
+    pendingSettlement: null,
+    roundFlash: null,
+    discardProtected: [],
+    discardSingleExtra: null,
+    finalScores: null,
+    popups: [],
+    isAdmin: false,
+    isSpectator: false,
+    isMultiplayer: true,
+    myName: 'Alice',
+    lobbyPlayers: [],
+    isMyTurn: true,
+    isBotTurn: false,
+    isBlocked: false,
+    interactionLocked: false,
+    canPass: true,
+    onStateLoaded: vi.fn(),
+    onGoToRoomsPreservingAuth: vi.fn(),
+    onLogoutToLogin: vi.fn(),
+    onExitSpectator: vi.fn(),
+    onDismissError: vi.fn(),
+    onClearPopups: vi.fn(),
+    onConfirmBuild: vi.fn(),
+    onCancelBuildConfirm: vi.fn(),
+    onConfirmSettlement: vi.fn(),
+    onSelectRole: vi.fn(async () => {}),
+    onSettlePlantation: vi.fn(),
+    onUseHacienda: vi.fn(async () => {}),
+    onPlaceMayorColonist: vi.fn(async () => {}),
+    onPassAction: vi.fn(async () => {}),
+    onSellGood: vi.fn(async () => {}),
+    onCraftsmanPrivilege: vi.fn(async () => {}),
+    onLoadShip: vi.fn(async () => {}),
+    onCaptainPass: vi.fn(async () => {}),
+    onToggleDiscardProtected: vi.fn(),
+    onSetDiscardSingleExtra: vi.fn(),
+    onDoDiscardGoods: vi.fn(async () => {}),
+    onRequestBuild: vi.fn(),
+    onReturnToRooms: vi.fn(),
+    ...overrides,
+  } as React.ComponentProps<typeof GameScreen>;
+}
+
 describe('GameScreen', () => {
   it('marks the player who chose the active role', () => {
-    render(
-      <GameScreen
-        backend=""
-        state={makeState()}
-        error={null}
-        saving={false}
-        passing={false}
-        buildConfirm={null}
-        pendingSettlement={null}
-        roundFlash={null}
-        discardProtected={[]}
-        discardSingleExtra={null}
-        finalScores={null}
-        popups={[]}
-        isAdmin={false}
-        isSpectator={false}
-        isMultiplayer
-        myName="Alice"
-        lobbyPlayers={[]}
-        isMyTurn
-        isBotTurn={false}
-        isBlocked={false}
-        interactionLocked={false}
-        canPass
-        onStateLoaded={vi.fn()}
-        onGoToRoomsPreservingAuth={vi.fn()}
-        onLogoutToLogin={vi.fn()}
-        onExitSpectator={vi.fn()}
-        onDismissError={vi.fn()}
-        onClearPopups={vi.fn()}
-        onConfirmBuild={vi.fn()}
-        onCancelBuildConfirm={vi.fn()}
-        onConfirmSettlement={vi.fn()}
-        onSelectRole={vi.fn(async () => {})}
-        onSettlePlantation={vi.fn()}
-        onUseHacienda={vi.fn(async () => {})}
-        onPlaceMayorColonist={vi.fn(async () => {})}
-        onPassAction={vi.fn(async () => {})}
-        onSellGood={vi.fn(async () => {})}
-        onCraftsmanPrivilege={vi.fn(async () => {})}
-        onLoadShip={vi.fn(async () => {})}
-        onCaptainPass={vi.fn(async () => {})}
-        onToggleDiscardProtected={vi.fn()}
-        onSetDiscardSingleExtra={vi.fn()}
-        onDoDiscardGoods={vi.fn(async () => {})}
-        onRequestBuild={vi.fn()}
-        onReturnToRooms={vi.fn()}
-      />,
-    );
-
+    render(<GameScreen {...commonProps()} />);
     expect(screen.getByTestId('player_0').textContent).toContain('Alice:normal');
     expect(screen.getByTestId('player_1').textContent).toContain('Bob:picker');
     expect(screen.getByTestId('player_2').textContent).toContain('Cara:normal');
+  });
+
+  it('disables pass button when replayMode=true', () => {
+    render(<GameScreen {...commonProps({ replayMode: true })} />);
+    const passBtn = document.querySelector('.pass-btn') as HTMLButtonElement | null;
+    expect(passBtn).not.toBeNull();
+    expect(passBtn?.disabled).toBe(true);
+  });
+
+  it('enables pass button when replayMode is absent and canPass', () => {
+    render(<GameScreen {...commonProps()} />);
+    const passBtn = document.querySelector('.pass-btn') as HTMLButtonElement | null;
+    expect(passBtn?.disabled).toBe(false);
   });
 });

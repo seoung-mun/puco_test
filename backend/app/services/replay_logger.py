@@ -344,7 +344,7 @@ def _base_payload(
 ) -> dict[str, Any]:
     now = _iso_now()
     return {
-        "format": "backend-replay.v1",
+        "format": "backend-replay.v2",
         "game_id": str(game_id),
         "title": title,
         "status": status,
@@ -422,6 +422,7 @@ class ReplayLogger:
         players: list[dict[str, Any]],
         model_versions: dict[str, Any] | None,
         entry: dict[str, Any],
+        rich_state: dict[str, Any] | None = None,
         final_scores: list[dict[str, Any]] | None = None,
         result_summary: dict[str, Any] | None = None,
     ) -> str:
@@ -442,7 +443,9 @@ class ReplayLogger:
         payload["num_players"] = len(players)
         payload["model_versions"] = model_versions or {}
         payload["parity"] = build_replay_parity_snapshot(model_versions)
-        payload.setdefault("entries", []).append(entry)
+        entry_to_append = dict(entry)
+        entry_to_append["rich_state"] = rich_state if rich_state is not None else None
+        payload.setdefault("entries", []).append(entry_to_append)
         payload["total_steps"] = len(payload["entries"])
         payload["updated_at"] = _iso_now()
         if final_scores is not None:

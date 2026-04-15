@@ -137,7 +137,7 @@ def test_replay_logger_writes_human_readable_json(tmp_path, monkeypatch):
     replay_path = replay_dir / f"{game_id}.json"
     data = json.loads(replay_path.read_text(encoding="utf-8"))
 
-    assert data["format"] == "backend-replay.v1"
+    assert data["format"] == "backend-replay.v2"
     assert data["title"] == "Replay Room"
     assert data["status"] == "FINISHED"
     assert data["players"][0]["display_name"] == "Alice"
