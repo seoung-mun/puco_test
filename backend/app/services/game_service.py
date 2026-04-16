@@ -37,6 +37,8 @@ class GameService:
     active_engines: Dict[UUID, EngineWrapper] = {}
     _bot_tasks = set()
     _bot_stall_watchdogs: Dict[str, asyncio.Task] = {}
+    _game_speed: Dict[UUID, int] = {}      # game_id -> 1 | 2 | 4
+    _game_paused: Dict[UUID, bool] = {}    # game_id -> True | False
     game_session_model = GameSession
 
     def __init__(self, db: Session):
@@ -244,6 +246,7 @@ class GameService:
         replay_result_summary = None
         if result.get("terminated", result["done"]) and room:
             room.status = "FINISHED"
+            GameService.clear_playback_state(game_id)
             replay_status = "FINISHED"
             replay_final_scores, replay_result_summary = build_final_scores_payload(
                 game=engine.env.game,
@@ -509,3 +512,24 @@ class GameService:
 
     def get_room_list(self) -> List[GameSession]:
         return self.db.query(GameSession).all()
+
+    @staticmethod
+    def get_game_speed(game_id: UUID) -> int:
+        return GameService._game_speed.get(game_id, 1)
+
+    @staticmethod
+    def set_game_speed(game_id: UUID, speed: int) -> None:
+        GameService._game_speed[game_id] = speed
+
+    @staticmethod
+    def get_game_paused(game_id: UUID) -> bool:
+        return GameService._game_paused.get(game_id, False)
+
+    @staticmethod
+    def set_game_paused(game_id: UUID, paused: bool) -> None:
+        GameService._game_paused[game_id] = paused
+
+    @staticmethod
+    def clear_playback_state(game_id: UUID) -> None:
+        GameService._game_speed.pop(game_id, None)
+        GameService._game_paused.pop(game_id, None)
