@@ -184,6 +184,11 @@ function commonProps(overrides: Partial<React.ComponentProps<typeof GameScreen>>
     isBlocked: false,
     interactionLocked: false,
     canPass: true,
+    isBotGame: false,
+    playbackSpeed: 1,
+    playbackPaused: false,
+    onSpeedChange: vi.fn(),
+    onPauseToggle: vi.fn(),
     onStateLoaded: vi.fn(),
     onGoToRoomsPreservingAuth: vi.fn(),
     onLogoutToLogin: vi.fn(),
@@ -230,5 +235,105 @@ describe('GameScreen', () => {
     render(<GameScreen {...commonProps()} />);
     const passBtn = document.querySelector('.pass-btn') as HTMLButtonElement | null;
     expect(passBtn?.disabled).toBe(false);
+  });
+});
+
+describe('Playback controls', () => {
+  function botGameState() {
+    const state = makeState();
+    state.meta.player_order = ['BOT_ppo', 'BOT_random', 'BOT_random'];
+    state.players = {
+      BOT_ppo: makePlayer('PPO Bot', 1),
+      BOT_random: makePlayer('Random Bot', 2),
+      BOT_random_2: makePlayer('Random Bot 2', 3),
+    };
+    return state;
+  }
+
+  it('shows speed/pause buttons in bot spectator mode', () => {
+    render(
+      <GameScreen
+        {...commonProps({
+          state: botGameState(),
+          isSpectator: true,
+          isBotGame: true,
+        })}
+      />,
+    );
+    expect(screen.getByTestId('playback-speed-btn')).toBeDefined();
+    expect(screen.getByTestId('playback-pause-btn')).toBeDefined();
+  });
+
+  it('hides speed/pause buttons in normal game', () => {
+    render(<GameScreen {...commonProps({ isSpectator: false, isBotGame: false })} />);
+    expect(screen.queryByTestId('playback-speed-btn')).toBeNull();
+    expect(screen.queryByTestId('playback-pause-btn')).toBeNull();
+  });
+
+  it('speed button cycles x1 -> x2', () => {
+    const onSpeedChange = vi.fn();
+    render(
+      <GameScreen
+        {...commonProps({
+          state: botGameState(),
+          isSpectator: true,
+          isBotGame: true,
+          playbackSpeed: 1,
+          onSpeedChange,
+        })}
+      />,
+    );
+    screen.getByTestId('playback-speed-btn').click();
+    expect(onSpeedChange).toHaveBeenCalledWith(2);
+  });
+
+  it('pause button toggles icon', () => {
+    const { rerender } = render(
+      <GameScreen
+        {...commonProps({
+          state: botGameState(),
+          isSpectator: true,
+          isBotGame: true,
+          playbackPaused: false,
+        })}
+      />,
+    );
+    expect(screen.getByTestId('playback-pause-btn').textContent).toContain('⏸');
+
+    rerender(
+      <GameScreen
+        {...commonProps({
+          state: botGameState(),
+          isSpectator: true,
+          isBotGame: true,
+          playbackPaused: true,
+        })}
+      />,
+    );
+    expect(screen.getByTestId('playback-pause-btn').textContent).toContain('▶');
+  });
+
+  it('hides controls when spectating a human game', () => {
+    render(
+      <GameScreen {...commonProps({ isSpectator: true, isBotGame: false })} />,
+    );
+    expect(screen.queryByTestId('playback-speed-btn')).toBeNull();
+    expect(screen.queryByTestId('playback-pause-btn')).toBeNull();
+  });
+
+  it('pause button calls onPauseToggle', () => {
+    const onPauseToggle = vi.fn();
+    render(
+      <GameScreen
+        {...commonProps({
+          state: botGameState(),
+          isSpectator: true,
+          isBotGame: true,
+          onPauseToggle,
+        })}
+      />,
+    );
+    screen.getByTestId('playback-pause-btn').click();
+    expect(onPauseToggle).toHaveBeenCalled();
   });
 });

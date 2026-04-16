@@ -409,5 +409,10 @@
       "frame":  "{{current}} / {{total}}",
       "noRich": "Questo frame non ha lo stato dettagliato."
     }
+  },
+  "playback": {
+    "speed": "Velocità",
+    "pause": "Pausa",
+    "resume": "Riprendi"
   }
 }

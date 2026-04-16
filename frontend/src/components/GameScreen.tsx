@@ -39,6 +39,11 @@ type Props = {
   interactionLocked: boolean;
   canPass: boolean;
   replayMode?: boolean;
+  isBotGame?: boolean;
+  playbackSpeed?: number;
+  playbackPaused?: boolean;
+  onSpeedChange?: (speed: number) => void;
+  onPauseToggle?: () => void;
   onStateLoaded: (state: GameState) => void;
   onGoToRoomsPreservingAuth: () => void;
   onLogoutToLogin: () => void;
@@ -143,6 +148,11 @@ export default function GameScreen({
   onDoDiscardGoods,
   onRequestBuild,
   onReturnToRooms,
+  isBotGame = false,
+  playbackSpeed = 1,
+  playbackPaused = false,
+  onSpeedChange,
+  onPauseToggle,
 }: Props) {
   const { t } = useTranslation();
 
@@ -418,6 +428,29 @@ export default function GameScreen({
               </span>
               <button onClick={onLogoutToLogin} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12, whiteSpace: 'nowrap' }}>
                 {t('home.logout', '로그아웃')}
+              </button>
+            </span>
+          )}
+          {isSpectator && isBotGame && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 8, flexShrink: 0 }}>
+              <button
+                data-testid="playback-speed-btn"
+                onClick={() => {
+                  const cycle: Record<number, number> = { 1: 2, 2: 4, 4: 1 };
+                  onSpeedChange?.(cycle[playbackSpeed] ?? 1);
+                }}
+                title={t('playback.speed')}
+                style={{ background: '#1a2a3a', border: '1px solid #2a4a6a', borderRadius: 4, color: '#4af', cursor: 'pointer', padding: '2px 8px', fontSize: 12, fontWeight: 'bold', whiteSpace: 'nowrap' }}
+              >
+                x{playbackSpeed}
+              </button>
+              <button
+                data-testid="playback-pause-btn"
+                onClick={() => onPauseToggle?.()}
+                title={playbackPaused ? t('playback.resume') : t('playback.pause')}
+                style={{ background: '#1a2a3a', border: '1px solid #2a4a6a', borderRadius: 4, color: playbackPaused ? '#4f8' : '#fa0', cursor: 'pointer', padding: '2px 8px', fontSize: 14, whiteSpace: 'nowrap' }}
+              >
+                {playbackPaused ? '▶' : '⏸'}
               </button>
             </span>
           )}

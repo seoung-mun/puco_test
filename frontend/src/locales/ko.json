@@ -410,5 +410,10 @@
       "frame":   "{{current}} / {{total}}",
       "noRich":  "이 프레임은 상세 상태 정보가 없습니다."
     }
+  },
+  "playback": {
+    "speed": "배속",
+    "pause": "일시정지",
+    "resume": "재생"
   }
 }

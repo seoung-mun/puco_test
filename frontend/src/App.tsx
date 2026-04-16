@@ -127,6 +127,8 @@ export default function App() {
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [isMultiplayer, setIsMultiplayer] = useState(false);
   const [isSpectator, setIsSpectator] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [playbackPaused, setPlaybackPaused] = useState(false);
   const [lobbyPlayers, setLobbyPlayers] = useState<LobbyPlayer[]>([]);
   const [lobbyHost, setLobbyHost] = useState<string | null>(null);
   const [lobbyError, setLobbyError] = useState<string | null>(null);
@@ -141,6 +143,9 @@ export default function App() {
   const isBlocked = !!state?.meta.bot_thinking || isBotTurn;
   const interactionLocked = isBlocked || saving;
   const canPass = (state?.action_mask?.[15] ?? 1) === 1;
+  const isBotGame = state
+    ? state.meta.player_order.every((id) => id.startsWith('BOT_'))
+    : false;
 
 
   useEffect(() => {
@@ -290,6 +295,23 @@ export default function App() {
     setError(buildGoogleLoginSetupMessage({ googleClientConfigured: false }));
   }, [authToken]);
 
+  useEffect(() => {
+    if (screen !== 'game' || !gameId || !authToken || !isSpectator) return;
+    // Check if bot game and fetch playback state
+    if (!state?.meta.player_order.every((id) => id.startsWith('BOT_'))) return;
+    fetch(`${BACKEND}/api/puco/games/${gameId}/playback`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          setPlaybackSpeed(data.speed ?? 1);
+          setPlaybackPaused(data.paused ?? false);
+        }
+      })
+      .catch(() => {});
+  }, [screen, gameId, authToken, isSpectator]);
+
   async function handleGoogleLogin(credentialResponse: { credential?: string }) {
     if (!credentialResponse.credential) return;
     setError(null);
@@ -424,6 +446,8 @@ export default function App() {
     setMyPlayerId(null);
     setIsMultiplayer(false);
     setIsSpectator(false);
+    setPlaybackSpeed(1);
+    setPlaybackPaused(false);
     setLobbyPlayers([]);
     setLobbyHost(null);
     setState(null);
@@ -892,6 +916,35 @@ export default function App() {
       />
     );
   }
+  async function handleSpeedChange(speed: number) {
+    if (!gameId || !authToken) return;
+    setPlaybackSpeed(speed);
+    try {
+      await fetch(`${BACKEND}/api/puco/games/${gameId}/speed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ speed }),
+      });
+    } catch (e) {
+      console.error('Speed change failed:', e);
+    }
+  }
+
+  async function handlePauseToggle() {
+    if (!gameId || !authToken) return;
+    const newPaused = !playbackPaused;
+    setPlaybackPaused(newPaused);
+    try {
+      await fetch(`${BACKEND}/api/puco/games/${gameId}/pause`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ paused: newPaused }),
+      });
+    } catch (e) {
+      console.error('Pause toggle failed:', e);
+    }
+  }
+
   if (!state) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 16 }}>
@@ -930,6 +983,11 @@ export default function App() {
       isBlocked={isBlocked}
       interactionLocked={interactionLocked}
       canPass={canPass}
+      isBotGame={isBotGame}
+      playbackSpeed={playbackSpeed}
+      playbackPaused={playbackPaused}
+      onSpeedChange={handleSpeedChange}
+      onPauseToggle={handlePauseToggle}
       onStateLoaded={setState}
       onGoToRoomsPreservingAuth={goToRoomsPreservingAuth}
       onLogoutToLogin={logoutToLogin}

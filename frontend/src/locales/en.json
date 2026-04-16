@@ -411,5 +411,10 @@
       "frame":  "{{current}} / {{total}}",
       "noRich": "This frame has no rich state."
     }
+  },
+  "playback": {
+    "speed": "Speed",
+    "pause": "Pause",
+    "resume": "Resume"
   }
 }
