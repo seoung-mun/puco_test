@@ -329,6 +329,10 @@ class GameService:
             players,
         )
 
+        if GameService.get_game_paused(game_id):
+            logger.warning("[BOT_TRACE] schedule_skipped_paused game=%s", game_id)
+            return
+
         if not players or next_idx >= len(players):
             logger.warning(
                 "[BOT_TRACE] schedule_abort game=%s reason=idx_out_of_range next_idx=%d players_len=%d",

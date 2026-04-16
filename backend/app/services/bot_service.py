@@ -24,6 +24,7 @@ from app.services.agent_registry import (
     require_valid_bot_type,
     resolve_bot_type_from_actor_id,
 )
+from app.services.game_service import GameService
 
 logger = logging.getLogger(__name__)
 
@@ -510,6 +511,11 @@ class BotService:
             getattr(engine.env, "agent_selection", None),
         )
         try:
+            # Check if game is paused - if so, skip this turn (resume will re-trigger)
+            if GameService.get_game_paused(game_id):
+                logger.warning("[BOT_TRACE] turn_skipped_paused game=%s actor=%s", game_id, actor_id)
+                return
+
             mask = BotService.guard_action_mask(engine)
             valid_count = sum(1 for v in mask if v > 0.5)
             logger.warning(
@@ -525,8 +531,10 @@ class BotService:
             # Detect role selection phase (indices 0-7 are roles)
             is_role_selection = any(mask[0:8])
             
-            # Enhanced UX delay as per report.md
-            delay = 3.0 if is_role_selection else 2.0
+            # Enhanced UX delay as per report.md, scaled by game speed
+            speed = GameService.get_game_speed(game_id)
+            base_delay = 3.0 if is_role_selection else 2.0
+            delay = base_delay / speed
             
             logger.warning("[BOT_TRACE] turn_delay game=%s actor=%s delay=%.1fs role_selection=%s", game_id, actor_id, delay, is_role_selection)
             await asyncio.sleep(delay)
