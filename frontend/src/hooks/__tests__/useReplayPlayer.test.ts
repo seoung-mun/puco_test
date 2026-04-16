@@ -6,11 +6,11 @@ import type { ReplayFrame } from '../../types/replay';
 
 function makeFrames(n: number): ReplayFrame[] {
   return Array.from({ length: n }, (_, i) => ({
-    turn: i,
-    phase: 'role',
-    actor_id: 'p1',
-    action: { type: 'noop' },
-    rich_state: null,
+    frame_index: i,
+    step: i,
+    action: 'noop',
+    commentary: null,
+    rich_state: {} as any,
   }));
 }
 

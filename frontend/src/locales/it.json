@@ -376,10 +376,12 @@
   },
 
   "replay": {
-    "title":   "Replay",
-    "back":    "Indietro",
-    "loading": "Caricamento...",
-    "empty":   "Nessun replay salvato.",
+    "title":    "Replay",
+    "back":     "Indietro",
+    "loading":  "Caricamento...",
+    "empty":    "Nessun replay salvato.",
+    "notFound": "Dati del replay non disponibili.",
+    "noFrames": "Nessun frame da riprodurre.",
     "search": {
       "placeholder": "Cerca per nome giocatore",
       "submit":      "Cerca",

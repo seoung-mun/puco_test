@@ -378,10 +378,12 @@
   },
 
   "replay": {
-    "title":   "Replays",
-    "back":    "Back",
-    "loading": "Loading...",
-    "empty":   "No replays saved.",
+    "title":    "Replays",
+    "back":     "Back",
+    "loading":  "Loading...",
+    "empty":    "No replays saved.",
+    "notFound": "Replay data is unavailable.",
+    "noFrames": "No frames to play.",
     "search": {
       "placeholder": "Search by player name",
       "submit":      "Search",

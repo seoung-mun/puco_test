@@ -16,17 +16,18 @@ function makeList(overrides?: Partial<ReplayListResponse>): ReplayListResponse {
   return {
     replays: [
       {
+        index: 1,
         game_id: 'g1',
         display_label: '04_13_Random_PPO_seoungmun_01',
-        title: 'bot game',
+        human_player_names: ['seoungmun'],
         players: [
-          { actor_id: 'p1', display_name: 'seoungmun', is_bot: false },
-          { actor_id: 'b1', display_name: 'BOT_random', is_bot: true },
+          { display_name: 'seoungmun', is_bot: false },
+          { display_name: 'Random', is_bot: true },
         ],
         played_date: '2026-04-13',
         created_at: '2026-04-13T12:00:00Z',
-        finished_at: '2026-04-13T12:30:00Z',
-        winner_id: 'p1',
+        num_players: 2,
+        winner: 'seoungmun',
       },
     ],
     page: 1,

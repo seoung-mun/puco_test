@@ -97,6 +97,8 @@ async def list_replays(
         .all()
     )
 
+    games = [g for g in games if os.path.exists(get_replay_file_path(g.id))]
+
     resolved: dict[str, list[ReplayPlayerInfo]] = {
         str(g.id): _resolve_player_infos(g, db) for g in games
     }
@@ -173,6 +175,7 @@ async def get_replay_detail(
         .order_by(GameSession.created_at.desc())
         .all()
     )
+    all_finished = [g for g in all_finished if os.path.exists(get_replay_file_path(g.id))]
     resolved: dict[str, list[ReplayPlayerInfo]] = {str(room.id): infos}
     for g in all_finished:
         if str(g.id) not in resolved:

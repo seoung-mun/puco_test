@@ -16,19 +16,16 @@ function makeDetail(): ReplayDetailResponse {
   return {
     game_id: 'g1',
     display_label: '04_13_Random_PPO_seoungmun_01',
-    title: 'bot game',
     players: [
-      { actor_id: 'p1', display_name: 'seoungmun', is_bot: false },
+      { display_name: 'seoungmun', is_bot: false },
     ],
-    played_date: '2026-04-13',
-    created_at: '2026-04-13T12:00:00Z',
-    finished_at: '2026-04-13T12:30:00Z',
-    winner_id: 'p1',
-    frames: [
-      { turn: 0, phase: 'role_selection', actor_id: 'p1', action: { type: 'select_role', role: 'mayor' }, rich_state: null },
-      { turn: 1, phase: 'mayor_action', actor_id: 'p1', action: { type: 'pass' }, rich_state: { governor_id: 'p1' } },
-      { turn: 2, phase: 'settler_action', actor_id: 'p1', action: { type: 'pass' }, rich_state: null },
+    replay_frames: [
+      { frame_index: 0, step: 0, action: 'Select Role: Builder', commentary: 'Phase END_ROUND -> BUILDER', rich_state: { meta: { round: 1 } } as any },
+      { frame_index: 1, step: 1, action: 'Pass', commentary: null, rich_state: { meta: { round: 1 } } as any },
+      { frame_index: 2, step: 2, action: 'Pass', commentary: null, rich_state: { meta: { round: 2 } } as any },
     ],
+    total_frames: 3,
+    final_scores: [],
   };
 }
 
@@ -47,8 +44,7 @@ describe('ReplayViewScreen', () => {
     await waitFor(() => {
       expect(screen.getByText('04_13_Random_PPO_seoungmun_01')).toBeTruthy();
     });
-    expect(screen.getByTestId('replay-frame-info').textContent).toContain('role_selection');
-    expect(screen.getByTestId('replay-frame-info').textContent).toContain('select_role');
+    expect(screen.getByTestId('replay-frame-info').textContent).toContain('Select Role: Builder');
   });
 
   it('next advances frame', async () => {
@@ -60,16 +56,15 @@ describe('ReplayViewScreen', () => {
 
     const nextBtn = screen.getByRole('button', { name: '다음' });
     await userEvent.click(nextBtn);
-    expect(screen.getByTestId('replay-frame-info').textContent).toContain('mayor_action');
+    expect(screen.getByTestId('replay-frame-info').textContent).toContain('Pass');
   });
 
-  it('shows no-rich message on frame without rich_state', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse(makeDetail()));
+  it('shows not-found state on 404', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse({ detail: 'not found' }, 404));
     render(<ReplayViewScreen token="tok" gameId="g1" onBack={() => {}} />);
     await waitFor(() => {
-      expect(screen.getByText('04_13_Random_PPO_seoungmun_01')).toBeTruthy();
+      expect(screen.getByTestId('replay-not-found')).toBeTruthy();
     });
-    expect(screen.getByText(/상세 상태 정보가 없습니다/)).toBeTruthy();
   });
 
   it('onBack invoked from back button', async () => {
@@ -81,11 +76,11 @@ describe('ReplayViewScreen', () => {
     expect(onBack).toHaveBeenCalled();
   });
 
-  it('shows error on HTTP failure', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse({ detail: 'nope' }, 404));
+  it('shows error on non-404 HTTP failure', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse({}, 500));
     render(<ReplayViewScreen token="tok" gameId="g1" onBack={() => {}} />);
     await waitFor(() => {
-      expect(screen.getByText(/HTTP 404/)).toBeTruthy();
+      expect(screen.getByText(/HTTP 500/)).toBeTruthy();
     });
   });
 });

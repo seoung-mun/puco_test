@@ -14,21 +14,27 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
   const { t } = useTranslation();
   const [detail, setDetail] = useState<ReplayDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setNotFound(false);
     fetch(`/api/puco/replays/${gameId}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (res) => {
+        if (res.status === 404) {
+          if (!cancelled) setNotFound(true);
+          return null;
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return (await res.json()) as ReplayDetailResponse;
       })
       .then((body) => {
-        if (!cancelled) setDetail(body);
+        if (!cancelled && body) setDetail(body);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -41,7 +47,7 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
     };
   }, [token, gameId]);
 
-  const frames = detail?.frames ?? [];
+  const frames = detail?.replay_frames ?? [];
   const player = useReplayPlayer({ frames });
   const { currentFrame, totalFrames, isPlaying, speed, frame, toggle, next, prev, seek, setSpeed } = player;
 
@@ -79,7 +85,38 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
 
       <div style={{ padding: '24px 32px' }}>
         {loading && <p style={{ color: '#667' }}>{t('replay.loading')}</p>}
-        {error && <p style={{ color: '#f66' }}>{error}</p>}
+
+        {notFound && (
+          <div
+            data-testid="replay-not-found"
+            style={{ textAlign: 'center', marginTop: 80, color: '#445' }}
+          >
+            <p style={{ fontSize: 16 }}>{t('replay.notFound')}</p>
+            <button
+              onClick={onBack}
+              style={{
+                marginTop: 16,
+                background: '#2a5ab0',
+                border: 'none',
+                borderRadius: 6,
+                color: '#fff',
+                cursor: 'pointer',
+                padding: '8px 18px',
+                fontSize: 13,
+              }}
+            >
+              ← {t('replay.back')}
+            </button>
+          </div>
+        )}
+
+        {error && !notFound && <p style={{ color: '#f66' }}>{error}</p>}
+
+        {detail && totalFrames === 0 && !notFound && (
+          <div style={{ textAlign: 'center', marginTop: 60, color: '#556' }}>
+            <p style={{ fontSize: 15 }}>{t('replay.noFrames')}</p>
+          </div>
+        )}
 
         {detail && totalFrames > 0 && (
           <>
@@ -163,10 +200,12 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
               }}
             >
               <div style={{ marginBottom: 8, color: '#aab', fontSize: 13 }}>
-                <strong style={{ color: '#dde' }}>Turn:</strong> {frame?.turn ?? '-'} &nbsp;
-                <strong style={{ color: '#dde' }}>Phase:</strong> {frame?.phase ?? '-'} &nbsp;
-                <strong style={{ color: '#dde' }}>Actor:</strong> {frame?.actor_id ?? '-'}
+                <strong style={{ color: '#dde' }}>Step:</strong> {frame?.step ?? '-'} &nbsp;
+                <strong style={{ color: '#dde' }}>Action:</strong> {frame?.action ?? '-'}
               </div>
+              {frame?.commentary && (
+                <p style={{ color: '#9bf', fontSize: 13, margin: '6px 0' }}>{frame.commentary}</p>
+              )}
               <pre
                 style={{
                   margin: 0,
@@ -176,15 +215,11 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
                   padding: 10,
                   borderRadius: 6,
                   overflow: 'auto',
+                  maxHeight: 400,
                 }}
               >
-                {JSON.stringify(frame?.action ?? {}, null, 2)}
+                {JSON.stringify(frame?.rich_state ?? {}, null, 2)}
               </pre>
-              {!frame?.rich_state && (
-                <p style={{ color: '#778', fontSize: 12, marginTop: 8 }}>
-                  {t('replay.player.noRich')}
-                </p>
-              )}
             </div>
           </>
         )}

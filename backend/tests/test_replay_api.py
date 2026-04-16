@@ -17,6 +17,12 @@ def _clear_games_table(db):
     db.execute(text("DELETE FROM games"))
     db.flush()
     yield
+    import glob
+    for f in glob.glob(os.path.join(REPLAY_LOG_DIR, "*.json")):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
 
 
 def _make_user(db, nickname: str) -> uuid.UUID:
@@ -37,6 +43,7 @@ def _make_finished_game(
     created_at: datetime,
     host_id: uuid.UUID | None = None,
     winner_id: str | None = None,
+    write_replay: bool = True,
 ) -> uuid.UUID:
     game_id = uuid.uuid4()
     db.add(
@@ -52,6 +59,8 @@ def _make_finished_game(
         )
     )
     db.flush()
+    if write_replay:
+        _write_replay_file(game_id, [])
     return game_id
 
 
