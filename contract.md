@@ -256,6 +256,24 @@ Mayor 관련 계약:
 - `rich_state`가 `null`인 entry는 목록/상세 응답의 `frames`에서 제외된다 (리플레이 재생 가능한 스텝만 노출).
 - 해당 `game_id`가 FINISHED가 아니거나 파일이 없으면 404 `{"detail": "replay_not_found"}` 또는 `{"detail": "replay_file_not_found"}`.
 
+### 2.9 Playback Control (Bot-Only Games)
+
+- `GET /api/puco/games/{game_id}/playback` — 현재 배속/일시정지 상태 조회
+- `POST /api/puco/games/{game_id}/speed` — 배속 변경
+- `POST /api/puco/games/{game_id}/pause` — 일시정지/재개
+
+계약:
+
+- 모든 경로: `Authorization: Bearer <token>` 필요. 미첨부 시 401.
+- 게임이 존재하지 않거나 `PROGRESS`가 아니면 404.
+- 게임의 모든 플레이어가 `BOT_`로 시작하지 않으면 403 `{"detail": "speed_control_bot_game_only"}`.
+- `POST /speed` body: `{"speed": 1|2|4}`. 그 외 값은 422.
+- `POST /pause` body: `{"paused": true|false}`.
+- `GET /playback` 응답: `{"speed": 1, "paused": false}` (기본값).
+- 배속/일시정지 상태는 메모리에만 저장. 서버 재시작 시 x1/미정지로 리셋 (허용됨).
+- 게임 종료(`FINISHED`) 시 해당 상태 자동 삭제.
+- 일시정지 중에는 봇 턴 스케줄링이 보류되며, 재개(`paused=false`) 시 즉시 다음 봇 턴 트리거.
+
 ### 2.7 Legacy Compatibility
 
 - `GET /api/bot-types`
