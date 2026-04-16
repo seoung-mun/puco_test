@@ -144,7 +144,7 @@ export default function App() {
   const interactionLocked = isBlocked || saving;
   const canPass = (state?.action_mask?.[15] ?? 1) === 1;
   const isBotGame = state
-    ? state.meta.player_order.every((id) => id.startsWith('BOT_'))
+    ? state.meta.player_order.every((id) => state.bot_players?.[id] !== undefined)
     : false;
 
 
@@ -298,7 +298,7 @@ export default function App() {
   useEffect(() => {
     if (screen !== 'game' || !gameId || !authToken || !isSpectator) return;
     // Check if bot game and fetch playback state
-    if (!state?.meta.player_order.every((id) => id.startsWith('BOT_'))) return;
+    if (!state?.meta.player_order.every((id) => state.bot_players?.[id] !== undefined)) return;
     fetch(`${BACKEND}/api/puco/games/${gameId}/playback`, {
       headers: { Authorization: `Bearer ${authToken}` },
     })
