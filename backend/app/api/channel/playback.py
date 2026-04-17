@@ -49,7 +49,7 @@ def set_speed(
 
 
 @router.post("/{game_id}/pause")
-def set_pause(
+async def set_pause(
     game_id: UUID,
     body: PauseRequest,
     db: Session = Depends(get_db),
