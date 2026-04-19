@@ -179,16 +179,22 @@ class ActionValueAgent(nn.Module):
         # Current state heuristic (for comparison)
         current_heuristic = self._compute_heuristic(game, current_player_idx)
         
+        action_values = []
         for action_idx in valid_actions:
             # Estimate the heuristic value after taking this action
             # We use action-specific heuristic bonuses instead of full simulation
             action_value = self._estimate_action_value(
                 game, current_player_idx, action_idx, current_heuristic
             )
+            action_values.append(action_value)
             
-            if action_value > best_value:
-                best_value = action_value
-                best_action = action_idx
+        action_values = np.array(action_values)
+        
+        # 10% Epsilon-Greedy Stochasticity ONLY during training
+        if getattr(self, 'training', False) and np.random.rand() < 0.10:
+            best_action = np.random.choice(valid_actions)
+        else:
+            best_action = valid_actions[np.argmax(action_values)]
         
         chosen = torch.tensor([best_action], dtype=torch.long)
         return chosen, torch.zeros(1), torch.zeros(1), torch.zeros(1)
@@ -258,29 +264,27 @@ class ActionValueAgent(nn.Module):
             bonus = self._store_bonus(game, player_idx, good, decay)
             
         # ═══ Mayor Phase: Colonist Placement ═══
-        elif 120 <= action_idx < 132:
-            slot_idx = action_idx - 120
-            t = p.island_board[slot_idx]
+        elif 120 <= action_idx < 126:
+            t_type = TileType(action_idx - 120)
             bonus = 0.5
-            if t.tile_type == TileType.QUARRY:
+            if t_type == TileType.QUARRY:
                 bonus = 1.0
             else:
-                good = self._PLANTATION_TO_GOOD.get(t.tile_type)
+                good = self._PLANTATION_TO_GOOD.get(t_type)
                 if good == Good.CORN:
                     bonus = 0.8
                 elif good is not None and self._has_production_building(game, player_idx, good):
                     bonus = 0.9
             bonus *= decay
             
-        elif 140 <= action_idx < 152:
-            slot_idx = action_idx - 140
-            b = p.city_board[slot_idx]
+        elif 140 <= action_idx < 163:
+            b_type = BuildingType(action_idx - 140)
             bonus = 1.0
-            if b.building_type in self._COMMERCIAL_ABILITY_VALUES:
+            if b_type in self._COMMERCIAL_ABILITY_VALUES:
                 bonus = 1.5
-            elif b.building_type in self._PRODUCTION_BUILDING_TO_GOOD:
+            elif b_type in self._PRODUCTION_BUILDING_TO_GOOD:
                 bonus = 1.2
-            if BUILDING_DATA.get(b.building_type, [0,0,0,0,False])[4]: # is_large 
+            if BUILDING_DATA.get(b_type, [0,0,0,0,False])[4]: # is_large 
                 bonus = 2.0
             bonus *= decay
         

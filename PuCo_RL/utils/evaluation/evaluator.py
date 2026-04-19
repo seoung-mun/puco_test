@@ -4,7 +4,6 @@ import numpy as np
 import torch.multiprocessing as mp
 from configs.constants import BUILDING_DATA, BuildingType
 from utils.env_wrappers import flatten_dict_observation
-from agents.factory_rule_based_agent import FactoryRuleBasedAgent
 
 
 def _worker_run_games(args):
@@ -14,9 +13,9 @@ def _worker_run_games(args):
     
     env = PuertoRicoEnv(num_players=len(permutation), max_game_steps=1500)
     
-    # Connect ActionValueAgent instances to the new env
+    # Connect ActionValueAgent and heuristics to the new env
     for name, agent in agent_instances.items():
-        if isinstance(agent, ActionValueAgent):
+        if hasattr(agent, "set_env"):
             agent.set_env(env)
     
     evaluator = GameEvaluator(env, obs_dim, action_dim)
@@ -218,25 +217,33 @@ class GameEvaluator:
         # Lazy import to avoid circular dependency at module level
         from agents.ppo_agent import PhasePPOAgent
         from agents.shipping_rush_agent import ShippingRushAgent
+        from agents.factory_rule_based_agent import FactoryRuleBasedAgent
         from agents.action_value_agent import ActionValueAgent
+        from agents.trade_building_agent import TradeBuildingAgent
 
         flat_obs = flatten_dict_observation(
             obs["observation"],
             self.env.observation_space("player_0")["observation"]
         )
         mask     = obs["action_mask"]
-        phase_id = int(obs["observation"]["global_state"]["current_phase"])
+        phase_id = int(np.argmax(obs["observation"]["global_state"]["current_phase_onehot"]))
 
         obs_t  = torch.as_tensor(flat_obs, dtype=torch.float32).unsqueeze(0)
         mask_t = torch.as_tensor(mask, dtype=torch.float32).unsqueeze(0)
 
         with torch.no_grad():
             if isinstance(agent_model, (ShippingRushAgent, FactoryRuleBasedAgent)):
-                player_idx = int(obs["observation"]["global_state"]["current_player"])
+                player_idx = int(obs["observation"]["global_state"]["current_player"][0])
                 act, _, _, _ = agent_model.get_action_and_value(
                     obs_t, mask_t,
                     obs_dict=obs["observation"], player_idx=player_idx
                 )
+
+            elif isinstance(agent_model, TradeBuildingAgent):
+                # TradeBuildingAgent inherits ActionValueAgent — same env-based dispatch
+                if agent_model._env is None:
+                    agent_model.set_env(self.env)
+                act, _, _, _ = agent_model.get_action_and_value(obs_t, mask_t)
 
             elif isinstance(agent_model, PhasePPOAgent):
                 phase_t = torch.tensor([phase_id], dtype=torch.long)

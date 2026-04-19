@@ -57,6 +57,7 @@ from utils.evaluation.metrics import (
 )
 from agents.shipping_rush_agent import ShippingRushAgent
 from agents.factory_rule_based_agent import FactoryRuleBasedAgent
+from agents.trade_building_agent import TradeBuildingAgent
 from agents.heuristic_bots import RandomBot
 from agents.action_value_agent import ActionValueAgent
 
@@ -86,8 +87,10 @@ def build_scenarios(action_dim: int, env: PuertoRicoEnv = None) -> list[Scenario
     """
     Instantiate all required agent objects and define evaluation scenarios.
     
-    Scenarios 1-3: Qualification tests (Bot vs Random × 2)
-    Scenario 4: Relative strength comparison (all 3 bots)
+    Scenarios 1-3: Original qualification tests (Bot vs Random × 2)
+    Scenario 4: Original relative strength comparison (all 3 original bots)
+    Scenarios 5-6: New bot qualification tests
+    Scenario 7: All qualified heuristic bots cross-comparison
     
     Args:
         action_dim: Action dimension for agents
@@ -121,11 +124,31 @@ def build_scenarios(action_dim: int, env: PuertoRicoEnv = None) -> list[Scenario
     F2 = FactoryRuleBasedAgent(action_dim).eval()
     sc4_agents = {"ActionValue": D2, "Shipping": S2, "Factory": F2}
 
+    # Scenario 5: TradeBuilding vs Random vs Random (Qualification)
+    TB1 = TradeBuildingAgent(action_dim).eval()
+    if env is not None:
+        TB1.set_env(env)
+    R7 = RandomBot(action_dim).eval()
+    R8 = RandomBot(action_dim).eval()
+    sc5_agents = {"TradeBuilding": TB1, "Random_A": R7, "Random_B": R8}
+
+    # Scenario 6: TradeBuilding vs ActionValue vs Shipping (Cross-comparison)
+    TB2 = TradeBuildingAgent(action_dim).eval()
+    if env is not None:
+        TB2.set_env(env)
+    D3 = ActionValueAgent(action_dim).eval()
+    if env is not None:
+        D3.set_env(env)
+    S2_b = ShippingRushAgent(action_dim, fixed_strategy=0).eval()
+    sc6_agents = {"TradeBuilding": TB2, "ActionValue": D3, "Shipping": S2_b}
+
     return [
         Scenario("Shipping vs Random vs Random", sc1_agents, {"Shipping"}, is_qualification=True),
         Scenario("Factory vs Random vs Random",  sc2_agents, {"Factory"}, is_qualification=True),
         Scenario("ActionValue vs Random vs Random",   sc3_agents, {"ActionValue"}, is_qualification=True),
         Scenario("ActionValue vs Shipping vs Factory", sc4_agents, {"ActionValue", "Shipping", "Factory"}, is_qualification=False),
+        Scenario("TradeBuilding vs Random vs Random", sc5_agents, {"TradeBuilding"}, is_qualification=True),
+        Scenario("TradeBuilding vs ActionValue vs Shipping", sc6_agents, {"TradeBuilding", "ActionValue", "Shipping"}, is_qualification=False),
     ]
 
 

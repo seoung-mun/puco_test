@@ -32,7 +32,11 @@ class ShippingRushAgent(nn.Module):
         self.action_dim = action_dim
         self.fixed_strategy = fixed_strategy
         self.strategy = 0
+        self._env = None
         self.reset_strategy()
+
+    def set_env(self, env):
+        self._env = env
 
     def reset_strategy(self):
         """Only Shipping Rush strategy (strategy 0)."""
@@ -46,25 +50,21 @@ class ShippingRushAgent(nn.Module):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _has_building(city_buildings: np.ndarray, b_type: BuildingType) -> bool:
-        return int(b_type) in city_buildings
+    def _has_building(has_building_arr: np.ndarray, b_type: BuildingType) -> bool:
+        """Check if player owns a building using binary has_building vector."""
+        return bool(has_building_arr[b_type.value] > 0)
 
     @staticmethod
-    def _building_colonists(city_buildings: np.ndarray, city_colonists: np.ndarray,
-                             b_type: BuildingType) -> int:
-        for slot, b in enumerate(city_buildings):
-            if b == int(b_type):
-                return int(city_colonists[slot])
-        return 0
+    def _building_colonists_count(building_colonists_arr: np.ndarray,
+                                  b_type: BuildingType) -> int:
+        """Get colonist count for a building using per-type colonist vector."""
+        return int(building_colonists_arr[b_type.value])
 
     @staticmethod
-    def _is_active(city_buildings: np.ndarray, city_colonists: np.ndarray,
+    def _is_active(has_building_arr: np.ndarray, building_colonists_arr: np.ndarray,
                    b_type: BuildingType) -> bool:
-        """Building is built AND has at least one colonist."""
-        for slot, b in enumerate(city_buildings):
-            if b == int(b_type) and city_colonists[slot] > 0:
-                return True
-        return False
+        """Building is owned AND has at least one colonist."""
+        return bool(has_building_arr[b_type.value] > 0 and building_colonists_arr[b_type.value] > 0)
 
     def _set_role(self, priority: np.ndarray, mask: np.ndarray, role_id: int, p: float):
         if mask[role_id]:
@@ -78,17 +78,22 @@ class ShippingRushAgent(nn.Module):
                 priority[action] = base - rank * 5.0
 
     def _set_settler(self, priority: np.ndarray, mask: np.ndarray,
-                     face_up: np.ndarray, wanted_tiles: list[int], base: float = 150.0):
-        """Assign settler priorities for desired plantation types."""
+                     face_up_counts: np.ndarray, wanted_tiles: list[int], base: float = 150.0):
+        """Assign settler priorities for desired plantation types.
+        face_up_counts: shape (6,), count per TileType (0-5).
+        wanted_tiles: list of TileType int values in priority order.
+        Action mapping: 8=Coffee(0), 9=Tobacco(1), 10=Corn(2), 11=Sugar(3), 12=Indigo(4), 13=Quarry(5).
+        """
         for rank, tile_type in enumerate(wanted_tiles):
-            for slot_idx, t in enumerate(face_up):
-                t_val = _iv(t)
-                if t_val == tile_type and mask[8 + slot_idx]:
-                    priority[8 + slot_idx] = base - rank * 5.0
-                    break
-        # Quarry (tile_type 5) requested via tile_type 5 convention
-        if 5 in wanted_tiles and mask[14]:
-            priority[14] = base + 10.0
+            action = 8 + tile_type  # Direct tile_type to action mapping
+            if tile_type < 6 and face_up_counts[tile_type] > 0 and mask[action]:
+                priority[action] = base - rank * 5.0
+        # Quarry (tile_type 5)
+        if 5 in wanted_tiles:
+            if mask[13]:
+                priority[13] = base + 10.0
+            elif mask[14]:
+                priority[14] = base + 10.0
 
     # ------------------------------------------------------------------
     # Opponent analysis helpers
@@ -112,22 +117,21 @@ class ShippingRushAgent(nn.Module):
         return False
 
     def _get_game_progress(self, obs_dict: dict, player_idx: int) -> dict:
-        """Analyze game state to predict end timing."""
+        """Analyze game state to predict end timing using new obs encoding."""
         global_s = obs_dict["global_state"]
-        vp_chips = _iv(global_s["vp_chips"])
-        
-        # Check city fill status for all players
-        max_city_fill = 0
+        vp_chips = _iv(global_s["vp_chips"][0])
+
+        # Check city fill status using empty_city_spaces
+        min_empty_city = 12
         for i in range(len(obs_dict["players"])):
             p_state = obs_dict["players"][f"player_{i}"]
-            city_b = p_state["city_buildings"]
-            filled = sum(1 for b in city_b if _iv(b) < 23)
-            max_city_fill = max(max_city_fill, filled)
-        
-        # Estimate rounds remaining
+            empty = _iv(p_state["empty_city_spaces"][0])
+            min_empty_city = min(min_empty_city, empty)
+        max_city_fill = 12 - min_empty_city
+
         vp_critical = vp_chips <= 15
         city_critical = max_city_fill >= 10
-        
+
         return {
             "vp_chips": vp_chips,
             "vp_critical": vp_critical,
@@ -141,76 +145,72 @@ class ShippingRushAgent(nn.Module):
     # ------------------------------------------------------------------
 
     def _get_best_shipping_action(self, mask: np.ndarray, goods: np.ndarray,
-                                   cargo_ships_good: np.ndarray,
+                                   cargo_ships_good_onehot: np.ndarray,
                                    cargo_ships_load: np.ndarray,
+                                   cargo_ships_space: np.ndarray,
                                    has_harbor: bool, has_wharf: bool,
                                    wharf_used: bool) -> tuple[int, float]:
         """
         Find the best shipping action that maximizes VP.
+        cargo_ships_good_onehot: shape (18,) — 3 ships × 6 classes (5 goods + none).
+        cargo_ships_space: shape (3,) — remaining capacity per ship.
         Returns (action_id, priority_score).
         """
-        ship_capacities = [4, 5, 6]  # Typical 3-player setup
         best_action = -1
         best_score = 0.0
-        
-        # Evaluate each possible ship/good combination
+
         for ship_idx in range(3):
-            ship_good = _iv(cargo_ships_good[ship_idx])
-            ship_load = _iv(cargo_ships_load[ship_idx])
-            ship_cap = ship_capacities[ship_idx] if ship_idx < len(ship_capacities) else 6
-            ship_space = ship_cap - ship_load
-            
+            ship_space = int(cargo_ships_space[ship_idx])
             if ship_space <= 0:
                 continue
-            
+
+            # Decode ship's good type from one-hot
+            ship_onehot = cargo_ships_good_onehot[ship_idx * 6:(ship_idx + 1) * 6]
+            ship_good = int(np.argmax(ship_onehot))  # 0-4 = good, 5 = none/empty
+
             for good_idx in range(5):
                 action = 44 + ship_idx * 5 + good_idx
                 if not mask[action]:
                     continue
-                
+
                 my_amount = _iv(goods[good_idx])
                 if my_amount <= 0:
                     continue
-                
-                # Can we load on this ship?
-                can_load = (ship_good == 5 or ship_good == good_idx)  # 5 = empty
+
+                can_load = (ship_good == 5 or ship_good == good_idx)
                 if not can_load:
                     continue
-                
-                # Calculate VP from this shipment
+
                 load_amount = min(my_amount, ship_space)
                 vp = load_amount
                 if has_harbor:
-                    vp += 1  # Harbor bonus
-                
-                # Prefer shipping more goods at once
+                    vp += 1
+
                 score = vp * 10 + load_amount
-                
                 if score > best_score:
                     best_score = score
                     best_action = action
-        
-        # Check Wharf option (59-63)
+
+        # Check Wharf option (74-78 for wharf shipping)
         if has_wharf and not wharf_used:
             for good_idx in range(5):
-                action = 59 + good_idx
+                action = 74 + good_idx
                 if not mask[action]:
                     continue
-                
+
                 my_amount = _iv(goods[good_idx])
                 if my_amount <= 0:
                     continue
-                
+
                 vp = my_amount
                 if has_harbor:
                     vp += 1
-                
-                score = vp * 10 + my_amount + 5  # Small bonus for Wharf flexibility
-                
+
+                score = vp * 10 + my_amount + 5
                 if score > best_score:
                     best_score = score
                     best_action = action
-        
+
         return best_action, best_score
 
     # ------------------------------------------------------------------
@@ -218,10 +218,14 @@ class ShippingRushAgent(nn.Module):
     # ------------------------------------------------------------------
 
     def _choose_mayor_strategy(self, my_state: dict, mask: np.ndarray,
-                                priority: np.ndarray):
-        """Mayor actions: 120-131 (Island), 140-151 (City). Prioritize Shipping Rush targets."""
-        city_b = my_state["city_buildings"]
-        island_tiles = my_state["island_tiles"]
+                                priority: np.ndarray, player_idx: int):
+        """Mayor actions: 120-131 (Island), 140-151 (City).
+        Uses has_building (binary) and building_colonists (per-type) from new obs.
+        Since Mayor phase recalls colonists, we use the mask to determine valid slots.
+        Priority is assigned by building category importance mapping through env.game.
+        """
+        has_bldg = my_state["has_building"]
+        bldg_col = my_state["building_colonists"]
 
         shipping_bldgs = {BuildingType.HARBOR, BuildingType.WHARF,
                           BuildingType.SMALL_WAREHOUSE, BuildingType.LARGE_WAREHOUSE}
@@ -231,35 +235,33 @@ class ShippingRushAgent(nn.Module):
                              BuildingType.SMALL_SUGAR_MILL, BuildingType.SUGAR_MILL,
                              BuildingType.TOBACCO_STORAGE, BuildingType.COFFEE_ROASTER}
 
-        for slot, b in enumerate(city_b):
-            action_id = 140 + slot
-            if mask[action_id]:
-                try:
-                    b_type = BuildingType(_iv(b))
-                except ValueError:
-                    continue
-                score = 50.0
-                if b_type.value >= 18:
-                    score = 250.0 # Large buildings
-                elif b_type in shipping_bldgs:
-                    score = 240.0
-                elif b_type in production_bldgs:
-                    score = 230.0
-                elif b_type in trade_bldgs:
-                    score = 210.0
-                priority[action_id] = score + np.random.uniform(0, 5.0)
+        game = self._env.game if hasattr(self, '_env') and self._env else None
 
-        for slot, t in enumerate(island_tiles):
-            action_id = 120 + slot
+        # City building colonist placement (140-162): use mask to find valid targets by BuildingType
+        for b_val in range(23):
+            action_id = 140 + b_val
             if mask[action_id]:
-                try:
-                    t_type = TileType(_iv(t))
-                except ValueError:
-                    continue
-                score = 220.0 # Plantations high priority early on
+                base = 230.0
+                b_type = BuildingType(b_val)
+                if b_type in shipping_bldgs:
+                    base = 260.0
+                elif b_type in production_bldgs:
+                    base = 240.0
+                elif b_type in trade_bldgs:
+                    base = 235.0
+                priority[action_id] = base + np.random.uniform(0, 5.0)
+
+        # Island tile colonist placement (120-125): use mask to find valid targets by TileType
+        for t_val in range(6):
+            action_id = 120 + t_val
+            if mask[action_id]:
+                base = 220.0
+                t_type = TileType(t_val)
                 if t_type == TileType.QUARRY:
-                    score = 150.0 # Quarries less important than production for Shipping Rush
-                priority[action_id] = score + np.random.uniform(0, 5.0)
+                    base = 225.0
+                elif t_type in (TileType.COFFEE_PLANTATION, TileType.TOBACCO_PLANTATION, TileType.SUGAR_PLANTATION):
+                    base = 230.0
+                priority[action_id] = base + np.random.uniform(0, 5.0)
 
     # ------------------------------------------------------------------
     # Main inference
@@ -279,29 +281,28 @@ class ShippingRushAgent(nn.Module):
             global_s = obs_dict["global_state"]
 
             # ── Scalar extraction ──────────────────────────────────────
-            doubloons = _iv(my_state["doubloons"])
+            doubloons = _iv(my_state["doubloons"][0])
             goods: np.ndarray = my_state["goods"]
             total_goods = int(goods.sum())
-            unplaced_col = _iv(my_state["unplaced_colonists"])
+            unplaced_col = _iv(my_state["unplaced_colonists"][0])
 
-            city_b = my_state["city_buildings"]
-            city_c = my_state["city_colonists"]
-            island_tiles = my_state["island_tiles"]
+            has_bldg = my_state["has_building"]
+            bldg_col = my_state["building_colonists"]
 
-            occupied_city = sum(1 for b in city_b if _iv(b) < 23)
-            empty_city_slots = 12 - occupied_city
-            occupied_island = sum(1 for t in island_tiles if _iv(t) < 6)
-            empty_island_slots = 12 - occupied_island
+            empty_city_slots = int(my_state["empty_city_spaces"][0])
+            empty_island_slots = int(my_state["island_empty_spaces"][0])
+            occupied_city = 12 - empty_city_slots
+            occupied_island = 12 - empty_island_slots
 
-            # ── Active building checks ─────────────────────────────────
-            has_harbor = self._is_active(city_b, city_c, BuildingType.HARBOR)
-            has_wharf = self._is_active(city_b, city_c, BuildingType.WHARF)
-            has_sm_mkt = self._is_active(city_b, city_c, BuildingType.SMALL_MARKET)
-            has_harbor_built = self._has_building(city_b, BuildingType.HARBOR)
-            has_wharf_built = self._has_building(city_b, BuildingType.WHARF)
+            # ── Active building checks (new binary encoding) ──────────
+            has_harbor = self._is_active(has_bldg, bldg_col, BuildingType.HARBOR)
+            has_wharf = self._is_active(has_bldg, bldg_col, BuildingType.WHARF)
+            has_sm_mkt = self._is_active(has_bldg, bldg_col, BuildingType.SMALL_MARKET)
+            has_harbor_built = self._has_building(has_bldg, BuildingType.HARBOR)
+            has_wharf_built = self._has_building(has_bldg, BuildingType.WHARF)
 
             # ── Game state analysis ────────────────────────────────────
-            trading_house_count = sum(1 for g in global_s["trading_house"] if _iv(g) < 5)
+            trading_house_count = int(global_s["trading_house_count"][0])
             is_trader_open = trading_house_count < 4
             
             game_progress = self._get_game_progress(obs_dict, player_idx)
@@ -313,76 +314,70 @@ class ShippingRushAgent(nn.Module):
             opp_goods = self._get_opponent_goods(obs_dict, player_idx)
             max_opp_goods = max(opp_goods.values()) if opp_goods else 0
 
-            face_up = global_s["face_up_plantations"]
-            cargo_ships_good = global_s["cargo_ships_good"]
+            face_up_counts = global_s["face_up_plantation_counts"]
+            cargo_ships_good_onehot = global_s["cargo_ships_good_onehot"]
             cargo_ships_load = global_s["cargo_ships_load"]
+            cargo_ships_space = global_s["cargo_ships_space"]
 
             # ══════════════════════════════════════════════════════════
             # SHIPPING RUSH STRATEGY
             # ══════════════════════════════════════════════════════════
 
             # Role priorities with opponent awareness
-            self._set_role(priority, mask, 6, 20.0)  # Prospector fallback
+            self._set_role(priority, mask, 6, 20.0)  # Prospectors
             self._set_role(priority, mask, 7, 20.0)
 
-            # CAPTAIN: Core of shipping strategy
+            # 1. MAYOR: FIXED (Pick if vacant slots exist, even if unplaced is 0)
+            game_obj = self._env.game if (hasattr(self, '_env') and self._env) else None
+            has_vacant_slots = False
+            if game_obj:
+                p_obj = game_obj.players[player_idx]
+                vacant_b = sum(BUILDING_DATA[b.building_type][2] - b.colonists for b in p_obj.city_board if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE))
+                vacant_i = sum(1 for t in p_obj.island_board if t.tile_type != TileType.EMPTY and not t.is_occupied)
+                has_vacant_slots = (vacant_b + vacant_i) > 0
+
+            if unplaced_col > 0 or has_vacant_slots:
+                priority[1] = 110.0 if (has_vacant_slots and unplaced_col == 0) else 90.0
+
+            # 2. CAPTAIN
             if total_goods >= 2:
                 base_captain = 140.0
-                if has_harbor:
-                    base_captain += 30.0  # Harbor makes shipping very valuable
-                if endgame:
-                    base_captain += 20.0  # Rush VP in endgame
-                if opp_wants_captain and total_goods >= max_opp_goods:
-                    base_captain += 15.0  # Pre-empt opponent
+                if has_harbor: base_captain += 40.0
+                if endgame: base_captain += 30.0
+                if opp_wants_captain: base_captain += 20.0
                 self._set_role(priority, mask, 5, base_captain)
             elif total_goods == 1:
-                if has_harbor:
-                    self._set_role(priority, mask, 5, 100.0)
-                else:
-                    self._set_role(priority, mask, 5, 70.0)
+                self._set_role(priority, mask, 5, 100.0 if has_harbor else 70.0)
 
-            # CRAFTSMAN: Produce when empty or need to restock
-            if total_goods == 0:
-                base_craft = 120.0
-                if has_harbor:
-                    base_craft += 15.0  # Need goods to ship
-                self._set_role(priority, mask, 3, base_craft)
-            elif total_goods <= 2 and not endgame:
-                self._set_role(priority, mask, 3, 90.0)
-
-            # TRADER: Sell for doubloons when needed
-            if total_goods > 0 and is_trader_open:
-                base_trade = 75.0
-                if not has_harbor_built and doubloons < _COST[BuildingType.HARBOR]:
-                    base_trade = 100.0  # Need money for Harbor
-                self._set_role(priority, mask, 4, base_trade)
-
-            # SETTLER: Expand plantations (important early)
+            # 3. SETTLER
             if empty_island_slots > 0:
-                base_settler = 95.0
-                if occupied_island < 4:
-                    base_settler = 115.0  # Critical early
-                elif endgame:
-                    base_settler = 50.0  # Less important late
-                self._set_role(priority, mask, 0, base_settler)
+                priority[0] = 115.0 if occupied_island < 4 else 80.0
 
-            # BUILDER: When we can afford key buildings
+            # 4. CRAFTSMAN: FIXED (Only produce if I have capacity)
+            prod_cap = my_state["production_capacity"].sum() if "production_capacity" in my_state else 0
+            if prod_cap > 0:
+                if total_goods == 0:
+                    priority[3] = 125.0
+                elif total_goods <= 2:
+                    priority[3] = 100.0
+            else:
+                self._set_role(priority, mask, 3, 10.0) # Avoid suicide Craftsman
+
+            # 5. TRADER
+            if total_goods > 0 and is_trader_open:
+                priority[4] = 105.0 if (doubloons < 5 and not has_harbor_built) else 75.0
+
+            # 6. BUILDER
             if empty_city_slots > 0:
                 if not has_wharf_built and doubloons >= _COST[BuildingType.WHARF]:
-                    self._set_role(priority, mask, 2, 145.0)  # Wharf is top priority
+                    self._set_role(priority, mask, 2, 145.0)
                 elif not has_harbor_built and doubloons >= _COST[BuildingType.HARBOR]:
                     self._set_role(priority, mask, 2, 135.0)
                 elif not has_sm_mkt and doubloons >= _COST[BuildingType.SMALL_MARKET]:
                     self._set_role(priority, mask, 2, 80.0)
-                elif endgame and doubloons >= 10:
-                    self._set_role(priority, mask, 2, 130.0)  # Large buildings
 
-            # MAYOR: Place colonists
-            if unplaced_col > 0:
-                self._set_role(priority, mask, 1, 85.0)
-
-            # Settler tile preferences: Corn > Indigo > Sugar (cheap, high volume)
-            self._set_settler(priority, mask, face_up, [2, 4, 3, 5])
+            # 7. TILE SELECTION: Semantic usage
+            self._set_settler(priority, mask, face_up_counts, [2, 4, 3, 5])
 
             # Building priorities
             bldg_priority = [
@@ -408,8 +403,8 @@ class ShippingRushAgent(nn.Module):
 
             # Optimized Captain shipping
             best_ship_action, ship_score = self._get_best_shipping_action(
-                mask, goods, cargo_ships_good, cargo_ships_load,
-                has_harbor, has_wharf, False  # wharf_used tracking would need state
+                mask, goods, cargo_ships_good_onehot, cargo_ships_load,
+                cargo_ships_space, has_harbor, has_wharf, False
             )
             if best_ship_action >= 0:
                 priority[best_ship_action] = 320.0 + ship_score
@@ -420,7 +415,7 @@ class ShippingRushAgent(nn.Module):
                     priority[i] = 280.0
 
             # Mayor strategy
-            self._choose_mayor_strategy(my_state, mask, priority)
+            self._choose_mayor_strategy(my_state, mask, priority, player_idx)
 
             # Trader: prefer high-value goods
             for i, good_val in enumerate([4, 3, 0, 2, 1]):
@@ -445,7 +440,14 @@ class ShippingRushAgent(nn.Module):
         priority += np.random.uniform(0, 0.1, size=self.action_dim)
         priority[mask == 0] = -1e9
 
-        chosen_act = int(np.argmax(priority))
+        valid_actions = np.where(mask == 1)[0]
+        
+        # 10% Epsilon-Greedy Stochasticity ONLY during training
+        if getattr(self, 'training', False) and np.random.rand() < 0.10 and len(valid_actions) > 0:
+            chosen_act = int(np.random.choice(valid_actions))
+        else:
+            chosen_act = int(np.argmax(priority))
+            
         chosen_t = torch.tensor([chosen_act], dtype=torch.long, device=mask_t.device)
         return chosen_t, torch.zeros(1, device=mask_t.device), \
                torch.zeros(1, device=mask_t.device), torch.zeros(1, device=mask_t.device)

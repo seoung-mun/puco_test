@@ -78,6 +78,10 @@ class FactoryRuleBasedAgent(nn.Module):
     def __init__(self, action_dim: int = 200):
         super().__init__()
         self.action_dim = action_dim
+        self._env = None
+
+    def set_env(self, env):
+        self._env = env
 
     def reset_strategy(self):
         pass  # Deterministic
@@ -272,24 +276,22 @@ class FactoryRuleBasedAgent(nn.Module):
 
     def _get_opponent_goods(self, obs_dict: dict, player_idx: int) -> dict:
         """Get total goods for each opponent."""
+        if not hasattr(self, '_env') or not self._env: return {}
+        game = self._env.game
         opp_goods = {}
-        for i in range(len(obs_dict["players"])):
+        for i, p in enumerate(game.players):
             if i != player_idx:
-                opp_state = obs_dict["players"][f"player_{i}"]
-                opp_goods[i] = int(np.sum(opp_state["goods"]))
+                opp_goods[i] = sum(p.goods.values())
         return opp_goods
 
     def _get_game_progress(self, obs_dict: dict) -> dict:
         """Analyze game state to predict end timing."""
-        global_s = obs_dict["global_state"]
-        vp_chips = _iv(global_s["vp_chips"])
+        if not hasattr(self, '_env') or not self._env:
+            return {"vp_chips": 50, "vp_critical": False, "city_critical": False, "endgame": False, "max_city_fill": 0}
+        game = self._env.game
+        vp_chips = game.vp_chips
         
-        max_city_fill = 0
-        for i in range(len(obs_dict["players"])):
-            p_state = obs_dict["players"][f"player_{i}"]
-            city_b = p_state["city_buildings"]
-            filled = sum(1 for b in city_b if _iv(b) < 23)
-            max_city_fill = max(max_city_fill, filled)
+        max_city_fill = max(sum(1 for b in p.city_board if b.building_type not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE)) for p in game.players)
         
         vp_critical = vp_chips <= 15
         city_critical = max_city_fill >= 10
@@ -358,28 +360,32 @@ class FactoryRuleBasedAgent(nn.Module):
         for a in range(16, 39):
             priority[a] = 0.08
 
-        if obs_dict is None or player_idx is None:
+        game = self._env.game if hasattr(self, '_env') and self._env else None
+
+        if game is None or player_idx is None:
             priority += np.random.uniform(0, 0.05, self.action_dim)
             priority[mask == 0] = -1e9
             return (torch.tensor([int(np.argmax(priority))], dtype=torch.long,
                                   device=mask_t.device),
                     torch.zeros(1), torch.zeros(1), torch.zeros(1))
 
-        my = obs_dict["players"][f"player_{player_idx}"]
-        gs = obs_dict["global_state"]
+        p = game.players[player_idx]
 
-        doubloons     = _iv(my["doubloons"])
-        goods         = my["goods"]
+        doubloons     = p.doubloons
+        goods         = np.array([p.goods[Good.COFFEE], p.goods[Good.TOBACCO], p.goods[Good.CORN], p.goods[Good.SUGAR], p.goods[Good.INDIGO]])
         total_goods   = int(np.sum(goods))
-        city_b        = my["city_buildings"]
-        city_c        = my["city_colonists"]
-        island_tiles  = my["island_tiles"]
-        island_occ    = my["island_occupied"]
-        face_up       = gs["face_up_plantations"]
-        trading_house = gs["trading_house"]
-        unplaced_col  = _iv(my["unplaced_colonists"])
-        cargo_ships_good = gs["cargo_ships_good"]
-        cargo_ships_load = gs["cargo_ships_load"]
+        
+        city_b        = np.array([b.building_type.value for b in p.city_board])
+        city_c        = np.array([b.colonists for b in p.city_board])
+        island_tiles  = np.array([t.tile_type.value if t.tile_type != TileType.EMPTY else 255 for t in p.island_board])
+        island_occ    = np.array([1 if t.is_occupied else 0 for t in p.island_board])
+        
+        face_up       = np.array([t.value for t in game.face_up_plantations])
+        trading_house = np.array([g.value for g in game.trading_house])
+        unplaced_col  = p.unplaced_colonists
+        
+        cargo_ships_good = np.array([s.good_type.value if s.good_type is not None else 5 for s in game.cargo_ships])
+        cargo_ships_load = np.array([s.current_load for s in game.cargo_ships])
 
         tile_counts = self._tile_counts(island_tiles)
         num_plantations = sum(tile_counts.values())
@@ -559,10 +565,32 @@ class FactoryRuleBasedAgent(nn.Module):
             if mask[93 + i]:
                 priority[93 + i] = 60.0 + gv
 
-        # Mayor strategy
-        mayor_act = self._mayor_action(mask, harbor_act)
-        if mayor_act is not None:
-            priority[mayor_act] = priority[1] + 5.0
+        # ── Mayor strategy (120-125 Island by Type, 140-162 City by Type) ──────────
+        for t_val in range(6):
+            act_isl = 120 + t_val
+            if mask[act_isl]:
+                t_type = TileType(t_val)
+                base = 220.0
+                if t_type == TileType.QUARRY:
+                    base = 225.0
+                elif t_type in (TileType.COFFEE_PLANTATION, TileType.TOBACCO_PLANTATION):
+                    base = 235.0
+                else:
+                    base = 230.0
+                priority[act_isl] = base + np.random.uniform(0, 5.0)
+
+        for b_val in range(23):
+            act_city = 140 + b_val
+            if mask[act_city]:
+                b_type = BuildingType(b_val)
+                base = 230.0
+                if b_type == BuildingType.FACTORY:
+                    base = 260.0
+                elif b_type in (BuildingType.HARBOR, BuildingType.WHARF):
+                    base = 250.0 if harbor_act else 240.0
+                elif b_type in [BuildingType.SMALL_INDIGO_PLANT, BuildingType.INDIGO_PLANT, BuildingType.SMALL_SUGAR_MILL, BuildingType.SUGAR_MILL, BuildingType.TOBACCO_STORAGE, BuildingType.COFFEE_ROASTER]:
+                    base = 245.0
+                priority[act_city] = base + np.random.uniform(0, 5.0)
 
         # ── Finalize ─────────────────────────────────────────────────────────
         priority += np.random.uniform(0, 0.05, self.action_dim)

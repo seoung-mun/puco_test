@@ -48,7 +48,7 @@ def save_trueskill_plot(ratings_dict: dict, save_path: str):
     ax.set_title("Agent TrueSkill Ratings (μ ± σ)", fontweight="bold")
     ax.axvline(25, color="gray", linestyle="--", linewidth=1, alpha=0.7,
                label="Default μ=25")
-    ax.legend(fontsize=9)
+    ax.legend(fontsize=9, loc="upper left")
 
     _ensure_dir(save_path)
     fig.tight_layout()
@@ -112,7 +112,7 @@ def save_vp_decomposition_plot(vp_averages: dict, save_path: str):
     ax.set_yticklabels(sorted_names)
     ax.set_xlabel("Average VP")
     ax.set_title("VP Path Decomposition (Shipping vs Building)", fontweight="bold")
-    ax.legend(loc="lower right")
+    ax.legend(loc="upper right", bbox_to_anchor=(1.0, 1.0), fontsize=9)
 
     _ensure_dir(save_path)
     fig.tight_layout()

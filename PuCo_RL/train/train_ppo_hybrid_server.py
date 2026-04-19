@@ -24,13 +24,14 @@ from utils.env_wrappers import flatten_dict_observation, get_flattened_obs_dim
 from agents.ppo_agent import Agent
 from agents.shipping_rush_agent import ShippingRushAgent
 from agents.action_value_agent import ActionValueAgent
+from agents.trade_building_agent import TradeBuildingAgent
 from configs.constants import Role, BuildingType
 
 # ── 하이퍼파라미터 ─────────────────────────────────────────────────────────────
 NUM_PLAYERS = 3
 TOTAL_TRAJECTORIES = 192
-PURE_WORKERS = 48
-HYBRID_WORKERS = 48
+PURE_WORKERS = 12
+HYBRID_WORKERS = 12
 NUM_WORKERS = PURE_WORKERS + HYBRID_WORKERS
 STEPS_PER_ENV = 1024
 BATCH_SIZE = TOTAL_TRAJECTORIES * STEPS_PER_ENV
@@ -41,7 +42,7 @@ GAMMA = 0.99
 GAE_LAMBDA = 0.95
 CLIP_COEF = 0.2
 INITIAL_ENT_COEF = 0.05
-MIN_ENT_COEF = 0.015
+MIN_ENT_COEF = 0.03
 VF_COEF = 0.5
 MAX_GRAD_NORM = 0.5
 
@@ -109,7 +110,7 @@ def save_experiment_config(run_name: str, log_dir: str, args: argparse.Namespace
             "minibatch_size": MINIBATCH_SIZE,
             "update_epochs": UPDATE_EPOCHS,
             "learning_rate_initial": LEARNING_RATE,
-            "learning_rate_min": 1e-5,
+            "learning_rate_min": 3e-5,
             "learning_rate_schedule": "linear_decay",
             "gamma": GAMMA,
             "gae_lambda": GAE_LAMBDA,
@@ -175,12 +176,15 @@ def rollout_worker(worker_id, buffer_indices, worker_type, conn, shared_bufs, ob
     local_old_opp     = Agent(obs_dim=obs_dim, action_dim=action_dim)
     local_shipping    = ShippingRushAgent(action_dim=action_dim, fixed_strategy=0)
     local_action_val  = ActionValueAgent(action_dim=action_dim)
+    local_trade_build = TradeBuildingAgent(action_dim=action_dim)
     local_action_val.set_env(env)
+    local_trade_build.set_env(env)
 
     local_agent.eval()
     local_old_opp.eval()
-    local_shipping.eval()
-    local_action_val.eval()
+    local_shipping.train() # Enable stochasticity
+    local_action_val.train() # Enable stochasticity
+    local_trade_build.train() # Enable stochasticity
 
     s_obs, s_mask, s_act, s_logp, s_rew, s_done, s_val, s_next_val = shared_bufs
 
@@ -200,28 +204,30 @@ def rollout_worker(worker_id, buffer_indices, worker_type, conn, shared_bufs, ob
         
         current_prob = shared_rule_prob.value
         
-        if opponent_pool and random.random() >= current_prob:
-            use_rule_based     = False
-            use_latest_as_opp2 = False
-            n = len(opponent_pool)
-            # Prioritized Fictitious Self-Play (PFSP) with exponential weight
-            alpha = 3.0
-            weights = np.exp(alpha * np.arange(n) / max(1, n - 1))
-            weights = weights / weights.sum()
-            idx = np.random.choice(n, p=weights)
-            local_old_opp.load_state_dict(opponent_pool[idx])
-        elif current_prob > 0:
+        if random.random() < current_prob:
             use_rule_based     = True
             use_latest_as_opp2 = False
-            if random.random() < 0.5:
+            r_val = random.random()
+            if r_val < 0.333:
                 active_rule_based = local_shipping
                 active_rule_based.reset_strategy()
-            else:
+            elif r_val < 0.666:
                 active_rule_based = local_action_val
+            else:
+                active_rule_based = local_trade_build
         else:
-            # Pure self-play with empty pool: fall back to latest agent
             use_rule_based     = False
-            use_latest_as_opp2 = True
+            if opponent_pool:
+                use_latest_as_opp2 = False
+                n = len(opponent_pool)
+                # Prioritized Fictitious Self-Play (PFSP) with exponential weight
+                alpha = 3.0
+                weights = np.exp(alpha * np.arange(n) / max(1, n - 1))
+                weights = weights / weights.sum()
+                idx = np.random.choice(n, p=weights)
+                local_old_opp.load_state_dict(opponent_pool[idx])
+            else:
+                use_latest_as_opp2 = True
 
     while True:
         cmd, data = conn.recv()
@@ -420,12 +426,12 @@ def train():
         help="Human-readable prefix for this experiment run"
     )
     parser.add_argument(
-        "--rule_based_prob_start", type=float, default=0.1,
-        help="Initial probability that opp2 is a heuristic bot (ShippingRush or ActionValue)."
+        "--rule_based_prob_start", type=float, default=0.4,
+        help="Initial probability that opp2 is a heuristic bot (high early for fundamentals)."
     )
     parser.add_argument(
-        "--rule_based_prob_end", type=float, default=0.4,
-        help="Final probability that opp2 is a heuristic bot at the end of training."
+        "--rule_based_prob_end", type=float, default=0.1,
+        help="Final probability that opp2 is a heuristic bot (low late for self-play refinement)."
     )
     parser.add_argument(
         "--load_ckpt", type=str, default="",
@@ -507,7 +513,7 @@ def train():
         for update in range(1, total_updates + 1):
             # Annealed LR, entropy coef, and rule based prob
             frac = 1.0 - (update - 1.0) / total_updates
-            optimizer.param_groups[0]["lr"] = max(1e-5, frac * LEARNING_RATE)
+            optimizer.param_groups[0]["lr"] = max(3e-5, frac * LEARNING_RATE)
             current_ent_coef = max(MIN_ENT_COEF, INITIAL_ENT_COEF * frac)
             
             # Dynamic Curriculum update

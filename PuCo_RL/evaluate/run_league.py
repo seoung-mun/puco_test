@@ -54,6 +54,7 @@ from utils.env_wrappers import get_flattened_obs_dim
 from agents.ppo_agent import PhasePPOAgent, Agent as PPOAgent
 from agents.shipping_rush_agent import ShippingRushAgent
 from agents.factory_rule_based_agent import FactoryRuleBasedAgent
+from agents.trade_building_agent import TradeBuildingAgent
 from agents.heuristic_bots import RandomBot
 from agents.action_value_agent import ActionValueAgent
 
@@ -106,6 +107,9 @@ def _sanitize(path: str) -> str:
 def build_ecosystem_pool(action_dim: int, pool_type: str = "default") -> dict:
     """
     Canonical opponent pool.
+    
+    default:  All qualified heuristic bots + Random (5 opponents)
+    random_only / actionvalue_only / shipping_only: Homogeneous pairs
     """
     if pool_type == "random_only":
         return {
@@ -123,9 +127,11 @@ def build_ecosystem_pool(action_dim: int, pool_type: str = "default") -> dict:
             "Shipping_2": ShippingRushAgent(action_dim, fixed_strategy=0).eval(),
         }
     else:
+        # Full ecosystem: all qualified heuristic bots + Random baseline
         return {
             "ActionValueBot": ActionValueAgent(action_dim).eval(),
             "ShippingRush":   ShippingRushAgent(action_dim, fixed_strategy=0).eval(),
+            "TradeBuilding":  TradeBuildingAgent(action_dim).eval(),
             "Random_1":       RandomBot(action_dim).eval(),
         }
 
