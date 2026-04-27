@@ -149,22 +149,35 @@ class TestPlantationsActionIndex:
                     f"face_up[{i}].action_index={ai} 범위 벗어남 (8-13)"
                 )
 
-    def test_face_up_plantation_action_index_matches_position(self, state):
-        """i번째 face-up plantation의 action_index는 8+i이어야 한다."""
+    def test_face_up_plantation_action_index_matches_tile_type_value(self, state):
+        """face-up plantation의 action_index는 8 + TileType.value 이어야 한다 (의미 기반).
+
+        Good enum: COFFEE=0, TOBACCO=1, CORN=2, SUGAR=3, INDIGO=4 → 인덱스 8..12.
+        Quarry는 13으로 별도 처리.
+        """
+        from configs.constants import TileType
+
         face_up = state["common_board"]["available_plantations"]["face_up"]
         for i, item in enumerate(face_up):
-            if isinstance(item, dict) and "action_index" in item:
-                assert item["action_index"] == 8 + i, (
-                    f"face_up[{i}].action_index={item['action_index']}, 기대값={8+i}"
-                )
+            if not (isinstance(item, dict) and "action_index" in item):
+                continue
+            type_name = item["type"]
+            if type_name == "quarry":
+                expected = 13
+            else:
+                tile = TileType[f"{type_name.upper()}_PLANTATION"]
+                expected = 8 + int(tile.value)
+            assert item["action_index"] == expected, (
+                f"face_up[{i}].action_index={item['action_index']}, 기대값={expected} (의미 기반)"
+            )
 
-    def test_quarry_action_index_is_14(self, state):
-        """quarry tile의 action_index는 14여야 한다."""
+    def test_quarry_action_index_is_13(self, state):
+        """quarry tile의 action_index는 13이어야 한다 (의미 기반)."""
         face_up = state["common_board"]["available_plantations"]["face_up"]
         for item in face_up:
             if isinstance(item, dict) and item.get("type") == "quarry":
-                assert item["action_index"] == 14, (
-                    f"quarry action_index={item['action_index']}, 기대값=14"
+                assert item["action_index"] == 13, (
+                    f"quarry action_index={item['action_index']}, 기대값=13"
                 )
 
 

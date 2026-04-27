@@ -154,13 +154,21 @@ def serialize_common_board(game: PuertoRicoGame) -> Dict[str, Any]:
         "coffee": draw_counts.get(TileType.COFFEE_PLANTATION, 0),
     }
 
-    face_up = [
-        {
-            "type": TILE_TO_STR.get(t, "empty"),
-            "action_index": 14 if TILE_TO_STR.get(t, "empty") == "quarry" else (8 + i),
-        }
-        for i, t in enumerate(game.face_up_plantations)
-    ]
+    face_up = []
+    for i, tile in enumerate(game.face_up_plantations):
+        if tile == TileType.QUARRY:
+            engine_idx = 13
+            canonical_id = "settler:quarry"
+        else:
+            engine_idx = 8 + int(tile.value)
+            canonical_id = f"settler:tile_type:{TILE_TO_STR.get(tile, 'empty')}"
+        face_up.append({
+            "type": TILE_TO_STR.get(tile, "empty"),
+            "display_position": i,
+            "engine_action_index": engine_idx,
+            "action_index": engine_idx,
+            "canonical_id": canonical_id,
+        })
 
     available_buildings: Dict[str, Any] = {}
     for bt, count in game.building_supply.items():
