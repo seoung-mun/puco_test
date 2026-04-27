@@ -39,9 +39,16 @@ class MLLogger:
         current_player_idx_before: int | None = None,
         model_info: dict | None = None,
         trace_id: str | None = None,
+        submitted_canonical_id: str | None = None,
+        decoded_canonical_id: str | None = None,
     ):
         log_file = MLLogger.get_log_file_path(game_id)
-        
+
+        if submitted_canonical_id is None:
+            canonical_id_match: bool | None = None
+        else:
+            canonical_id_match = submitted_canonical_id == decoded_canonical_id
+
         record = {
             "schema_version": TRANSITION_ENVELOPE_SCHEMA_VERSION,
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -54,6 +61,10 @@ class MLLogger:
             "state_after_schema_version": extract_schema_version(state_after),
             "state_before": state_before,
             "action": action,
+            "submitted_action_index": action,
+            "submitted_canonical_id": submitted_canonical_id,
+            "decoded_canonical_id": decoded_canonical_id,
+            "canonical_id_match": canonical_id_match,
             "reward": reward,
             "done": done,
             "state_after": state_after,
@@ -67,7 +78,7 @@ class MLLogger:
             record["current_player_idx_before"] = current_player_idx_before
         if model_info is not None:
             record["model_info"] = enrich_actor_snapshot(model_info)
-        
+
         # Async write to prevent blocking the WebSocket/Game event loop
         async with aiofiles.open(log_file, mode='a') as f:
             await f.write(json.dumps(record) + "\n")
