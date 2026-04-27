@@ -7,7 +7,15 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+from app.services.contracts import (
+    MODEL_OBSERVATION_STATE_KIND,
+    REPLAY_SUMMARY_SCHEMA_VERSION,
+    REPLAY_SUMMARY_STATE_KIND,
+    extract_state_kind,
+    with_state_contract,
+)
 from app.services.model_registry import build_replay_parity_snapshot, enrich_actor_snapshot
+from app.services.log_paths import ensure_log_dir, resolve_log_dir
 from app.services.state_serializer import compute_score_breakdown
 from app.services.engine_gateway.constants import (
     BUILDING_DATA,
@@ -19,10 +27,8 @@ from app.services.engine_gateway.constants import (
     TileType,
 )
 
-
-LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../data/logs"))
-REPLAY_LOG_DIR = os.path.join(LOG_DIR, "replay")
-os.makedirs(REPLAY_LOG_DIR, exist_ok=True)
+LOG_DIR = resolve_log_dir()
+REPLAY_LOG_DIR = ensure_log_dir("replay")
 
 
 def _iso_now() -> str:
@@ -73,9 +79,52 @@ def get_replay_file_path(game_id: UUID | str) -> str:
     return os.path.join(REPLAY_LOG_DIR, f"{game_id}.json")
 
 
+def _unwrap_singleton(value: Any) -> Any:
+    while isinstance(value, list) and len(value) == 1:
+        value = value[0]
+    return value
+
+
+def _as_int(value: Any, default: int | None = 0) -> int | None:
+    value = _unwrap_singleton(value)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, tuple):
+        return list(value)
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _normalize_numeric_list(value: Any) -> list[int]:
+    return [_as_int(item, 0) or 0 for item in _as_list(value)]
+
+
 def summarize_transition_state(state: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(state, dict):
-        return {}
+        return with_state_contract(
+            {"players": {}},
+            schema_version=REPLAY_SUMMARY_SCHEMA_VERSION,
+            state_kind=REPLAY_SUMMARY_STATE_KIND,
+            producer="replay-logger",
+            source_state_kind="unknown",
+        )
+
+    if state.get("state_kind") == REPLAY_SUMMARY_STATE_KIND:
+        return with_state_contract(
+            state,
+            schema_version=REPLAY_SUMMARY_SCHEMA_VERSION,
+            state_kind=REPLAY_SUMMARY_STATE_KIND,
+            producer="replay-logger",
+            source_state_kind=state.get("source_state_kind") or REPLAY_SUMMARY_STATE_KIND,
+        )
 
     global_state = state.get("global_state") or {}
     players = state.get("players") or {}
@@ -85,18 +134,18 @@ def summarize_transition_state(state: dict[str, Any] | None) -> dict[str, Any]:
             continue
 
         plantations_counter = Counter()
-        for tile_id in player_state.get("island_tiles", []):
-            if tile_id == TileType.EMPTY:
+        for tile_id in _normalize_numeric_list(player_state.get("island_tiles", [])):
+            if tile_id == int(TileType.EMPTY):
                 continue
-            plantations_counter[_tile_name(int(tile_id)).lower().replace(" ", "_")] += 1
+            plantations_counter[_tile_name(tile_id).lower().replace(" ", "_")] += 1
 
         buildings = [
-            _building_name(int(building_id)).lower().replace(" ", "_")
-            for building_id in player_state.get("city_buildings", [])
-            if int(building_id) not in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE)
+            _building_name(building_id).lower().replace(" ", "_")
+            for building_id in _normalize_numeric_list(player_state.get("city_buildings", []))
+            if building_id not in (int(BuildingType.EMPTY), int(BuildingType.OCCUPIED_SPACE))
         ]
 
-        goods_values = list(player_state.get("goods", []))
+        goods_values = _normalize_numeric_list(player_state.get("goods", []))
         goods = {
             _good_name(idx).lower(): count
             for idx, count in enumerate(goods_values)
@@ -104,27 +153,39 @@ def summarize_transition_state(state: dict[str, Any] | None) -> dict[str, Any]:
         }
 
         summary_players[player_key] = {
-            "doubloons": player_state.get("doubloons", 0),
-            "vp": player_state.get("vp_chips", 0),
+            "doubloons": _as_int(player_state.get("doubloons", 0), 0),
+            "vp": _as_int(player_state.get("vp_chips", 0), 0),
             "goods": goods,
             "plantations": dict(plantations_counter),
             "buildings": buildings,
-            "unplaced_colonists": player_state.get("unplaced_colonists", 0),
+            "unplaced_colonists": _as_int(player_state.get("unplaced_colonists", 0), 0),
         }
 
-    return {
-        "phase": _phase_name(global_state.get("current_phase")),
-        "phase_id": global_state.get("current_phase"),
-        "current_player": global_state.get("current_player"),
-        "governor": global_state.get("governor_idx"),
-        "vp_supply": global_state.get("vp_chips"),
-        "colonist_supply": global_state.get("colonists_supply"),
-        "colonist_ship": global_state.get("colonists_ship"),
+    phase_id = _as_int(global_state.get("current_phase"), None)
+    return with_state_contract({
+        "phase": _phase_name(phase_id),
+        "phase_id": phase_id,
+        "current_player": _as_int(global_state.get("current_player"), None),
+        "governor": _as_int(global_state.get("governor_idx"), None),
+        "vp_supply": _as_int(global_state.get("vp_chips"), None),
+        "colonist_supply": _as_int(global_state.get("colonists_supply"), None),
+        "colonist_ship": _as_int(global_state.get("colonists_ship"), None),
         "players": summary_players,
-    }
+    },
+        schema_version=REPLAY_SUMMARY_SCHEMA_VERSION,
+        state_kind=REPLAY_SUMMARY_STATE_KIND,
+        producer="replay-logger",
+        source_state_kind=extract_state_kind(state, MODEL_OBSERVATION_STATE_KIND),
+    )
 
 
-def _describe_delta(before_value: int | float, after_value: int | float, label: str) -> str | None:
+def _describe_delta(before_value: Any, after_value: Any, label: str) -> str | None:
+    before_value = _unwrap_singleton(before_value)
+    after_value = _unwrap_singleton(after_value)
+    if not isinstance(before_value, (int, float)) or not isinstance(after_value, (int, float)):
+        if before_value == after_value:
+            return None
+        return f"{label} {before_value} -> {after_value}"
     delta = after_value - before_value
     if delta == 0:
         return None
@@ -135,13 +196,11 @@ def _describe_delta(before_value: int | float, after_value: int | float, label: 
 def _build_commentary(
     *,
     player_key: str | None,
-    state_before: dict[str, Any] | None,
-    state_after: dict[str, Any] | None,
+    before_summary: dict[str, Any],
+    after_summary: dict[str, Any],
     reward: float,
     done: bool,
 ) -> str:
-    before_summary = summarize_transition_state(state_before)
-    after_summary = summarize_transition_state(state_after)
     notes: list[str] = []
 
     if player_key:
@@ -196,12 +255,35 @@ def _build_commentary(
     return " | ".join(notes)
 
 
+def _degraded_summary(state: dict[str, Any] | None, exc: Exception) -> dict[str, Any]:
+    return with_state_contract(
+        {
+            "players": {},
+            "degraded": True,
+            "validation_error": str(exc),
+        },
+        schema_version=REPLAY_SUMMARY_SCHEMA_VERSION,
+        state_kind=REPLAY_SUMMARY_STATE_KIND,
+        producer="replay-logger",
+        source_state_kind=extract_state_kind(state, MODEL_OBSERVATION_STATE_KIND),
+    )
+
+
+def _safe_summary(state: dict[str, Any] | None) -> tuple[dict[str, Any], str]:
+    try:
+        return summarize_transition_state(state), "ok"
+    except Exception as exc:
+        return _degraded_summary(state, exc), "degraded"
+
+
 def describe_action(action_id: int, *, state_before: dict[str, Any] | None = None) -> str:
     if 0 <= action_id <= 7:
         return f"Select Role: {_role_name(action_id)}"
 
     if 8 <= action_id <= 13:
-        face_up = ((state_before or {}).get("global_state") or {}).get("face_up_plantations") or []
+        face_up = _normalize_numeric_list(
+            ((state_before or {}).get("global_state") or {}).get("face_up_plantations") or []
+        )
         index = action_id - 8
         if index < len(face_up):
             return f"Settler: Take {_tile_name(int(face_up[index]))} Plantation"
@@ -272,9 +354,31 @@ def build_replay_entry(
     state_after: dict[str, Any],
     action_mask_before: list[int] | None = None,
     model_info: dict[str, Any] | None = None,
+    adapter_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    phase_id = ((state_before or {}).get("global_state") or {}).get("current_phase")
+    phase_id = _as_int(((state_before or {}).get("global_state") or {}).get("current_phase"), None)
     player_key = f"player_{player_index}" if player_index is not None else None
+    before_summary, before_status = _safe_summary(state_before)
+    after_summary, after_status = _safe_summary(state_after)
+    degraded_replay_used = before_status != "ok" or after_status != "ok"
+
+    commentary = None
+    commentary_status = "ok"
+    if not degraded_replay_used:
+        try:
+            commentary = _build_commentary(
+                player_key=player_key,
+                before_summary=before_summary,
+                after_summary=after_summary,
+                reward=reward,
+                done=done,
+            )
+        except Exception:
+            commentary_status = "degraded"
+            degraded_replay_used = True
+    else:
+        commentary_status = "degraded"
+
     entry = {
         "step": info.get("step"),
         "round": info.get("round"),
@@ -290,18 +394,19 @@ def build_replay_entry(
         "reward": reward,
         "done": done,
         "valid_action_count": sum(1 for flag in (action_mask_before or []) if flag),
-        "commentary": _build_commentary(
-            player_key=player_key,
-            state_before=state_before,
-            state_after=state_after,
-            reward=reward,
-            done=done,
-        ),
-        "state_summary_before": summarize_transition_state(state_before),
-        "state_summary_after": summarize_transition_state(state_after),
+        "commentary": commentary,
+        "commentary_status": commentary_status,
+        "summary_validation_status": "ok" if not degraded_replay_used else "degraded",
+        "degraded_replay_used": degraded_replay_used,
+        "state_before_kind": extract_state_kind(state_before, MODEL_OBSERVATION_STATE_KIND),
+        "state_after_kind": extract_state_kind(state_after, MODEL_OBSERVATION_STATE_KIND),
+        "state_summary_before": before_summary,
+        "state_summary_after": after_summary,
     }
     if model_info is not None:
         entry["model_info"] = enrich_actor_snapshot(model_info)
+    if adapter_info is not None:
+        entry["adapter_info"] = dict(adapter_info)
     if 0 <= action <= 7:
         entry["role_selected"] = _role_name(action)
     return entry

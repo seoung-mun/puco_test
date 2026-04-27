@@ -1,26 +1,15 @@
 from __future__ import annotations
 
-import functools
-import inspect
 import json
 import os
-import re
 from dataclasses import dataclass, field
 from typing import Any
-
-from app.services.engine_gateway.agents import ResidualAgent
-from app.services.engine_gateway.env import (
-    PuertoRicoEnv,
-    SHAPING_GAMMA,
-    get_flattened_obs_dim,
-)
-
 
 MODELS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../../../PuCo_RL/models")
 )
 MODEL_METADATA_SCHEMA_V1 = "model-metadata.v1"
-_PPO_PR_SERVER_PATTERN = re.compile(r"^PPO_PR_Server_.*\.pth$")
+MODEL_BUNDLE_SCHEMA_V2 = "model-bundle.v2"
 ARTIFACT_FINGERPRINT_SCHEMA_V1 = "artifact-fingerprint.v1"
 REPLAY_PARITY_SCHEMA_V1 = "replay-parity.v1"
 ACTION_SPACE_FINGERPRINT_V1 = "castone.action-space.slot-mayor.v1"
@@ -29,6 +18,11 @@ UPSTREAM_REMOTE = "puco-upstream"
 UPSTREAM_BRANCH = "main"
 UPSTREAM_COMMIT = "4949773"
 UPSTREAM_SOURCE_URL = "https://github.com/dae-hany/PuertoRico-BoardGame-RL-Balancing.git"
+DEFAULT_ENV_MODULE = "PuCo_RL/env/pr_env.py"
+DEFAULT_NUM_PLAYERS = 3
+DEFAULT_OBS_DIM = 293
+DEFAULT_ACTION_DIM = 200
+DEFAULT_MAX_GAME_STEPS = 1200
 DEFAULT_POTENTIAL_MODE = "option3"
 
 
@@ -48,16 +42,15 @@ def _build_env_fingerprint(
     max_game_steps: int | None = None,
     potential_mode: str | None = None,
 ) -> str:
-    defaults = get_ppo_pr_server_bootstrap_profile()
     parts = [
         f"{UPSTREAM_REMOTE}/{UPSTREAM_BRANCH}@{UPSTREAM_COMMIT}",
         f"source={UPSTREAM_SOURCE_URL}",
-        f"env={env_module or defaults['env_module']}",
-        f"players={num_players if num_players is not None else defaults['num_players']}",
-        f"obs={obs_dim if obs_dim is not None else defaults['obs_dim']}",
-        f"actions={action_dim if action_dim is not None else defaults['action_dim']}",
-        f"max_steps={max_game_steps if max_game_steps is not None else defaults['max_game_steps']}",
-        f"potential={potential_mode or defaults['potential_mode']}",
+        f"env={env_module or DEFAULT_ENV_MODULE}",
+        f"players={num_players if num_players is not None else DEFAULT_NUM_PLAYERS}",
+        f"obs={obs_dim if obs_dim is not None else DEFAULT_OBS_DIM}",
+        f"actions={action_dim if action_dim is not None else DEFAULT_ACTION_DIM}",
+        f"max_steps={max_game_steps if max_game_steps is not None else DEFAULT_MAX_GAME_STEPS}",
+        f"potential={potential_mode or DEFAULT_POTENTIAL_MODE}",
     ]
     return "|".join(parts)
 
@@ -196,39 +189,6 @@ class ModelArtifact:
         return snapshot
 
 
-@functools.lru_cache(maxsize=1)
-def get_ppo_pr_server_bootstrap_profile() -> dict[str, Any]:
-    env = PuertoRicoEnv(num_players=3, max_game_steps=1200)
-    agent = env.possible_agents[0]
-    obs_space = env.observation_space(agent)["observation"]
-    action_space = env.action_space(agent)
-    signature = inspect.signature(ResidualAgent.__init__)
-
-    return {
-        "family": "ppo",
-        "architecture": "ppo_residual",
-        "training_script": "PuCo_RL/train/train_ppo_selfplay_server.py",
-        "env_module": "PuCo_RL/env/pr_env.py",
-        "num_players": 3,
-        "obs_dim": int(get_flattened_obs_dim(obs_space)),
-        "action_dim": int(action_space.n),
-        "hidden_dim": int(signature.parameters["hidden_dim"].default),
-        "num_res_blocks": int(signature.parameters["num_res_blocks"].default),
-        "max_game_steps": 1200,
-        "potential_mode": str(getattr(env, "potential_mode", DEFAULT_POTENTIAL_MODE)),
-        "shaping_gamma": float(SHAPING_GAMMA),
-        "reward_weights": {
-            "ship": float(env.w_ship),
-            "building": float(env.w_bldg),
-            "doubloon": float(env.w_doub),
-        },
-        "training": {
-            "self_play": True,
-        },
-        "bootstrap_profile": "ppo_pr_server_v1",
-    }
-
-
 def _sidecar_path(checkpoint_path: str) -> str:
     stem, _ = os.path.splitext(checkpoint_path)
     return f"{stem}.json"
@@ -249,27 +209,6 @@ def _build_artifact_name(data: dict[str, Any], checkpoint_path: str) -> str:
 def _load_json(path: str) -> dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
-
-
-def _infer_checkpoint_obs_dim(checkpoint_path: str, *, architecture: str | None = None) -> int | None:
-    try:
-        import torch
-
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-        state_dict = checkpoint.get("model_state_dict", checkpoint) if isinstance(checkpoint, dict) else None
-        if not isinstance(state_dict, dict):
-            return None
-
-        embed_weight = state_dict.get("embed.0.weight")
-        if not hasattr(embed_weight, "shape") or len(embed_weight.shape) != 2:
-            return None
-
-        obs_dim = int(embed_weight.shape[1])
-        if architecture in {"phase_ppo", "hppo"}:
-            return max(0, obs_dim - 16)
-        return obs_dim
-    except Exception:
-        return None
 
 
 def _parse_legacy_metadata(
@@ -368,77 +307,6 @@ def load_sidecar_artifact(
     )
 
 
-def derive_bootstrap_artifact(
-    checkpoint_path: str,
-    *,
-    family: str,
-    policy_tag: str = "champion",
-) -> ModelArtifact | None:
-    filename = os.path.basename(checkpoint_path)
-    if family != "ppo" or not _PPO_PR_SERVER_PATTERN.match(filename):
-        return None
-
-    profile = get_ppo_pr_server_bootstrap_profile()
-    inferred_obs_dim = _infer_checkpoint_obs_dim(
-        checkpoint_path,
-        architecture=profile["architecture"],
-    )
-    obs_dim = inferred_obs_dim if inferred_obs_dim is not None else profile["obs_dim"]
-    metadata = {
-        "schema_version": MODEL_METADATA_SCHEMA_V1,
-        "artifact_name": os.path.splitext(filename)[0],
-        "family": family,
-        "architecture": profile["architecture"],
-        "training_script": profile["training_script"],
-        "env_module": profile["env_module"],
-        "obs_dim": obs_dim,
-        "action_dim": profile["action_dim"],
-        "num_players": profile["num_players"],
-        "network": {
-            "hidden_dim": profile["hidden_dim"],
-            "num_res_blocks": profile["num_res_blocks"],
-        },
-        "environment": {
-            "max_game_steps": profile["max_game_steps"],
-        },
-        "reward": {
-            "potential_mode": profile["potential_mode"],
-            "shaping_gamma": profile["shaping_gamma"],
-            "weights": dict(profile["reward_weights"]),
-        },
-        "training": dict(profile["training"]),
-    }
-
-    return ModelArtifact(
-        family=family,
-        policy_tag=policy_tag,
-        artifact_name=os.path.splitext(filename)[0],
-        checkpoint_filename=filename,
-        checkpoint_path=checkpoint_path,
-        architecture=profile["architecture"],
-        obs_dim=obs_dim,
-        action_dim=profile["action_dim"],
-        num_players=profile["num_players"],
-        hidden_dim=profile["hidden_dim"],
-        num_res_blocks=profile["num_res_blocks"],
-        max_game_steps=profile["max_game_steps"],
-        potential_mode=profile["potential_mode"],
-        shaping_gamma=profile["shaping_gamma"],
-        metadata_source="bootstrap_derived",
-        bootstrap_profile=profile["bootstrap_profile"],
-        metadata=metadata,
-        fingerprint=build_artifact_fingerprint(
-            metadata.get("fingerprint"),
-            env_module=profile["env_module"],
-            num_players=profile["num_players"],
-            obs_dim=obs_dim,
-            action_dim=profile["action_dim"],
-            max_game_steps=profile["max_game_steps"],
-            potential_mode=profile["potential_mode"],
-        ),
-    )
-
-
 def make_static_artifact(
     checkpoint_path: str,
     *,
@@ -476,17 +344,9 @@ def resolve_model_artifact_from_path(
     if sidecar is not None:
         return sidecar
 
-    bootstrap = derive_bootstrap_artifact(
-        checkpoint_path,
-        family=family,
-        policy_tag=policy_tag,
-    )
-    if bootstrap is not None:
-        return bootstrap
-
     raise ValueError(
         "Model metadata sidecar is required for this checkpoint. "
-        f"Unsupported bootstrap checkpoint: {os.path.basename(checkpoint_path)}"
+        f"Unsupported checkpoint: {os.path.basename(checkpoint_path)}"
     )
 
 
@@ -502,6 +362,73 @@ def resolve_model_artifact_from_filename(
         checkpoint_path,
         family=family,
         policy_tag=policy_tag,
+    )
+
+
+def load_bundle_manifest(bundle_dir: str) -> dict[str, Any] | None:
+    """bundle directory에서 manifest.json을 로딩한다.
+
+    schema_version이 model-bundle.v2가 아니면 None을 반환한다.
+    """
+    manifest_path = os.path.join(bundle_dir, "manifest.json")
+    if not os.path.exists(manifest_path):
+        return None
+    data = _load_json(manifest_path)
+    if data.get("schema_version") != MODEL_BUNDLE_SCHEMA_V2:
+        return None
+    return data
+
+
+def resolve_bundle_checkpoint(bundle_dir: str, manifest: dict[str, Any]) -> str:
+    """manifest에서 checkpoint 경로를 resolve한다."""
+    checkpoint_file = manifest.get("checkpoint_file", "checkpoint.pth")
+    path = os.path.normpath(os.path.join(bundle_dir, checkpoint_file))
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Bundle checkpoint not found: {path}")
+    return path
+
+
+def load_bundle_artifact(bundle_dir: str) -> ModelArtifact | None:
+    """bundle manifest + checkpoint를 ModelArtifact로 로드한다."""
+    manifest = load_bundle_manifest(bundle_dir)
+    if manifest is None:
+        return None
+    resolve_bundle_checkpoint(bundle_dir, manifest)
+    return _parse_bundle_v2(manifest, bundle_dir=bundle_dir)
+
+
+def _parse_bundle_v2(
+    manifest: dict[str, Any],
+    *,
+    bundle_dir: str,
+) -> ModelArtifact:
+    """Bundle manifest v2를 ModelArtifact로 변환한다."""
+    checkpoint_file = manifest.get("checkpoint_file", "checkpoint.pth")
+    checkpoint_path = os.path.normpath(os.path.join(bundle_dir, checkpoint_file))
+    network = manifest.get("network") or {}
+    obs_dim = manifest.get("obs_dim")
+    action_dim = manifest.get("action_dim")
+    num_players = manifest.get("num_players")
+    return ModelArtifact(
+        family=str(manifest.get("family") or "ppo"),
+        policy_tag=str(manifest.get("policy_tag") or "candidate"),
+        artifact_name=str(manifest.get("bundle_id") or os.path.basename(bundle_dir)),
+        checkpoint_filename=os.path.basename(checkpoint_path),
+        checkpoint_path=checkpoint_path,
+        architecture=manifest.get("architecture"),
+        obs_dim=int(obs_dim) if obs_dim is not None else None,
+        action_dim=int(action_dim) if action_dim is not None else None,
+        num_players=int(num_players) if num_players is not None else None,
+        hidden_dim=int(network["hidden_dim"]) if network.get("hidden_dim") is not None else None,
+        num_res_blocks=int(network["num_res_blocks"]) if network.get("num_res_blocks") is not None else None,
+        metadata_source="bundle_v2",
+        metadata=dict(manifest),
+        fingerprint=build_artifact_fingerprint(
+            manifest.get("fingerprint"),
+            num_players=int(num_players) if num_players is not None else None,
+            obs_dim=int(obs_dim) if obs_dim is not None else None,
+            action_dim=int(action_dim) if action_dim is not None else None,
+        ),
     )
 
 

@@ -24,8 +24,8 @@ def test_build_model_versions_snapshot_for_mixed_bot_room():
     snapshot = service._build_model_versions_snapshot(room)
 
     assert snapshot["player_0"]["bot_type"] == "ppo"
-    assert snapshot["player_0"]["artifact_name"].startswith("PPO_PR_Server_")
-    assert snapshot["player_0"]["metadata_source"] == "bootstrap_derived"
+    assert snapshot["player_0"]["artifact_name"] == "ppo-pr-server-semantic293-20260419"
+    assert snapshot["player_0"]["metadata_source"] == "bundle_v2"
     assert snapshot["player_1"]["bot_type"] == "random"
     assert snapshot["player_1"]["metadata_source"] == "builtin"
     assert snapshot["player_2"]["bot_type"] == "ppo"
@@ -71,5 +71,5 @@ def test_resolve_actor_model_info_uses_room_snapshot():
     model_info = service._resolve_actor_model_info(room, "BOT_ppo")
 
     assert model_info is not None
-    assert model_info["artifact_name"].startswith("PPO_PR_Server_")
+    assert model_info["artifact_name"] == "ppo-pr-server-semantic293-20260419"
     assert model_info["bot_type"] == "ppo"

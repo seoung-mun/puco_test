@@ -65,7 +65,10 @@ backup/
 *.onnx
 *.pkl
 *.h5
+!PuCo_RL/models/**/*.pth
+!PuCo_RL/models/**/*.pt
 PuCo_RL/models/**/*.json
+!PuCo_RL/models/**/manifest.json
 !PuCo_RL/models/**/*.md
 
 # --- IDE / OS ---
@@ -100,5 +103,3 @@ prompt.md
 report.md
 search.md
 PuCo_Change_report.md
-
-docs/

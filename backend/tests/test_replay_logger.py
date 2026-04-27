@@ -94,8 +94,8 @@ def test_replay_logger_writes_human_readable_json(tmp_path, monkeypatch):
         "player_2": {
             "actor_type": "bot",
             "bot_type": "ppo",
-            "artifact_name": "ppo-test",
-            "metadata_source": "bootstrap_derived",
+            "artifact_name": "ppo-pr-server-semantic293-20260419",
+            "metadata_source": "bundle_v2",
         },
     }
 
@@ -170,6 +170,78 @@ def test_build_final_scores_payload_matches_terminal_breakdown():
     assert len(final_scores) == 3
     assert result_summary["winner"] in result_summary["player_order"]
     assert all("breakdown" in row for row in final_scores)
+
+
+def test_build_replay_entry_includes_adapter_info_when_provided():
+    state_before = _sample_state()
+    entry = build_replay_entry(
+        actor_id="BOT_ppo",
+        actor_name="Bot",
+        player_index=0,
+        action=2,
+        reward=0.0,
+        done=False,
+        info={"round": 0, "step": 1},
+        state_before=state_before,
+        state_after=state_before,
+        action_mask_before=[1, 1, 1, 0],
+        adapter_info={
+            "bundle_id": "ppo-pr-server-semantic293-20260419",
+            "adapter_id": "puco.semantic293.type_mayor.v1",
+            "fallback_used": False,
+            "phase_id": 8,
+        },
+    )
+    assert entry["adapter_info"]["bundle_id"] == "ppo-pr-server-semantic293-20260419"
+    assert entry["adapter_info"]["fallback_used"] is False
+
+
+def test_build_replay_entry_omits_adapter_info_when_absent():
+    entry = build_replay_entry(
+        actor_id="BOT_ppo",
+        actor_name="Bot",
+        player_index=0,
+        action=2,
+        reward=0.0,
+        done=False,
+        info={"round": 0, "step": 1},
+        state_before=_sample_state(),
+        state_after=_sample_state(),
+        action_mask_before=[1, 1, 1, 0],
+    )
+    assert "adapter_info" not in entry
+
+
+def test_summarize_transition_state_adds_replay_summary_contract_metadata():
+    summary = summarize_transition_state(_sample_state())
+
+    assert summary["schema_version"] == "replay-summary.v1"
+    assert summary["state_kind"] == "replay-summary"
+    assert summary["source_state_kind"] == "model-observation"
+
+
+def test_build_replay_entry_degrades_when_summary_generation_raises(monkeypatch):
+    def explode(_state):
+        raise TypeError("unsupported operand type(s) for -: 'list' and 'list'")
+
+    monkeypatch.setattr("app.services.replay_logger.summarize_transition_state", explode)
+
+    entry = build_replay_entry(
+        actor_id="BOT_ppo",
+        actor_name="Bot",
+        player_index=0,
+        action=2,
+        reward=0.0,
+        done=False,
+        info={"round": 0, "step": 1},
+        state_before=_sample_state(),
+        state_after=_sample_state(),
+        action_mask_before=[1, 1, 1, 0],
+    )
+
+    assert entry["commentary"] is None
+    assert entry["commentary_status"] == "degraded"
+    assert entry["degraded_replay_used"] is True
 
 
 def test_build_final_scores_payload_handles_duplicate_bot_display_names():

@@ -22,6 +22,12 @@ checkpoints/
 *.h5
 *.ckpt
 *.onnx
+!models/
+!models/**/*.pth
+!models/**/*.pt
+!models/**/*.json
+!models/**/manifest.json
+!models/**/*.md
 
 ### --- Editor & System --- ###
 .vscode/

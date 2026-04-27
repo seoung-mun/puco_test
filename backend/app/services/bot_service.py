@@ -20,6 +20,7 @@ from app.services.engine_gateway.env import (
     get_flattened_obs_dim,
 )
 from app.services.agent_registry import (
+    get_adapter_runtime,
     get_wrapper,
     require_valid_bot_type,
     resolve_bot_type_from_actor_id,
@@ -31,13 +32,25 @@ logger = logging.getLogger(__name__)
 def _extract_phase_id(obs_dict: dict) -> int:
     """Extract current phase integer from observation dict with robustness."""
     try:
-        phase = obs_dict["global_state"]["current_phase"]
-        if hasattr(phase, 'item'):
-            phase = phase.item()  # Handle numpy scalar
-        val = int(phase)
-        return min(max(0, val), 9)  # Clamp to valid range (0-9)
+        global_state = obs_dict["global_state"]
+        phase = global_state.get("current_phase")
+        if phase is not None:
+            while isinstance(phase, (list, tuple)) and len(phase) == 1:
+                phase = phase[0]
+            if hasattr(phase, "item"):
+                phase = phase.item()  # Handle numpy scalar
+            val = int(phase)
+            return min(max(0, val), 9)  # Clamp to valid range (0-9)
+
+        phase_onehot = global_state.get("current_phase_onehot")
+        if phase_onehot is not None:
+            if hasattr(phase_onehot, "tolist"):
+                phase_onehot = phase_onehot.tolist()
+            if isinstance(phase_onehot, (list, tuple)) and phase_onehot:
+                return int(max(range(len(phase_onehot)), key=lambda idx: phase_onehot[idx]))
     except (KeyError, TypeError, ValueError, IndexError, AttributeError):
-        return 8 # Default to Role Selection/End Round
+        pass
+    return 8 # Default to Role Selection/End Round
 
 def _build_obs_space():
     """Build observation space once for flattening."""
@@ -102,8 +115,37 @@ class BotService:
 
     @staticmethod
     def get_action(bot_type: str, game_context: Dict[str, Any]) -> int:
-        """Universal Agent Interface using Wrapper."""
-        wrapper = BotService.get_agent_wrapper(bot_type)
+        """Universal Agent Interface — adapter 경로 우선, 없으면 legacy wrapper."""
+        normalized = require_valid_bot_type(bot_type)
+        adapter_runtime = get_adapter_runtime(normalized)
+        engine = game_context.get("engine_instance")
+
+        if adapter_runtime is not None and engine is not None:
+            result = adapter_runtime.infer(engine)
+            game_context["adapter_info"] = {
+                "bundle_id": result.bundle_id,
+                "adapter_id": result.adapter_id,
+                "canonical_id": result.canonical_id,
+                "fallback_used": result.fallback_used,
+                "fallback_reason": result.fallback_reason,
+                "canonical_state_version": result.canonical_state_version,
+                "canonical_action_version": result.canonical_action_version,
+                "phase_id": result.phase_id,
+            }
+            logger.warning(
+                "[BOT_TRACE] adapter_inference bot_type=%s bundle=%s adapter=%s action=%d fallback=%s",
+                normalized, result.bundle_id, result.adapter_id,
+                result.engine_action, result.fallback_used,
+            )
+            return result.engine_action
+
+        if adapter_runtime is not None and engine is None:
+            logger.warning(
+                "[BOT] adapter requested for %s but engine_instance missing — using legacy wrapper.",
+                normalized,
+            )
+
+        wrapper = BotService.get_agent_wrapper(normalized)
 
         raw_obs = game_context["vector_obs"]
         action_mask = game_context["action_mask"]
@@ -259,6 +301,7 @@ class BotService:
             "phase_id": snapshot.phase_id,
             "current_player_idx": snapshot.current_player_idx,
             "env": engine.env,
+            "engine_instance": engine,
         }
         phase = BotService._current_phase(engine)
 

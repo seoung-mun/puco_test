@@ -1,0 +1,31 @@
+{
+  "schema_version": "model-bundle.v2",
+  "bundle_id": "PPO_PR_Server_codex_smoke_selfplay_fix3_20260420_113012_step_4",
+  "family": "ppo",
+  "policy_tag": "candidate",
+  "architecture": "ppo_residual",
+  "checkpoint_file": "checkpoint.pth",
+  "checkpoint_sha256": "73b7bf8d947ac9450158d6363662b6abbcc69dbc24bbed63b8d90d62b7722bbf",
+  "adapter_module": "common.semantic293_adapter:Semantic293TypeMayorAdapter",
+  "adapter_version": "1.0.0",
+  "canonical_state_version": "castone.canonical-state.v1",
+  "canonical_action_version": "castone.canonical-action.v1",
+  "obs_dim": 293,
+  "action_dim": 200,
+  "num_players": 3,
+  "network": {
+    "hidden_dim": 512,
+    "num_res_blocks": 3
+  },
+  "compatibility": {
+    "supported_canonical_state_versions": [
+      "castone.canonical-state.v1"
+    ],
+    "supported_canonical_action_versions": [
+      "castone.canonical-action.v1"
+    ]
+  },
+  "trainer": "train_ppo_selfplay_server",
+  "training_run": "PPO_PR_Server_codex_smoke_selfplay_fix3_20260420_113012",
+  "training_step": 4
+}

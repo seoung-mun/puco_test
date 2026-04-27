@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { GameState } from '../types/gameState'
+import { buildWebSocketUrl } from '../config'
 
 const WS_RECONNECT_DELAY_MS = 3000
 
@@ -52,7 +53,7 @@ export function useGameWebSocket({
     function connect() {
       intentionalCloseRef.current = false
 
-      const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/puco/ws/${gameId}`
+      const wsUrl = buildWebSocketUrl(`/api/puco/ws/${gameId}`)
       console.warn('[WS_TRACE] frontend_ws_connect_attempt', { gameId, wsUrl })
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws

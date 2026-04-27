@@ -4,12 +4,16 @@ import aiofiles
 from datetime import datetime, timezone
 from uuid import UUID
 
+from app.services.contracts import (
+    TRANSITION_ENVELOPE_SCHEMA_VERSION,
+    extract_schema_version,
+    extract_state_kind,
+)
 from app.services.model_registry import enrich_actor_snapshot
+from app.services.log_paths import ensure_log_dir, resolve_log_dir
 
-LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../data/logs"))
-GAME_LOG_DIR = os.path.join(LOG_DIR, "games")
-os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(GAME_LOG_DIR, exist_ok=True)
+LOG_DIR = resolve_log_dir()
+GAME_LOG_DIR = ensure_log_dir("games")
 
 class MLLogger:
     """
@@ -34,13 +38,20 @@ class MLLogger:
         phase_id_before: int | None = None,
         current_player_idx_before: int | None = None,
         model_info: dict | None = None,
+        trace_id: str | None = None,
     ):
         log_file = MLLogger.get_log_file_path(game_id)
         
         record = {
+            "schema_version": TRANSITION_ENVELOPE_SCHEMA_VERSION,
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "trace_id": trace_id,
             "game_id": str(game_id),
             "actor_id": actor_id,
+            "state_before_kind": extract_state_kind(state_before),
+            "state_after_kind": extract_state_kind(state_after),
+            "state_before_schema_version": extract_schema_version(state_before),
+            "state_after_schema_version": extract_schema_version(state_after),
             "state_before": state_before,
             "action": action,
             "reward": reward,

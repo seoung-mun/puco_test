@@ -14,8 +14,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 WORKDIR /app
 
 # 의존성만 먼저 복사 -> 레이어 캐시 최적화
-COPY requirements.txt .
-RUN uv pip install --system --no-cache -r requirements.txt
+COPY requirements.txt requirements-dev.txt ./
+RUN uv pip install --system --no-cache -r requirements-dev.txt
 
 RUN useradd -m appuser
 

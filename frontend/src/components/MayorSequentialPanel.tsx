@@ -11,9 +11,7 @@ interface Props {
 
 /** Action index ranges for Mayor slot-direct placement. */
 const ISLAND_BASE = 120;
-const ISLAND_END = 131;
 const CITY_BASE = 140;
-const CITY_END = 151;
 
 function slotLabel(type: 'island' | 'city', idx: number, player: Player, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (type === 'island') {

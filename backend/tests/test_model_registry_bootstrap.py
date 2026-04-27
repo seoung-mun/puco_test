@@ -1,27 +1,26 @@
 import json
 
 import pytest
-import torch
 
 from app.services import model_registry
 from app.services.agent_registry import AGENT_REGISTRY, resolve_model_artifact
-from agents.ppo_agent import Agent
 
 
-def test_default_ppo_artifact_uses_bootstrap_metadata(monkeypatch):
+def test_default_ppo_artifact_uses_bundle_metadata(monkeypatch):
     monkeypatch.delenv("PPO_MODEL_FILENAME", raising=False)
+    monkeypatch.delenv("PPO_BUNDLE_DIR", raising=False)
 
     artifact = resolve_model_artifact("ppo")
 
     assert artifact is not None
+    assert artifact.artifact_name == AGENT_REGISTRY["ppo"]["bundle_dir"]
     assert artifact.checkpoint_filename == AGENT_REGISTRY["ppo"]["model_default"]
-    assert artifact.metadata_source == "bootstrap_derived"
-    assert artifact.bootstrap_profile == "ppo_pr_server_v1"
-    assert artifact.obs_dim == 210
+    assert artifact.metadata_source == "bundle_v2"
+    assert artifact.obs_dim == 293
     assert artifact.action_dim == 200
-    assert artifact.potential_mode == "option3"
     assert artifact.fingerprint["action_space"] == model_registry.ACTION_SPACE_FINGERPRINT_V1
     assert artifact.fingerprint["mayor_semantics"] == model_registry.MAYOR_SEMANTICS_FINGERPRINT_V1
+    assert "obs=293" in artifact.fingerprint["env"]
     assert "4949773" in artifact.fingerprint["env"]
 
 
@@ -87,15 +86,12 @@ def test_v1_sidecar_metadata_is_parsed(tmp_path):
     assert "4949773" in artifact.fingerprint["env"]
 
 
-def test_bootstrap_metadata_infers_obs_dim_from_checkpoint_when_state_dict_is_210(tmp_path):
+def test_allowlisted_ppo_checkpoint_without_sidecar_is_rejected(tmp_path):
     checkpoint_path = tmp_path / "PPO_PR_Server_20260408_120000_step_100.pth"
-    agent = Agent(obs_dim=210, action_dim=200)
-    torch.save(agent.state_dict(), checkpoint_path)
+    checkpoint_path.write_bytes(b"placeholder")
 
-    artifact = model_registry.resolve_model_artifact_from_path(
-        str(checkpoint_path),
-        family="ppo",
-    )
-
-    assert artifact.metadata_source == "bootstrap_derived"
-    assert artifact.obs_dim == 210
+    with pytest.raises(ValueError, match="sidecar"):
+        model_registry.resolve_model_artifact_from_path(
+            str(checkpoint_path),
+            family="ppo",
+        )

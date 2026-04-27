@@ -1,0 +1,13 @@
+{
+  "schema_version": "model-bundle.v2",
+  "bundle_id": "PPO_PR_Server_codex_smoke_hybrid_20260420_112435_step_32",
+  "family": "ppo",
+  "policy_tag": "candidate",
+  "architecture": "ppo_residual",
+  "checkpoint_file": "checkpoint.pth",
+  "checkpoint_sha256": "82de2fda36368ef6b5783547e09237f5b757380030524dfeac6b72363427a639",
+  "adapter_module": "common.semantic293_adapter:Semantic293TypeMayorAdapter",
+  "adapter_version": "1.0.0",
+  "canonical_state_version": "castone.canonical-state.v1",
+  "canonical_action_version": "castone.canonical-action.v1",
+  "obs_dim": 

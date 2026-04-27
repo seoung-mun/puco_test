@@ -102,3 +102,29 @@ def test_channel_action_endpoint_passes_exact_action_index_to_game_service(clien
     assert captured["actor_id"] == str(user.id)
     assert captured["action"] == 39
     assert isinstance(captured["action"], int)
+
+
+def test_channel_action_endpoint_rejects_unexpected_payload_fields(client, db, monkeypatch):
+    user_id = uuid.uuid4()
+    user = User(id=user_id, google_id=f"gid_{uuid.uuid4().hex}", nickname="StrictSchema")
+    db.add(user)
+
+    game = GameSession(
+        id=uuid.uuid4(),
+        title="Strict Schema Room",
+        status="PROGRESS",
+        num_players=3,
+        players=[str(user.id), "BOT_random", "BOT_random"],
+        host_id=str(user.id),
+    )
+    db.add(game)
+    db.flush()
+
+    headers = {"Authorization": f"Bearer {create_access_token(subject=str(user.id))}"}
+    response = client.post(
+        f"/api/puco/game/{game.id}/action",
+        json={"payload": {"action_index": 39, "unexpected": "boom"}},
+        headers=headers,
+    )
+
+    assert response.status_code == 422

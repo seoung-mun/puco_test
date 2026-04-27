@@ -13,6 +13,7 @@ import {
   getTurnFocusTargetId,
   shouldAutoFocusTurn,
 } from './utils/turnFocus';
+import { backendOrigin, buildWebSocketUrl } from './config';
 import './App.css';
 
 type Screen =
@@ -36,7 +37,7 @@ const ACTION_TO_ROLE: Record<string, string> = {
   discard:             'captain',
 };
 
-const BACKEND = '';
+const BACKEND = backendOrigin;
 const _INTERNAL_KEY = (import.meta.env.VITE_INTERNAL_API_KEY as string) || '';
 
 /** API 오류 응답을 한 줄 메시지로 파싱한다. */
@@ -650,8 +651,7 @@ export default function App() {
     if (lobbyWsRef.current) {
       lobbyWsRef.current.close();
     }
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${proto}://${window.location.host}/api/puco/ws/lobby/${roomId}`);
+    const ws = new WebSocket(buildWebSocketUrl(`/api/puco/ws/lobby/${roomId}`));
     lobbyWsRef.current = ws;
 
     ws.onopen = () => {

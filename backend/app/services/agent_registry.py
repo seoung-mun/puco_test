@@ -3,9 +3,8 @@ AgentRegistry — bot_type 문자열을 실제 serving artifact와 wrapper로 �
 
 현재 목표:
 - 사용자/API는 계속 `ppo` 같은 안정적인 bot_type을 사용
-- 내부는 `family + policy_tag(champion)` 기준으로 실제 checkpoint를 resolve
-- `PPO_PR_Server_~.pth` 는 bootstrap metadata로 허용
-- 다음 모델부터는 sidecar JSON을 우선 해석
+- 내부는 bundle manifest 또는 sidecar metadata 기준으로 실제 artifact를 resolve
+- model-file bot은 adapter bundle을 우선 사용하고, rule-based bot은 기존 wrapper 경로를 유지
 """
 import functools
 import logging
@@ -23,7 +22,10 @@ from app.services.engine_gateway.agents import (
 )
 from app.services.model_registry import (
     ModelArtifact,
+    load_bundle_artifact,
+    load_bundle_manifest,
     make_static_artifact,
+    resolve_bundle_checkpoint,
     resolve_model_artifact_from_path,
 )
 
@@ -46,6 +48,9 @@ AGENT_REGISTRY: dict[str, dict] = {
         "wrapper_cls": PPOWrapper,
         "model_env_key": "PPO_MODEL_FILENAME",
         "model_default": "PPO_PR_Server_hybrid_selfplay_curriculum_5billion_from_scratch_20260412_122638_step_481689600.pth",
+        "bundle_dir_env_key": "PPO_BUNDLE_DIR",
+        "bundle_dir": "ppo-pr-server-semantic293-20260419",
+        "use_adapter": True,
     },
     "hppo": {
         "name": "HPPO Bot",
@@ -156,9 +161,47 @@ def _resolve_model_path(cfg: dict) -> str | None:
     return os.path.join(_MODELS_DIR, filename) if filename else None
 
 
+def _resolve_bundle_dir_name(cfg: dict) -> str | None:
+    env_key = cfg.get("bundle_dir_env_key")
+    return (os.getenv(env_key) if env_key else None) or cfg.get("bundle_dir")
+
+
+@functools.lru_cache(maxsize=None)
+def _resolve_bundle_artifact(bot_type: str) -> ModelArtifact | None:
+    cfg = AGENT_REGISTRY.get(bot_type, {})
+    bundle_name = _resolve_bundle_dir_name(cfg)
+    if not bundle_name:
+        return None
+
+    bundle_dir = os.path.join(_MODELS_DIR, bundle_name)
+    try:
+        artifact = load_bundle_artifact(bundle_dir)
+    except FileNotFoundError:
+        logger.warning(
+            "Bundle checkpoint missing for %s at %s — ignoring bundle artifact.",
+            bot_type,
+            bundle_dir,
+        )
+        return None
+    if artifact is None:
+        return None
+
+    logger.info(
+        "Bundle artifact resolved for bot_type=%s bundle=%s checkpoint=%s",
+        bot_type,
+        artifact.artifact_name,
+        artifact.checkpoint_filename,
+    )
+    return artifact
+
+
 def resolve_model_artifact(bot_type: str) -> ModelArtifact | None:
     normalized = require_valid_bot_type(bot_type)
     cfg = AGENT_REGISTRY[normalized]
+    bundle_artifact = _resolve_bundle_artifact(normalized)
+    if bundle_artifact is not None:
+        return bundle_artifact
+
     if cfg["model_env_key"] is None:
         return None
 
@@ -196,6 +239,18 @@ def resolve_model_artifact(bot_type: str) -> ModelArtifact | None:
         )
     except FileNotFoundError as exc:
         raise ValueError(str(exc)) from exc
+    except ValueError:
+        logger.warning(
+            "PPO metadata not found for %s. Falling back to static artifact snapshot.",
+            model_path,
+        )
+        return make_static_artifact(
+            model_path,
+            family=cfg["family"],
+            policy_tag=cfg["policy_tag"],
+            architecture="ppo_residual",
+            metadata_source="static_config",
+        )
 
 
 def _validate_artifact_for_wrapper(
@@ -213,13 +268,10 @@ def _validate_artifact_for_wrapper(
             f"HPPO bot requires phase PPO checkpoint, got architecture={artifact.architecture!r}"
         )
     if artifact.obs_dim is not None and artifact.obs_dim != obs_dim:
-        if {artifact.obs_dim, obs_dim} == {210, 211} and bot_type in {"ppo", "hppo"}:
-            pass
-        else:
-            raise ValueError(
-                f"Checkpoint obs_dim mismatch for {artifact.checkpoint_filename}: "
-                f"expected {obs_dim}, metadata has {artifact.obs_dim}"
-            )
+        raise ValueError(
+            f"Checkpoint obs_dim mismatch for {artifact.checkpoint_filename}: "
+            f"expected {obs_dim}, metadata has {artifact.obs_dim}"
+        )
     if artifact.action_dim is not None and artifact.action_dim != 200:
         raise ValueError(
             f"Checkpoint action_dim mismatch for {artifact.checkpoint_filename}: "
@@ -258,6 +310,48 @@ def get_wrapper(bot_type: str, obs_dim: int) -> AgentWrapper:
 
 def clear_wrapper_cache() -> None:
     _get_wrapper_cached.cache_clear()
+    _resolve_bundle_artifact.cache_clear()
+    _resolve_adapter_runtime.cache_clear()
+
+
+@functools.lru_cache(maxsize=None)
+def _resolve_adapter_runtime(bot_type: str):
+    """bundle 설정이 있는 bot_type에 대해 AdapterRuntime을 반환한다.
+
+    use_adapter=False 이거나 bundle_dir이 비어있으면 None.
+    lru_cache로 wrapper와 동일한 싱글턴 패턴을 따른다.
+    """
+    cfg = AGENT_REGISTRY.get(bot_type, {})
+    if not cfg.get("use_adapter"):
+        return None
+
+    bundle_name = _resolve_bundle_dir_name(cfg)
+    if not bundle_name:
+        return None
+
+    bundle_dir = os.path.join(_MODELS_DIR, bundle_name)
+    manifest = load_bundle_manifest(bundle_dir)
+    if manifest is None:
+        logger.warning(
+            "Bundle manifest missing for %s at %s — falling back to legacy wrapper.",
+            bot_type, bundle_dir,
+        )
+        return None
+
+    checkpoint_path = resolve_bundle_checkpoint(bundle_dir, manifest)
+    from app.services.adapter_runtime import AdapterRuntime
+    runtime = AdapterRuntime(manifest, checkpoint_path)
+    logger.info(
+        "AdapterRuntime ready for bot_type=%s bundle=%s adapter=%s",
+        bot_type, manifest.get("bundle_id"), runtime.adapter.adapter_id,
+    )
+    return runtime
+
+
+def get_adapter_runtime(bot_type: str):
+    """외부에서 호출 가능한 adapter runtime getter."""
+    normalized = require_valid_bot_type(bot_type)
+    return _resolve_adapter_runtime(normalized)
 
 
 def bot_agents_list() -> list[dict]:

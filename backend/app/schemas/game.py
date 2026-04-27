@@ -1,13 +1,24 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from uuid import UUID
 
+from app.services.contracts import ACTION_REQUEST_SCHEMA_VERSION
+
+
+class ActionRequestPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = ACTION_REQUEST_SCHEMA_VERSION
+    action_index: int
+
 
 class GameAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     game_id: UUID | None = None
     action_type: str | None = None
-    payload: Dict[str, Any]
+    payload: ActionRequestPayload
 
 
 class ActionLog(BaseModel):

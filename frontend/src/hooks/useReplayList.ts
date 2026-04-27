@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReplayListResponse } from '../types/replay';
+import { buildApiUrl } from '../config';
 
 interface UseReplayListOptions {
   authToken: string | null;
@@ -43,7 +44,7 @@ export function useReplayList({
     params.set('size', String(pageSize));
     if (query) params.set('player', query);
 
-    fetch(`/api/puco/replays/?${params.toString()}`, {
+    fetch(buildApiUrl(`/api/puco/replays/?${params.toString()}`), {
       headers: { Authorization: `Bearer ${authToken}` },
     })
       .then(async (res) => {

@@ -1,0 +1,29 @@
+{
+  "schema_version": "model-bundle.v2",
+  "bundle_id": "ppo-pr-server-semantic293-20260419",
+  "family": "ppo",
+  "policy_tag": "champion",
+  "architecture": "ppo_residual",
+  "checkpoint_file": "../PPO_PR_Server_hybrid_selfplay_curriculum_5billion_from_scratch_20260412_122638_step_481689600.pth",
+  "checkpoint_sha256": "20a0fafb9a81747d587c4e12e83b14f0b03871616949b51868d472c5759a7043",
+  "adapter_module": "common.semantic293_adapter:Semantic293TypeMayorAdapter",
+  "adapter_version": "1.0.0",
+  "canonical_state_version": "castone.canonical-state.v1",
+  "canonical_action_version": "castone.canonical-action.v1",
+  "obs_dim": 293,
+  "action_dim": 200,
+  "num_players": 3,
+  "network": {
+    "hidden_dim": 512,
+    "num_res_blocks": 3
+  },
+  "compatibility": {
+    "supported_canonical_state_versions": [
+      "castone.canonical-state.v1"
+    ],
+    "supported_canonical_action_versions": [
+      "castone.canonical-action.v1"
+    ]
+  },
+  "source_checkpoint": "PPO_PR_Server_hybrid_selfplay_curriculum_5billion_from_scratch_20260412_122638_step_481689600.pth"
+}

@@ -3,6 +3,11 @@ import inspect
 from typing import Any, Dict, List, Optional
 import numpy as np
 from app.services.engine_gateway.bootstrap import ensure_puco_rl_path
+from app.services.contracts import (
+    MODEL_OBSERVATION_SCHEMA_VERSION,
+    MODEL_OBSERVATION_STATE_KIND,
+    with_state_contract,
+)
 
 # Keep all non-legacy PuCo_RL path bootstrapping routed through engine_gateway.
 ensure_puco_rl_path()
@@ -103,7 +108,15 @@ class EngineWrapper:
     def get_state(self) -> Dict[str, Any]:
         """Returns the current state/observation as a serializable dict."""
         # Use the last_obs which is updated after each step or reset
-        return self._sanitize_obs(self.last_obs)
+        state = self._sanitize_obs(self.last_obs)
+        if isinstance(state, dict):
+            return with_state_contract(
+                state,
+                schema_version=MODEL_OBSERVATION_SCHEMA_VERSION,
+                state_kind=MODEL_OBSERVATION_STATE_KIND,
+                producer="engine-wrapper",
+            )
+        return state
 
     def get_action_mask(self) -> List[int]:
         """Returns the current valid action mask as a list of 0/1."""

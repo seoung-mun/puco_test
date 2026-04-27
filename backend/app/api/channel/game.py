@@ -58,20 +58,15 @@ async def perform_action(
     actor_id = str(current_user.id)
     service = GameService(db)
     try:
-        action_int = action_data.payload.get("action_index")
-        if action_int is None:
-            raise HTTPException(status_code=400, detail="action_index is required in payload")
-        try:
-            action_int = int(action_int)
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="action_index must be an integer")
+        action_int = action_data.payload.action_index
 
         logger.warning(
-            "[ACTION_TRACE] channel_action_request game=%s actor=%s action=%s payload_keys=%s",
+            "[ACTION_TRACE] channel_action_request game=%s actor=%s action=%s payload_keys=%s schema=%s",
             game_id,
             actor_id,
             action_int,
-            sorted(action_data.payload.keys()),
+            sorted(action_data.payload.model_dump().keys()),
+            action_data.payload.schema_version,
         )
 
         result = service.process_action(game_id, actor_id, action_int)

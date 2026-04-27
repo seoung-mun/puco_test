@@ -100,8 +100,8 @@ async def test_log_transition_includes_model_info_when_provided():
         model_info={
             "actor_type": "bot",
             "bot_type": "ppo",
-            "artifact_name": "PPO_PR_Server_hybrid_selfplay_curriculum_5billion_from_scratch_20260412_122638_step_481689600",
-            "metadata_source": "bootstrap_derived",
+            "artifact_name": "ppo-pr-server-semantic293-20260419",
+            "metadata_source": "bundle_v2",
             "fingerprint": {
                 "action_space": model_registry.ACTION_SPACE_FINGERPRINT_V1,
                 "mayor_semantics": model_registry.MAYOR_SEMANTICS_FINGERPRINT_V1,
@@ -117,8 +117,36 @@ async def test_log_transition_includes_model_info_when_provided():
 
     assert matching, "기록된 transition이 없습니다"
     assert matching[-1]["model_info"]["bot_type"] == "ppo"
-    assert matching[-1]["model_info"]["metadata_source"] == "bootstrap_derived"
+    assert matching[-1]["model_info"]["metadata_source"] == "bundle_v2"
     assert matching[-1]["model_info"]["fingerprint"]["action_space"] == model_registry.ACTION_SPACE_FINGERPRINT_V1
+
+
+@pytest.mark.asyncio
+async def test_log_transition_includes_transition_contract_metadata():
+    game_id = uuid4()
+    actor_id = f"test_actor_contract_{uuid4().hex}"
+
+    await MLLogger.log_transition(
+        game_id=game_id,
+        actor_id=actor_id,
+        state_before={"schema_version": "model-observation.v1", "state_kind": "model-observation"},
+        action=15,
+        reward=0.0,
+        done=False,
+        state_after={"schema_version": "model-observation.v1", "state_kind": "model-observation"},
+        info={"round": 1, "step": 2},
+        trace_id="trace-123",
+    )
+
+    log_file = MLLogger.get_log_file_path(game_id)
+
+    with open(log_file, "r") as f:
+        matching = [json.loads(line) for line in f]
+
+    assert matching[-1]["schema_version"] == "transition-envelope.v1"
+    assert matching[-1]["trace_id"] == "trace-123"
+    assert matching[-1]["state_before_kind"] == "model-observation"
+    assert matching[-1]["state_after_kind"] == "model-observation"
 
 
 def test_get_log_file_path_uses_per_game_jsonl_layout():

@@ -72,22 +72,11 @@ def _infer_phase_obs_dim(state_dict: dict | None) -> int | None:
     return max(0, raw_dim - PHASE_EMBED_DIM)
 
 
-def _adapt_obs_dim(obs: torch.Tensor, expected_dim: int) -> torch.Tensor:
+def _require_obs_dim(obs: torch.Tensor, expected_dim: int) -> torch.Tensor:
     current_dim = int(obs.shape[-1])
-    if current_dim == expected_dim:
-        return obs
-
-    # Backend/runtime env added vp_chips at flattened index 42 (210 -> 211).
-    if current_dim == 211 and expected_dim == 210:
-        return torch.cat([obs[..., :42], obs[..., 43:]], dim=-1)
-
-    # Allow reverse compatibility when a newer checkpoint expects vp_chips
-    # but an older serialized observation is still 210-dim.
-    if current_dim == 210 and expected_dim == 211:
-        pad = torch.zeros(*obs.shape[:-1], 1, device=obs.device, dtype=obs.dtype)
-        return torch.cat([obs[..., :42], pad, obs[..., 42:]], dim=-1)
-
-    raise ValueError(f"Incompatible obs_dim: expected {expected_dim}, got {current_dim}")
+    if current_dim != expected_dim:
+        raise ValueError(f"Incompatible obs_dim: expected {expected_dim}, got {current_dim}")
+    return obs
 
 
 def _normalize_env_context(env: object | None) -> object | None:
@@ -126,7 +115,7 @@ class PPOWrapper(AgentWrapper):
         env: object | None = None,
     ) -> int:
         obs, mask = _ensure_batched(obs, mask)
-        obs = _adapt_obs_dim(obs, self._expected_obs_dim)
+        obs = _require_obs_dim(obs, self._expected_obs_dim)
         with torch.no_grad():
             features = self._agent._shared_features(obs)
             logits = self._agent.actor_head(features)
@@ -163,7 +152,7 @@ class HPPOWrapper(AgentWrapper):
         env: object | None = None,
     ) -> int:
         obs, mask = _ensure_batched(obs, mask)
-        obs = _adapt_obs_dim(obs, self._expected_obs_dim)
+        obs = _require_obs_dim(obs, self._expected_obs_dim)
         phase_tensor = torch.tensor([phase_id], dtype=torch.long)
         with torch.no_grad():
             features = self._agent._shared_features(obs, phase_tensor)

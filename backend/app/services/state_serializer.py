@@ -17,6 +17,11 @@ from app.services.state_serializer_support import (
     serialize_common_board,
     serialize_player,
 )
+from app.services.contracts import (
+    RICH_GAME_STATE_SCHEMA_VERSION,
+    RICH_GAME_STATE_STATE_KIND,
+    with_state_contract,
+)
 
 if TYPE_CHECKING:
     from app.engine_wrapper.wrapper import EngineWrapper
@@ -108,7 +113,7 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
     }
     result_summary = compute_score_breakdown(game, session.player_names) if session.game_over else None
 
-    return {
+    return with_state_contract({
         "meta": meta,
         "common_board": serialize_common_board(game),
         "players": players,
@@ -116,7 +121,11 @@ def serialize_game_state(session: "SessionManager") -> Dict[str, Any]:
         "history": session.history,
         "bot_players": bot_players,
         "result_summary": result_summary,
-    }
+    },
+        schema_version=RICH_GAME_STATE_SCHEMA_VERSION,
+        state_kind=RICH_GAME_STATE_STATE_KIND,
+        producer="state-serializer",
+    )
 
 
 def serialize_game_state_from_engine(
@@ -186,7 +195,7 @@ def serialize_game_state_from_engine(
     }
     result_summary = compute_score_breakdown(game, player_names) if game_over else None
 
-    return {
+    return with_state_contract({
         "meta": meta,
         "common_board": serialize_common_board(game),
         "players": players,
@@ -195,7 +204,11 @@ def serialize_game_state_from_engine(
         "bot_players": bot_players_out,
         "result_summary": result_summary,
         "action_mask": action_mask,
-    }
+    },
+        schema_version=RICH_GAME_STATE_SCHEMA_VERSION,
+        state_kind=RICH_GAME_STATE_STATE_KIND,
+        producer="state-serializer",
+    )
 
 
 def serialize_compact_summary(engine: "EngineWrapper") -> Dict[str, Any]:

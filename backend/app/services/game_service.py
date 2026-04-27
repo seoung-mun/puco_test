@@ -30,6 +30,7 @@ from app.services.replay_logger import (
     build_replay_entry,
     summarize_transition_state,
 )
+from app.services.contracts import MODEL_OBSERVATION_STATE_KIND, extract_state_kind
 logger = logging.getLogger(__name__)
 
 class GameService:
@@ -43,6 +44,21 @@ class GameService:
 
     def __init__(self, db: Session):
         self.db = db
+
+    @staticmethod
+    async def _log_transition_safely(**kwargs):
+        from app.services.ml_logger import MLLogger
+
+        trace_id = kwargs.get("trace_id")
+        try:
+            await MLLogger.log_transition(**kwargs)
+        except Exception as exc:
+            logger.warning(
+                "[ML_TRACE] log_transition_failed trace_id=%s error=%s",
+                trace_id,
+                exc,
+                exc_info=True,
+            )
 
     def create_room(self, room_info: GameRoomCreate) -> GameSession:
         room = GameSession(
@@ -116,14 +132,17 @@ class GameService:
         return {"state": rich_state, "action_mask": action_mask}
 
     def process_action(self, game_id: UUID, actor_id: str, action: int, suppress_broadcast: bool = False):
+        trace_id = uuid4().hex
         logger.warning(
-            "[STATE_TRACE] process_action_enter game=%s actor=%s action=%s",
+            "[STATE_TRACE] process_action_enter trace_id=%s game=%s actor=%s action=%s",
+            trace_id,
             game_id,
             actor_id,
             action,
         )
         logger.warning(
-            "[BOT_TRACE] process_action_enter game=%s actor=%s action=%s",
+            "[BOT_TRACE] process_action_enter trace_id=%s game=%s actor=%s action=%s",
+            trace_id,
             game_id,
             actor_id,
             action,
@@ -168,29 +187,54 @@ class GameService:
 
         # Step through engine (wrapper handles snapshot & logging prep)
         result = engine.step(action)
+        result["info"]["trace_id"] = trace_id
         player_names, _ = resolve_player_names_and_bots(self.db, room) if room else ([], {})
         actor_name = (
             player_names[current_player_idx]
             if current_player_idx is not None and 0 <= current_player_idx < len(player_names)
             else actor_id
         )
-        replay_entry = build_replay_entry(
-            actor_id=actor_id,
-            actor_name=actor_name,
-            player_index=current_player_idx,
-            action=action,
-            reward=result["reward"],
-            done=result["done"],
-            info=result["info"],
-            state_before=copy.deepcopy(result["state_before"]),
-            state_after=copy.deepcopy(result["state_after"]),
-            action_mask_before=copy.deepcopy(current_mask),
-            model_info=copy.deepcopy(actor_model_info),
-        )
+        try:
+            replay_entry = build_replay_entry(
+                actor_id=actor_id,
+                actor_name=actor_name,
+                player_index=current_player_idx,
+                action=action,
+                reward=result["reward"],
+                done=result["done"],
+                info=result["info"],
+                state_before=copy.deepcopy(result["state_before"]),
+                state_after=copy.deepcopy(result["state_after"]),
+                action_mask_before=copy.deepcopy(current_mask),
+                model_info=copy.deepcopy(actor_model_info),
+            )
+        except Exception as exc:
+            logger.warning(
+                "[REPLAY_TRACE] build_replay_entry_failed trace_id=%s game=%s actor=%s error=%s",
+                trace_id,
+                game_id,
+                actor_id,
+                exc,
+                exc_info=True,
+            )
+            replay_entry = {
+                "step": result["info"].get("step"),
+                "round": result["info"].get("round"),
+                "actor_id": actor_id,
+                "actor_name": actor_name,
+                "player": current_player_idx,
+                "action_id": action,
+                "reward": result["reward"],
+                "done": result["done"],
+                "commentary": None,
+                "commentary_status": "degraded",
+                "summary_validation_status": "degraded",
+                "degraded_replay_used": True,
+                "state_before_kind": extract_state_kind(result["state_before"], MODEL_OBSERVATION_STATE_KIND),
+                "state_after_kind": extract_state_kind(result["state_after"], MODEL_OBSERVATION_STATE_KIND),
+            }
 
         # Async MLOps Logging
-        from app.services.ml_logger import MLLogger
-        
         # Keep strong references to background logging tasks to prevent GC dropping them
         if not hasattr(GameService, "_background_log_tasks"):
             GameService._background_log_tasks = set()
@@ -198,7 +242,7 @@ class GameService:
         try:
             loop = asyncio.get_running_loop()
             task = loop.create_task(
-                MLLogger.log_transition(
+                GameService._log_transition_safely(
                     game_id=game_id,
                     actor_id=actor_id,
                     state_before=copy.deepcopy(result["state_before"]),
@@ -211,6 +255,7 @@ class GameService:
                     phase_id_before=current_phase_id,
                     current_player_idx_before=current_player_idx,
                     model_info=copy.deepcopy(actor_model_info),
+                    trace_id=trace_id,
                 )
             )
             GameService._background_log_tasks.add(task)
@@ -276,18 +321,28 @@ class GameService:
         new_action_mask = rich_state.get("action_mask", engine.get_action_mask()) if isinstance(rich_state, dict) else engine.get_action_mask()
 
         if room:
-            ReplayLogger.append_entry(
-                game_id=game_id,
-                title=room.title,
-                status=replay_status,
-                host_id=str(room.host_id) if room.host_id else None,
-                players=build_replay_players_snapshot(room, player_names),
-                model_versions=dict(room.model_versions or {}),
-                entry=replay_entry,
-                rich_state=rich_state if not suppress_broadcast else None,
-                final_scores=replay_final_scores,
-                result_summary=replay_result_summary,
-            )
+            try:
+                ReplayLogger.append_entry(
+                    game_id=game_id,
+                    title=room.title,
+                    status=replay_status,
+                    host_id=str(room.host_id) if room.host_id else None,
+                    players=build_replay_players_snapshot(room, player_names),
+                    model_versions=dict(room.model_versions or {}),
+                    entry=replay_entry,
+                    rich_state=rich_state if not suppress_broadcast else None,
+                    final_scores=replay_final_scores,
+                    result_summary=replay_result_summary,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "[REPLAY_TRACE] append_entry_failed trace_id=%s game=%s actor=%s error=%s",
+                    trace_id,
+                    game_id,
+                    actor_id,
+                    exc,
+                    exc_info=True,
+                )
 
         if not suppress_broadcast:
             self._sync_to_redis(game_id, rich_state, finished=terminated)

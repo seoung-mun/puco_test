@@ -8,19 +8,24 @@ import time
 import random
 import subprocess
 import argparse
+import threading
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.multiprocessing as mp
 import numpy as np
-from torch.utils.tensorboard import SummaryWriter
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except ModuleNotFoundError:  # pragma: no cover - optional runtime dependency
+    SummaryWriter = None
 
 from env.pr_env import PuertoRicoEnv
 from utils.env_wrappers import flatten_dict_observation, get_flattened_obs_dim
 from agents.ppo_agent import Agent
 from agents.shipping_rush_agent import ShippingRushAgent
 from configs.constants import Role, BuildingType
+from common.bundle import write_bundle
 
 # ── 하이퍼파라미터 ─────────────────────────────────────────────────────────────
 NUM_PLAYERS = 3
@@ -41,6 +46,7 @@ MAX_GRAD_NORM = 0.5
 TOTAL_TIMESTEPS = 100_000_000
 SNAPSHOT_INTERVAL = 25
 OPPONENT_POOL_SIZE = 100
+MAX_GAME_STEPS = 1200
 
 # Pipe command constants
 CMD_STEP = 0
@@ -48,8 +54,85 @@ CMD_SET_WEIGHTS = 1
 CMD_CLOSE = 2
 
 
+class NoOpSummaryWriter:
+    def add_scalar(self, *_args, **_kwargs):
+        return None
+
+    def close(self):
+        return None
+
+
 # ── Experiment config saver ───────────────────────────────────────────────────
-def save_experiment_config(run_name: str, log_dir: str, args: argparse.Namespace) -> None:
+def resolve_runtime_config(args: argparse.Namespace) -> dict[str, int]:
+    if args.local_smoke:
+        config = {
+            "num_envs": 1,
+            "steps_per_env": 4,
+            "minibatch_size": 4,
+            "update_epochs": 1,
+            "total_timesteps": 4,
+            "snapshot_interval": 1,
+            "opponent_pool_size": 4,
+            "max_game_steps": MAX_GAME_STEPS,
+            "use_threads": True,
+        }
+    else:
+        config = {
+            "num_envs": NUM_ENVS,
+            "steps_per_env": STEPS_PER_ENV,
+            "minibatch_size": MINIBATCH_SIZE,
+            "update_epochs": UPDATE_EPOCHS,
+            "total_timesteps": TOTAL_TIMESTEPS,
+            "snapshot_interval": SNAPSHOT_INTERVAL,
+            "opponent_pool_size": OPPONENT_POOL_SIZE,
+            "max_game_steps": MAX_GAME_STEPS,
+            "use_threads": False,
+        }
+
+    overrides = {
+        "num_envs": args.num_envs,
+        "steps_per_env": args.steps_per_env,
+        "minibatch_size": args.minibatch_size,
+        "update_epochs": args.update_epochs,
+        "total_timesteps": args.total_timesteps,
+        "snapshot_interval": args.snapshot_interval,
+        "opponent_pool_size": args.opponent_pool_size,
+        "max_game_steps": args.max_game_steps,
+    }
+    for key, value in overrides.items():
+        if value is not None:
+            config[key] = value
+
+    config["batch_size"] = config["num_envs"] * config["steps_per_env"]
+
+    if config["num_envs"] <= 0:
+        raise ValueError("--num_envs must be >= 1")
+    if config["steps_per_env"] <= 0:
+        raise ValueError("--steps_per_env must be >= 1")
+    if config["update_epochs"] <= 0:
+        raise ValueError("--update_epochs must be >= 1")
+    if config["minibatch_size"] <= 0:
+        raise ValueError("--minibatch_size must be >= 1")
+    if config["total_timesteps"] < config["batch_size"]:
+        raise ValueError(
+            f"--total_timesteps ({config['total_timesteps']}) must be >= batch_size ({config['batch_size']})."
+        )
+    if config["snapshot_interval"] <= 0:
+        raise ValueError("--snapshot_interval must be >= 1")
+    if config["opponent_pool_size"] <= 0:
+        raise ValueError("--opponent_pool_size must be >= 1")
+    if config["max_game_steps"] <= 0:
+        raise ValueError("--max_game_steps must be >= 1")
+
+    return config
+
+
+def save_experiment_config(
+    run_name: str,
+    log_dir: str,
+    args: argparse.Namespace,
+    config: dict[str, int],
+) -> None:
     """
     Serialize all experiment parameters to JSON at training start.
     Enables reproducibility without manual note-taking.
@@ -91,16 +174,16 @@ def save_experiment_config(run_name: str, log_dir: str, args: argparse.Namespace
 
         "environment": {
             "num_players": NUM_PLAYERS,
-            "max_game_steps": 1200,
+            "max_game_steps": config["max_game_steps"],
         },
 
         "hyperparameters": {
-            "num_envs": NUM_ENVS,
-            "steps_per_env": STEPS_PER_ENV,
-            "total_timesteps": TOTAL_TIMESTEPS,
-            "batch_size": BATCH_SIZE,
-            "minibatch_size": MINIBATCH_SIZE,
-            "update_epochs": UPDATE_EPOCHS,
+            "num_envs": config["num_envs"],
+            "steps_per_env": config["steps_per_env"],
+            "total_timesteps": config["total_timesteps"],
+            "batch_size": config["batch_size"],
+            "minibatch_size": config["minibatch_size"],
+            "update_epochs": config["update_epochs"],
             "learning_rate_initial": LEARNING_RATE,
             "learning_rate_min": 1e-5,
             "learning_rate_schedule": "linear_decay",
@@ -116,8 +199,8 @@ def save_experiment_config(run_name: str, log_dir: str, args: argparse.Namespace
         "self_play": {
             "type": selfplay_type,
             "description": selfplay_desc,
-            "snapshot_interval_updates": SNAPSHOT_INTERVAL,
-            "opponent_pool_size": OPPONENT_POOL_SIZE,
+            "snapshot_interval_updates": config["snapshot_interval"],
+            "opponent_pool_size": config["opponent_pool_size"],
             "rule_based_prob": args.rule_based_prob,
             "rule_based_strategy": "Shipping Rush (index=0)" if args.rule_based_prob > 0 else "none",
             "opp1_role": "latest_agent (always)",
@@ -151,7 +234,8 @@ def save_experiment_config(run_name: str, log_dir: str, args: argparse.Namespace
 
 # ── Rollout worker ────────────────────────────────────────────────────────────
 def rollout_worker(rank, conn, shared_bufs, obs_dim, action_dim,
-                   opponent_pool, rule_based_prob: float):
+                   opponent_pool, rule_based_prob: float,
+                   steps_per_env: int, max_game_steps: int):
     """
     Persistent worker process.
     PBRS is always enabled (no flag needed).
@@ -160,7 +244,7 @@ def rollout_worker(rank, conn, shared_bufs, obs_dim, action_dim,
       - otherwise: random draw from opponent_pool
       - fallback (empty pool, rule_based_prob=0): latest agent
     """
-    env = PuertoRicoEnv(num_players=NUM_PLAYERS, max_game_steps=1200, use_pbrs=True)
+    env = PuertoRicoEnv(num_players=NUM_PLAYERS, max_game_steps=max_game_steps, use_pbrs=True)
     obs_space = env.observation_space(env.possible_agents[0])["observation"]
 
     local_agent       = Agent(obs_dim=obs_dim, action_dim=action_dim)
@@ -279,7 +363,7 @@ def rollout_worker(rank, conn, shared_bufs, obs_dim, action_dim,
                         if step_idx > 0:
                             s_rew[rank, step_idx - 1] = reward
                             s_done[rank, step_idx - 1] = 1.0
-                        if step_idx == STEPS_PER_ENV:
+                        if step_idx == steps_per_env:
                             s_next_val[rank] = 0.0
                             conn.send({"stats": stats})
                             break
@@ -297,7 +381,7 @@ def rollout_worker(rank, conn, shared_bufs, obs_dim, action_dim,
                     obs_t    = torch.as_tensor(flat_obs, dtype=torch.float32).unsqueeze(0)
                     mask_t   = torch.as_tensor(mask,    dtype=torch.float32).unsqueeze(0)
 
-                    if step_idx == STEPS_PER_ENV:
+                    if step_idx == steps_per_env:
                         with torch.no_grad():
                             _, _, _, val = local_agent.get_action_and_value(obs_t, mask_t)
                         s_next_val[rank] = val.item()
@@ -375,7 +459,24 @@ def train():
         "--load_ckpt", type=str, default="",
         help="Path to an existing .pth checkpoint to resume/finetune from."
     )
+    parser.add_argument(
+        "--local_smoke", action="store_true",
+        help="M1/로컬 smoke 검증용으로 매우 작은 batch/update 설정을 사용한다."
+    )
+    parser.add_argument("--num_envs", type=int, default=None)
+    parser.add_argument("--steps_per_env", type=int, default=None)
+    parser.add_argument("--minibatch_size", type=int, default=None)
+    parser.add_argument("--update_epochs", type=int, default=None)
+    parser.add_argument("--total_timesteps", type=int, default=None)
+    parser.add_argument("--snapshot_interval", type=int, default=None)
+    parser.add_argument("--opponent_pool_size", type=int, default=None)
+    parser.add_argument("--max_game_steps", type=int, default=None)
+    parser.add_argument(
+        "--write_bundle", action=argparse.BooleanOptionalAction, default=True,
+        help="Snapshot마다 .pth 옆에 web 서빙용 bundle directory(manifest+checkpoint)를 함께 작성한다."
+    )
     args = parser.parse_args()
+    runtime = resolve_runtime_config(args)
 
     try:
         mp.set_start_method('spawn', force=True)
@@ -390,27 +491,40 @@ def train():
         "runs", run_name
     )
     os.makedirs(log_dir, exist_ok=True)
-    writer = SummaryWriter(log_dir)
+    writer = SummaryWriter(log_dir) if SummaryWriter is not None else NoOpSummaryWriter()
+    if SummaryWriter is None:
+        print("[Runtime] tensorboard not installed; metrics will not be written to event files.")
 
     # Save experiment config immediately — no manual note-taking needed
-    save_experiment_config(run_name, log_dir, args)
+    save_experiment_config(run_name, log_dir, args, runtime)
+    print(
+        "[Runtime] num_envs={num_envs} steps_per_env={steps_per_env} "
+        "batch_size={batch_size} updates={updates} snapshot_interval={snapshot_interval}".format(
+            num_envs=runtime["num_envs"],
+            steps_per_env=runtime["steps_per_env"],
+            batch_size=runtime["batch_size"],
+            updates=runtime["total_timesteps"] // runtime["batch_size"],
+            snapshot_interval=runtime["snapshot_interval"],
+        )
+    )
+    print(f"[Runtime] worker_mode={'threads' if runtime['use_threads'] else 'processes'}")
 
     # Environment metadata
-    temp_env   = PuertoRicoEnv(num_players=NUM_PLAYERS)
+    temp_env   = PuertoRicoEnv(num_players=NUM_PLAYERS, max_game_steps=runtime["max_game_steps"])
     obs_dim    = get_flattened_obs_dim(temp_env.observation_space(temp_env.possible_agents[0])["observation"])
     action_dim = temp_env.action_space(temp_env.possible_agents[0]).n
     del temp_env
 
     # Shared memory buffers (zero-copy IPC)
     shared_bufs = (
-        torch.zeros((NUM_ENVS, STEPS_PER_ENV, obs_dim)).share_memory_(),
-        torch.zeros((NUM_ENVS, STEPS_PER_ENV, action_dim)).share_memory_(),
-        torch.zeros((NUM_ENVS, STEPS_PER_ENV)).share_memory_(),
-        torch.zeros((NUM_ENVS, STEPS_PER_ENV)).share_memory_(),
-        torch.zeros((NUM_ENVS, STEPS_PER_ENV)).share_memory_(),
-        torch.zeros((NUM_ENVS, STEPS_PER_ENV)).share_memory_(),
-        torch.zeros((NUM_ENVS, STEPS_PER_ENV)).share_memory_(),
-        torch.zeros(NUM_ENVS).share_memory_(),
+        torch.zeros((runtime["num_envs"], runtime["steps_per_env"], obs_dim)).share_memory_(),
+        torch.zeros((runtime["num_envs"], runtime["steps_per_env"], action_dim)).share_memory_(),
+        torch.zeros((runtime["num_envs"], runtime["steps_per_env"])).share_memory_(),
+        torch.zeros((runtime["num_envs"], runtime["steps_per_env"])).share_memory_(),
+        torch.zeros((runtime["num_envs"], runtime["steps_per_env"])).share_memory_(),
+        torch.zeros((runtime["num_envs"], runtime["steps_per_env"])).share_memory_(),
+        torch.zeros((runtime["num_envs"], runtime["steps_per_env"])).share_memory_(),
+        torch.zeros(runtime["num_envs"]).share_memory_(),
     )
 
     agent     = Agent(obs_dim=obs_dim, action_dim=action_dim).to(device)
@@ -421,21 +535,29 @@ def train():
 
     optimizer = optim.Adam(agent.parameters(), lr=LEARNING_RATE, eps=1e-5)
 
-    opponent_pool = mp.Manager().list()
+    opponent_pool = [] if runtime["use_threads"] else mp.Manager().list()
     processes, conns = [], []
-    for i in range(NUM_ENVS):
+    for i in range(runtime["num_envs"]):
         parent_conn, child_conn = mp.Pipe()
-        p = mp.Process(
-            target=rollout_worker,
-            args=(i, child_conn, shared_bufs, obs_dim, action_dim,
-                  opponent_pool, args.rule_based_prob)
-        )
+        worker_kwargs = {
+            "target": rollout_worker,
+            "args": (
+                i, child_conn, shared_bufs, obs_dim, action_dim,
+                opponent_pool, args.rule_based_prob,
+                runtime["steps_per_env"], runtime["max_game_steps"],
+            ),
+        }
+        if runtime["use_threads"]:
+            p = threading.Thread(**worker_kwargs, daemon=True)
+        else:
+            p = mp.Process(**worker_kwargs)
         p.start()
         processes.append(p)
         conns.append(parent_conn)
 
     global_step  = 0
-    total_updates = TOTAL_TIMESTEPS // BATCH_SIZE
+    batch_size = runtime["batch_size"]
+    total_updates = runtime["total_timesteps"] // batch_size
     train_start   = time.time()
 
     try:
@@ -460,9 +582,9 @@ def train():
             # GAE
             advantages   = torch.zeros_like(rew_b)
             lastgaelam   = 0
-            for t in reversed(range(STEPS_PER_ENV)):
+            for t in reversed(range(runtime["steps_per_env"])):
                 nextnonterminal = 1.0 - done_b[:, t]
-                nextvalues      = next_val_arr if t == STEPS_PER_ENV - 1 else val_b[:, t + 1]
+                nextvalues      = next_val_arr if t == runtime["steps_per_env"] - 1 else val_b[:, t + 1]
                 delta = rew_b[:, t] + GAMMA * nextvalues * nextnonterminal - val_b[:, t]
                 advantages[:, t] = lastgaelam = delta + GAMMA * GAE_LAMBDA * nextnonterminal * lastgaelam
             returns_b = advantages + val_b
@@ -475,11 +597,11 @@ def train():
             ret_t  = returns_b.reshape(-1).to(device)
 
             losses_pg, losses_v, losses_ent = [], [], []
-            b_inds = np.arange(BATCH_SIZE)
-            for epoch in range(UPDATE_EPOCHS):
+            b_inds = np.arange(batch_size)
+            for epoch in range(runtime["update_epochs"]):
                 np.random.shuffle(b_inds)
-                for start in range(0, BATCH_SIZE, MINIBATCH_SIZE):
-                    mb = b_inds[start:start + MINIBATCH_SIZE]
+                for start in range(0, batch_size, runtime["minibatch_size"]):
+                    mb = b_inds[start:start + runtime["minibatch_size"]]
                     _, newlogp, entropy, newval = agent.get_action_and_value(
                         obs_t[mb], mask_t[mb], act_t[mb]
                     )
@@ -501,7 +623,7 @@ def train():
                     losses_v.append(v_loss.item())
                     losses_ent.append(entropy.mean().item())
 
-            global_step += BATCH_SIZE
+            global_step += batch_size
             total_games  = sum(r["stats"]["games"] for r in results)
 
             # TensorBoard logging
@@ -539,24 +661,46 @@ def train():
             # Terminal progress
             elapsed = time.time() - train_start
             fps     = global_step / elapsed if elapsed > 0 else 1
-            eta_str = time.strftime("%H:%M:%S", time.gmtime((TOTAL_TIMESTEPS - global_step) / fps))
+            eta_remaining = max(0, runtime["total_timesteps"] - global_step)
+            eta_str = time.strftime("%H:%M:%S", time.gmtime(eta_remaining / fps))
             print(f"[Update {update}/{total_updates}] Step {global_step:,} | FPS {int(fps):,} | ETA {eta_str}")
             if total_games > 0:
                 win_rate = sum(r["stats"]["wins"] for r in results) / total_games
                 print(f" └─ WinRate: {win_rate:.2f} | Loss(P/V/E): "
                       f"{np.mean(losses_pg):.3f}/{np.mean(losses_v):.3f}/{np.mean(losses_ent):.3f}\n")
 
-            if update % SNAPSHOT_INTERVAL == 0:
+            if update % runtime["snapshot_interval"] == 0:
                 opponent_pool.append(copy.deepcopy(shared_weights))
-                if len(opponent_pool) > OPPONENT_POOL_SIZE:
+                if len(opponent_pool) > runtime["opponent_pool_size"]:
                     opponent_pool.pop(0)
                 ckpt_dir = os.path.join(
                     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                     "models", "ppo_checkpoints", args.run_prefix
                 )
                 os.makedirs(ckpt_dir, exist_ok=True)
-                torch.save(agent.state_dict(),
-                           os.path.join(ckpt_dir, f"{run_name}_step_{global_step}.pth"))
+                ckpt_path = os.path.join(ckpt_dir, f"{run_name}_step_{global_step}.pth")
+                torch.save(agent.state_dict(), ckpt_path)
+
+                if args.write_bundle:
+                    bundle_id = f"{run_name}_step_{global_step}"
+                    bundle_dir = os.path.join(ckpt_dir, f"{bundle_id}_bundle")
+                    try:
+                        write_bundle(
+                            output_dir=bundle_dir,
+                            checkpoint_path=ckpt_path,
+                            bundle_id=bundle_id,
+                            obs_dim=int(obs_dim),
+                            action_dim=int(action_dim),
+                            num_players=int(NUM_PLAYERS),
+                            extra_metadata={
+                                "trainer": "train_ppo_selfplay_server",
+                                "training_run": run_name,
+                                "training_step": int(global_step),
+                            },
+                        )
+                        print(f"[Bundle] Wrote → {bundle_dir}")
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[Bundle] WARN: write_bundle failed: {exc}")
 
     finally:
         for conn in conns:
