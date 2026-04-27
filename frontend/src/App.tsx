@@ -473,7 +473,7 @@ export default function App() {
   }
 
   /** Channel API: 단일 action_index로 모든 게임 액션을 처리 */
-  async function channelAction(actionIndex: number): Promise<void> {
+  async function channelAction(actionIndex: number, canonicalId?: string): Promise<void> {
     if (!gameId || !authToken) return;
     const requestSeq = ++actionRequestSeqRef.current;
     const maskAllowed = state?.action_mask?.[actionIndex] ?? null;
@@ -481,6 +481,7 @@ export default function App() {
       gameId,
       requestSeq,
       actionIndex,
+      canonicalId: canonicalId ?? null,
       phase: state?.meta.phase ?? null,
       activePlayer: state?.meta.active_player ?? null,
       maskAllowed,
@@ -488,13 +489,15 @@ export default function App() {
     setSaving(true);
     setError(null);
     try {
+      const payload: { action_index: number; canonical_id?: string } = { action_index: actionIndex };
+      if (canonicalId) payload.canonical_id = canonicalId;
       const res = await fetch(`${BACKEND}/api/puco/game/${gameId}/action`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ payload: { action_index: actionIndex } }),
+        body: JSON.stringify({ payload }),
       });
       if (!res.ok) {
         setError(await parseApiError(res));
@@ -771,11 +774,14 @@ export default function App() {
     void useHospice; // hospice colonist grant handled by engine
     if (!state || saving) return;
     if (type === 'quarry') {
-      await channelAction(14);
+      await channelAction(13, 'settler:quarry');
       return;
     }
     const entry = state.common_board.available_plantations.face_up.find(p => p.type === type);
-    if (entry) await channelAction(entry.action_index);
+    if (entry) {
+      const idx = entry.engine_action_index ?? entry.action_index;
+      await channelAction(idx, entry.canonical_id);
+    }
   }
 
   function settlePlantation(type: string) {
