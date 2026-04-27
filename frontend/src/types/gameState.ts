@@ -28,6 +28,16 @@ export interface Meta {
   mayor_remaining_colonists?: number;
   mayor_legal_island_slots?: number[];
   mayor_legal_city_slots?: number[];
+  mayor_island_actions?: MayorActionEntry[];
+  mayor_city_actions?: MayorActionEntry[];
+}
+
+export interface MayorActionEntry {
+  display_position: number;
+  engine_action_index: number;
+  canonical_id: string;
+  tile_name?: string;
+  building_name?: string;
 }
 
 export interface Role {
@@ -67,7 +77,10 @@ export interface PlantationDrawPile {
 
 export interface FaceUpPlantation {
   type: string;
-  action_index: number; // channel API: 8-13 for plantation slots, 14 for quarry
+  action_index: number; // backwards-compat: same semantic value as engine_action_index
+  engine_action_index?: number; // semantic: 8 + Good.value, 13 for quarry
+  display_position?: number;
+  canonical_id?: string;
 }
 
 export interface AvailablePlantations {
