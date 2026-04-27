@@ -803,9 +803,9 @@ export default function App() {
     doSettlePlantation(type, useHospice);
   }
 
-  async function placeMayorColonist(actionIndex: number) {
+  async function placeMayorColonist(actionIndex: number, canonicalId?: string) {
     if (!state || notMyTurn()) return;
-    await channelAction(actionIndex);
+    await channelAction(actionIndex, canonicalId);
   }
 
   async function sellGood(good: string) {

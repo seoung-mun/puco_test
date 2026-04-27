@@ -6,10 +6,10 @@ interface Props {
   meta: Meta;
   actionMask?: number[];
   disabled?: boolean;
-  onPlaceColonist?: (actionIndex: number) => void;
+  onPlaceColonist?: (actionIndex: number, canonicalId?: string) => void;
 }
 
-/** Action index ranges for Mayor slot-direct placement. */
+/** Legacy fallback bases (used only when meta.mayor_*_actions are absent). */
 const ISLAND_BASE = 120;
 const CITY_BASE = 140;
 
@@ -37,6 +37,8 @@ export default function MayorSequentialPanel({
 }: Props) {
   const { t } = useTranslation();
 
+  const islandActions = meta.mayor_island_actions;
+  const cityActions = meta.mayor_city_actions;
   const legalIsland = meta.mayor_legal_island_slots ?? [];
   const legalCity = meta.mayor_legal_city_slots ?? [];
   const remaining = meta.mayor_remaining_colonists ?? player.city.colonists_unplaced;
@@ -60,58 +62,93 @@ export default function MayorSequentialPanel({
         Choose an empty slot to place a colonist. Each placement is final and cannot be undone.
       </p>
 
-      {legalIsland.length > 0 && (
+      {(islandActions ? islandActions.length > 0 : legalIsland.length > 0) && (
         <div className="mayor-sequential-section">
           <h4 className="mayor-sequential-section__title">Island</h4>
           <div className="mayor-sequential-slots">
-            {legalIsland.map((idx) => {
-              const actionIdx = ISLAND_BASE + idx;
-              const isLegal = (actionMask?.[actionIdx] ?? 0) === 1;
-              return (
-                <button
-                  key={`island-${idx}`}
-                  type="button"
-                  className="mayor-slot-btn mayor-slot-btn--island"
-                  disabled={disabled || !isLegal}
-                  onClick={() => isLegal && onPlaceColonist?.(actionIdx)}
-                >
-                  {slotLabel('island', idx, player, t)}
-                </button>
-              );
-            })}
+            {islandActions
+              ? islandActions.map((entry) => {
+                  const isLegal = (actionMask?.[entry.engine_action_index] ?? 0) === 1;
+                  return (
+                    <button
+                      key={`island-${entry.display_position}`}
+                      type="button"
+                      className="mayor-slot-btn mayor-slot-btn--island"
+                      disabled={disabled || !isLegal}
+                      onClick={() => isLegal && onPlaceColonist?.(entry.engine_action_index, entry.canonical_id)}
+                    >
+                      {slotLabel('island', entry.display_position, player, t)}
+                    </button>
+                  );
+                })
+              : legalIsland.map((idx) => {
+                  const actionIdx = ISLAND_BASE + idx;
+                  const isLegal = (actionMask?.[actionIdx] ?? 0) === 1;
+                  return (
+                    <button
+                      key={`island-${idx}`}
+                      type="button"
+                      className="mayor-slot-btn mayor-slot-btn--island"
+                      disabled={disabled || !isLegal}
+                      onClick={() => isLegal && onPlaceColonist?.(actionIdx)}
+                    >
+                      {slotLabel('island', idx, player, t)}
+                    </button>
+                  );
+                })}
           </div>
         </div>
       )}
 
-      {legalCity.length > 0 && (
+      {(cityActions ? cityActions.length > 0 : legalCity.length > 0) && (
         <div className="mayor-sequential-section">
           <h4 className="mayor-sequential-section__title">City</h4>
           <div className="mayor-sequential-slots">
-            {legalCity.map((idx) => {
-              const building = player.city.buildings[idx];
-              const engineSlot = building?.engine_slot_idx ?? idx;
-              const actionIdx = CITY_BASE + engineSlot;
-              const isLegal = (actionMask?.[actionIdx] ?? 0) === 1;
-              const capacityInfo = building
-                ? `(${building.current_colonists}/${building.max_colonists})`
-                : '';
-              return (
-                <button
-                  key={`city-${idx}`}
-                  type="button"
-                  className="mayor-slot-btn mayor-slot-btn--city"
-                  disabled={disabled || !isLegal}
-                  onClick={() => isLegal && onPlaceColonist?.(actionIdx)}
-                >
-                  {slotLabel('city', idx, player, t)} {capacityInfo}
-                </button>
-              );
-            })}
+            {cityActions
+              ? cityActions.map((entry) => {
+                  const building = player.city.buildings[entry.display_position];
+                  const isLegal = (actionMask?.[entry.engine_action_index] ?? 0) === 1;
+                  const capacityInfo = building
+                    ? `(${building.current_colonists}/${building.max_colonists})`
+                    : '';
+                  return (
+                    <button
+                      key={`city-${entry.display_position}`}
+                      type="button"
+                      className="mayor-slot-btn mayor-slot-btn--city"
+                      disabled={disabled || !isLegal}
+                      onClick={() => isLegal && onPlaceColonist?.(entry.engine_action_index, entry.canonical_id)}
+                    >
+                      {slotLabel('city', entry.display_position, player, t)} {capacityInfo}
+                    </button>
+                  );
+                })
+              : legalCity.map((idx) => {
+                  const building = player.city.buildings[idx];
+                  const engineSlot = building?.engine_slot_idx ?? idx;
+                  const actionIdx = CITY_BASE + engineSlot;
+                  const isLegal = (actionMask?.[actionIdx] ?? 0) === 1;
+                  const capacityInfo = building
+                    ? `(${building.current_colonists}/${building.max_colonists})`
+                    : '';
+                  return (
+                    <button
+                      key={`city-${idx}`}
+                      type="button"
+                      className="mayor-slot-btn mayor-slot-btn--city"
+                      disabled={disabled || !isLegal}
+                      onClick={() => isLegal && onPlaceColonist?.(actionIdx)}
+                    >
+                      {slotLabel('city', idx, player, t)} {capacityInfo}
+                    </button>
+                  );
+                })}
           </div>
         </div>
       )}
 
-      {legalIsland.length === 0 && legalCity.length === 0 && (
+      {((islandActions ? islandActions.length === 0 : legalIsland.length === 0)
+        && (cityActions ? cityActions.length === 0 : legalCity.length === 0)) && (
         <p className="mayor-sequential-card__empty">No legal slots available.</p>
       )}
     </div>
