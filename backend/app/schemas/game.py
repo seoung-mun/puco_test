@@ -11,6 +11,7 @@ class ActionRequestPayload(BaseModel):
 
     schema_version: str = ACTION_REQUEST_SCHEMA_VERSION
     action_index: int
+    canonical_id: Optional[str] = None
 
 
 class GameAction(BaseModel):
