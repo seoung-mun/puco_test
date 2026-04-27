@@ -514,6 +514,7 @@ export default function GameScreen({
           playerNames={playerNames}
           numPlayers={state.meta.num_players}
           phase={state.meta.phase}
+          actionMask={state.action_mask}
           onSelectRole={canSelectRole && !interactionLocked ? onSelectRole : undefined}
           onSettlePlantation={isSettlerPhase && isMyTurn && !interactionLocked ? onSettlePlantation : undefined}
           canPickQuarry={isMyTurn && canPickQuarry && !interactionLocked}

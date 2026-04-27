@@ -33,3 +33,22 @@ export function buildGoogleLoginSetupMessage(options?: {
     '백엔드 `ALLOWED_ORIGINS`에도 같은 origin이 포함되어야 합니다.',
   ].join(' ');
 }
+
+export function buildGoogleLoginErrorMessage(options?: {
+  origin?: string;
+  googleClientConfigured?: boolean;
+}): string {
+  const origin = options?.origin ?? getCurrentOrigin();
+  const googleClientConfigured = options?.googleClientConfigured ?? googleLoginConfigured;
+
+  if (!googleClientConfigured) {
+    return buildGoogleLoginSetupMessage({ origin, googleClientConfigured });
+  }
+
+  return [
+    'Google 로그인 팝업 응답을 완료하지 못했습니다.',
+    `현재 접속 origin: ${origin}`,
+    '팝업 차단, Authorized JavaScript origins 불일치, 또는 Cross-Origin-Opener-Policy 설정 때문에 브라우저가 Google 응답을 전달하지 못할 수 있습니다.',
+    '개발 환경이라면 프론트 응답 헤더에 `Cross-Origin-Opener-Policy: same-origin-allow-popups`가 적용되어 있는지 확인하세요.',
+  ].join(' ');
+}

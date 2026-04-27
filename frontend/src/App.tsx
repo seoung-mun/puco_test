@@ -7,7 +7,7 @@ import type { FinalScoreSummary, GameState } from './types/gameState';
 import AppScreenGate from './components/AppScreenGate';
 import GameScreen from './components/GameScreen';
 import type { LobbyPlayer } from './types/gameState';
-import { buildGoogleLoginSetupMessage, googleLoginConfigured } from './googleOAuth';
+import { buildGoogleLoginErrorMessage, buildGoogleLoginSetupMessage, googleLoginConfigured } from './googleOAuth';
 import {
   getTurnFocusBlock,
   getTurnFocusTargetId,
@@ -342,7 +342,7 @@ export default function App() {
   }
 
   function handleGoogleLoginError() {
-    setError(buildGoogleLoginSetupMessage());
+    setError(buildGoogleLoginErrorMessage());
   }
 
   async function handleSetNickname() {
@@ -379,21 +379,24 @@ export default function App() {
   useGameWebSocket({
     gameId: screen === 'game' ? gameId : null,
     token: authToken,
-    onStateUpdate: (gs) => {
+    onStateUpdate: (gs, actionMask) => {
+      const nextState = actionMask.length > 0
+        ? { ...gs, action_mask: actionMask }
+        : gs;
       console.warn('[STATE_TRACE] frontend_set_state_before', {
-        active_player: gs.meta.active_player,
-        bot_thinking: gs.meta.bot_thinking,
-        phase: gs.meta.phase,
-        history_length: gs.history.length,
+        active_player: nextState.meta.active_player,
+        bot_thinking: nextState.meta.bot_thinking,
+        phase: nextState.meta.phase,
+        history_length: nextState.history.length,
       });
       setState(prev => {
         console.warn('[STATE_TRACE] frontend_set_state_applied', {
           prev_active_player: prev?.meta.active_player ?? null,
-          next_active_player: gs.meta.active_player,
-          next_bot_thinking: gs.meta.bot_thinking,
-          next_phase: gs.meta.phase,
+          next_active_player: nextState.meta.active_player,
+          next_bot_thinking: nextState.meta.bot_thinking,
+          next_phase: nextState.meta.phase,
         });
-        return gs;
+        return nextState;
       });
     },
     onGameEnded: () => {},
@@ -486,6 +489,10 @@ export default function App() {
       activePlayer: state?.meta.active_player ?? null,
       maskAllowed,
     });
+    if (maskAllowed === 0) {
+      setError(`현재 상태에서는 선택할 수 없는 액션입니다. (${actionIndex})`);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {

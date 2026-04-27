@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildGoogleLoginSetupMessage } from '../googleOAuth';
+import { buildGoogleLoginErrorMessage, buildGoogleLoginSetupMessage } from '../googleOAuth';
 
 describe('googleOAuth helpers', () => {
   it('guides the user to wire the frontend client id when it is missing', () => {
@@ -23,5 +23,16 @@ describe('googleOAuth helpers', () => {
     expect(message).toContain('Authorized JavaScript origins');
     expect(message).toContain('Test users');
     expect(message).toContain('ALLOWED_ORIGINS');
+  });
+
+  it('mentions popup and COOP issues when configured login still fails', () => {
+    const message = buildGoogleLoginErrorMessage({
+      origin: 'http://localhost:3000',
+      googleClientConfigured: true,
+    });
+
+    expect(message).toContain('http://localhost:3000');
+    expect(message).toContain('Cross-Origin-Opener-Policy');
+    expect(message).toContain('Authorized JavaScript origins');
   });
 });

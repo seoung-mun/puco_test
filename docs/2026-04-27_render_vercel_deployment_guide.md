@@ -66,11 +66,13 @@
 한국/아시아 사용자 위주면 `Singapore` 추천
 4. 가장 작은 입문형 유료 플랜부터 시작
 5. 생성 후 `Internal Database URL` 확보
-
+- 생성 완료
 권장:
 
 - 백엔드와 같은 Region 사용
+
 - 외부 접속은 필요할 때만 열고, 가능하면 제한 IP로 관리
+- 이건 어떻게 하는거야?
 
 ### C. Render Key Value 만들기
 
@@ -82,7 +84,7 @@
 현재 용도는 캐시/상태 전파 성격이 강하므로 `allkeys-lru`가 무난
 5. 가장 작은 입문형 플랜부터 시작
 6. 생성 후 `Internal URL` 확보
-
+- 일단 이것까지는 끝
 권장:
 
 - 가능하면 Internal Authentication을 켜고, 인증 포함 Internal URL을 `REDIS_URL`로 사용

@@ -111,6 +111,20 @@ AGENT_REGISTRY: dict[str, dict] = {
 }
 
 
+def _get_env_override(key: str | None) -> str | None:
+    if not key:
+        return None
+    value = os.getenv(key)
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+def _has_explicit_model_override(cfg: dict) -> bool:
+    return _get_env_override(cfg.get("model_env_key")) is not None
+
+
 def normalize_bot_type(bot_type: str | None) -> str:
     normalized = (bot_type or DEFAULT_BOT_TYPE).strip().lower()
     return normalized or DEFAULT_BOT_TYPE
@@ -157,13 +171,57 @@ def _resolve_model_path(cfg: dict) -> str | None:
     """env var → 기본값 순서로 모델 경로를 결정한다."""
     if cfg["model_env_key"] is None:
         return None
-    filename = os.getenv(cfg["model_env_key"], cfg["model_default"])
-    return os.path.join(_MODELS_DIR, filename) if filename else None
+
+    filename = _get_env_override(cfg["model_env_key"]) or cfg["model_default"]
+    if not filename:
+        return None
+
+    if os.path.isabs(filename):
+        return filename
+
+    candidate = os.path.normpath(os.path.join(_MODELS_DIR, filename))
+    if os.path.exists(candidate):
+        return candidate
+
+    # When the env override supplies only a basename, resolve a unique match
+    # under PuCo_RL/models so local smoke checkpoints can be selected directly.
+    if _get_env_override(cfg["model_env_key"]) and os.path.basename(filename) == filename:
+        matches = [
+            os.path.join(root, filename)
+            for root, _dirs, files in os.walk(_MODELS_DIR)
+            if filename in files
+        ]
+        if len(matches) == 1:
+            resolved = os.path.normpath(matches[0])
+            logger.info(
+                "Resolved %s=%s to nested model path %s",
+                cfg["model_env_key"],
+                filename,
+                resolved,
+            )
+            return resolved
+        if len(matches) > 1:
+            logger.warning(
+                "Multiple model files matched %s=%s under %s: %s",
+                cfg["model_env_key"],
+                filename,
+                _MODELS_DIR,
+                matches,
+            )
+
+    return candidate
 
 
 def _resolve_bundle_dir_name(cfg: dict) -> str | None:
-    env_key = cfg.get("bundle_dir_env_key")
-    return (os.getenv(env_key) if env_key else None) or cfg.get("bundle_dir")
+    env_override = _get_env_override(cfg.get("bundle_dir_env_key"))
+    if env_override:
+        return env_override
+
+    # Respect an explicit model override by skipping the baked-in champion bundle.
+    if _has_explicit_model_override(cfg):
+        return None
+
+    return cfg.get("bundle_dir")
 
 
 @functools.lru_cache(maxsize=None)

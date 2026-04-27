@@ -10,6 +10,7 @@ interface Props {
   playerNames: Record<string, string>;
   numPlayers: number;
   phase: string;
+  actionMask?: number[];
   onSelectRole?: (role: string) => void;
   onSettlePlantation?: (type: string) => void;
   canPickQuarry?: boolean;
@@ -44,6 +45,7 @@ export default function CommonBoardPanel({
   playerNames,
   numPlayers,
   phase,
+  actionMask,
   onSelectRole,
   onSettlePlantation,
   canPickQuarry,
@@ -142,6 +144,7 @@ export default function CommonBoardPanel({
         <AvailablePlantations
           plantations={board.available_plantations}
           quarrySupplyRemaining={board.quarry_supply_remaining}
+          actionMask={actionMask}
           onPick={onSettlePlantation}
           canPickQuarry={canPickQuarry}
           onPickQuarry={canPickQuarry ? () => onSettlePlantation?.('quarry') : undefined}

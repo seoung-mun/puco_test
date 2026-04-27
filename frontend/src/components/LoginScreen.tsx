@@ -76,6 +76,7 @@ export default function LoginScreen({
               <GoogleLogin
                 onSuccess={onGoogleLogin}
                 onError={onGoogleLoginError}
+                use_fedcm_for_button
                 theme="filled_black"
                 size="large"
                 shape="rectangular"

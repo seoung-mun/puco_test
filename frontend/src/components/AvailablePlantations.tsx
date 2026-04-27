@@ -4,6 +4,7 @@ import type { AvailablePlantations as AvailablePlantationsType } from '../types/
 interface Props {
   plantations: AvailablePlantationsType;
   quarrySupplyRemaining: number;
+  actionMask?: number[];
   onPick?: (type: string) => void;
   canPickQuarry?: boolean;
   onPickQuarry?: () => void;
@@ -28,6 +29,7 @@ const PILE_GAP = 12;
 
 export default function AvailablePlantations({
   plantations, quarrySupplyRemaining,
+  actionMask,
   onPick, canPickQuarry, onPickQuarry,
   canUseHacienda, onUseHacienda,
 }: Props) {
@@ -42,7 +44,8 @@ export default function AvailablePlantations({
   const svgW = quarryX + TILE_W;
   const svgH = TILE_H;
 
-  const quarryClickable = !!canPickQuarry && quarrySupplyRemaining > 0;
+  const quarryAllowed = (actionMask?.[13] ?? (canPickQuarry ? 1 : 0)) === 1;
+  const quarryClickable = !!canPickQuarry && quarrySupplyRemaining > 0 && quarryAllowed;
 
   return (
     <div>
@@ -52,11 +55,17 @@ export default function AvailablePlantations({
           const tileType = typeof tile === 'string' ? tile : tile.type;
           const cfg = TILE_CONFIG[tileType] ?? { bg: '#555', icon: '?' };
           const x = i * (TILE_W + GAP);
-          const clickable = !!onPick;
+          const actionIndex = typeof tile === 'string'
+            ? undefined
+            : tile.engine_action_index ?? tile.action_index;
+          const isLegal = actionIndex === undefined || actionMask === undefined
+            ? true
+            : (actionMask[actionIndex] ?? 0) === 1;
+          const clickable = !!onPick && isLegal;
           const label = t(`plantations.${tileType}`, { defaultValue: tileType });
           return (
             <g key={i} onClick={clickable ? () => onPick!(tileType) : undefined}
-              style={{ cursor: clickable ? 'pointer' : 'default' }}>
+              style={{ cursor: clickable ? 'pointer' : 'default', opacity: clickable ? 1 : 0.45 }}>
               <rect x={x} y={0} width={TILE_W} height={TILE_H} rx={6}
                 fill={cfg.bg}
                 stroke={clickable ? '#ffe066' : '#ffffff33'}

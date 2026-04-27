@@ -96,7 +96,12 @@ vi.mock('../components/GameScreen', () => ({
 
 import App from '../App';
 
-function makeSettlerState() {
+const SETTLER_TEST_MASK = Array.from(
+  { length: 200 },
+  (_, idx) => (idx === 8 || idx === 10 || idx === 13 ? 1 : 0),
+);
+
+function makeSettlerState(actionMask: number[] = SETTLER_TEST_MASK) {
   const basePlayer = {
     display_name: 'Alice',
     display_number: 1,
@@ -199,10 +204,7 @@ function makeSettlerState() {
     bot_players: {},
     model_versions: {},
     result_summary: null,
-    action_mask: Array.from(
-      { length: 200 },
-      (_, idx) => (idx === 8 || idx === 10 || idx === 13 ? 1 : 0),
-    ),
+    action_mask: actionMask,
   };
 }
 
@@ -272,5 +274,52 @@ describe('App settler corn click — action_index contract', () => {
     const last = actionFetchCalls[actionFetchCalls.length - 1];
     expect(last.body?.payload?.action_index).toBe(10);
     expect(last.body?.payload?.canonical_id).toBe('settler:tile_type:corn');
+  });
+
+  it('does not submit a settler tile action when the current action_mask marks it illegal', async () => {
+    const illegalCornMask = Array.from(
+      { length: 200 },
+      (_, idx) => (idx === 8 || idx === 13 ? 1 : 0),
+    );
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.endsWith('/api/puco/auth/me')) {
+          return {
+            ok: true,
+            json: async () => ({ id: 'user-1', nickname: 'Alice', needs_nickname: false }),
+          } as Response;
+        }
+        if (url.endsWith('/api/puco/game/room-1/start')) {
+          return {
+            ok: true,
+            json: async () => ({ state: makeSettlerState(illegalCornMask) }),
+          } as Response;
+        }
+        if (url.endsWith('/api/puco/game/room-1/action')) {
+          const body = init?.body ? JSON.parse(String(init.body)) : null;
+          actionFetchCalls.push({ url, body });
+          return {
+            ok: true,
+            json: async () => ({ status: 'success', state: makeSettlerState(illegalCornMask), action_mask: illegalCornMask }),
+          } as Response;
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /face-up-corn/ })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /face-up-corn/ }));
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(actionFetchCalls).toHaveLength(0);
   });
 });
