@@ -17,6 +17,10 @@ from app.services.state_serializer_support import (
     serialize_common_board,
     serialize_player,
 )
+
+
+MAYOR_ISLAND_ACTION_BASE = 120
+MAYOR_CITY_ACTION_BASE = 140
 from app.services.contracts import (
     RICH_GAME_STATE_SCHEMA_VERSION,
     RICH_GAME_STATE_STATE_KIND,
@@ -55,11 +59,42 @@ def _build_mayor_meta(game: Any) -> Dict[str, Any]:
             if b.colonists < cap:
                 legal_city.append(raw_to_filtered[i])
 
+    mayor_island_actions: List[Dict[str, Any]] = []
+    for i, t in enumerate(player.island_board):
+        if t.tile_type == TileType.EMPTY or t.is_occupied:
+            continue
+        tile_name = TILE_TO_STR.get(t.tile_type, "empty")
+        engine_idx = MAYOR_ISLAND_ACTION_BASE + int(t.tile_type.value)
+        mayor_island_actions.append({
+            "display_position": i,
+            "engine_action_index": engine_idx,
+            "tile_name": tile_name,
+            "canonical_id": f"mayor:island:tile_type:{tile_name}",
+        })
+
+    mayor_city_actions: List[Dict[str, Any]] = []
+    for i, b in enumerate(player.city_board):
+        if b.building_type in (BuildingType.EMPTY, BuildingType.OCCUPIED_SPACE):
+            continue
+        cap = BUILDING_DATA[b.building_type][2]
+        if b.colonists >= cap:
+            continue
+        bname = building_name(b.building_type)
+        engine_idx = MAYOR_CITY_ACTION_BASE + int(b.building_type.value)
+        mayor_city_actions.append({
+            "display_position": i,
+            "engine_action_index": engine_idx,
+            "building_name": bname,
+            "canonical_id": f"mayor:city:building_type:{int(b.building_type.value)}",
+        })
+
     return {
         "mayor_phase_mode": "slot-direct",
         "mayor_remaining_colonists": player.unplaced_colonists,
         "mayor_legal_island_slots": legal_island,
         "mayor_legal_city_slots": legal_city,
+        "mayor_island_actions": mayor_island_actions,
+        "mayor_city_actions": mayor_city_actions,
     }
 
 
