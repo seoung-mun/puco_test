@@ -11,6 +11,7 @@ from app.db.models import User, GameSession
 from app.services.state_serializer import compute_score_breakdown
 from app.services.lobby_manager import lobby_manager, _build_lobby_payload
 from app.services.agent_registry import make_bot_player_id, require_valid_bot_type
+from app.services.canonical_action import _describe_action
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -59,12 +60,41 @@ async def perform_action(
     service = GameService(db)
     try:
         action_int = action_data.payload.action_index
+        submitted_canonical = action_data.payload.canonical_id
+        decoded = _describe_action(action_int, state={})
+        decoded_canonical = decoded.get("canonical_id") if decoded else None
+
+        if submitted_canonical is not None and decoded_canonical is not None and submitted_canonical != decoded_canonical:
+            logger.warning(
+                "[ACTION_TRACE] channel_action_canonical_mismatch game=%s actor=%s action=%s submitted=%s decoded=%s",
+                game_id, actor_id, action_int, submitted_canonical, decoded_canonical,
+            )
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "canonical_id_mismatch",
+                    "submitted_canonical_id": submitted_canonical,
+                    "decoded_canonical_id": decoded_canonical,
+                    "action_index": action_int,
+                },
+            )
+
+        if submitted_canonical is None:
+            match_status = "missing"
+        elif submitted_canonical == decoded_canonical:
+            match_status = "match"
+        else:
+            match_status = "mismatch"
 
         logger.warning(
-            "[ACTION_TRACE] channel_action_request game=%s actor=%s action=%s payload_keys=%s schema=%s",
+            "[ACTION_TRACE] channel_action_request game=%s actor=%s action=%s "
+            "submitted_canonical_id=%s decoded_canonical_id=%s match=%s payload_keys=%s schema=%s",
             game_id,
             actor_id,
             action_int,
+            submitted_canonical,
+            decoded_canonical,
+            match_status,
             sorted(action_data.payload.model_dump().keys()),
             action_data.payload.schema_version,
         )
