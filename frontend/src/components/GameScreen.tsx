@@ -758,12 +758,24 @@ export default function GameScreen({
             }
             onMayorIslandClick={
               showMayorPanel && id === state.meta.active_player && isMyTurn && !interactionLocked
-                ? (slotIdx) => onPlaceMayorColonist(120 + slotIdx)
+                ? (slotIdx) => {
+                    const entry = state.meta.mayor_island_actions?.find(
+                      (e) => e.display_position === slotIdx,
+                    );
+                    if (!entry) return;
+                    onPlaceMayorColonist(entry.engine_action_index, entry.canonical_id);
+                  }
                 : undefined
             }
             onMayorCityClick={
               showMayorPanel && id === state.meta.active_player && isMyTurn && !interactionLocked
-                ? (slotIdx) => onPlaceMayorColonist(140 + slotIdx)
+                ? (slotIdx) => {
+                    const entry = state.meta.mayor_city_actions?.find(
+                      (e) => e.display_position === slotIdx,
+                    );
+                    if (!entry) return;
+                    onPlaceMayorColonist(entry.engine_action_index, entry.canonical_id);
+                  }
                 : undefined
             }
           />
