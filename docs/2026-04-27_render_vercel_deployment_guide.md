@@ -32,6 +32,7 @@
 - 컨테이너 시작 시 [backend/entrypoint.sh](/Users/seoungmun/Documents/agent_dev/castest/castone/backend/entrypoint.sh:1) 에서 `alembic upgrade head`를 먼저 실행한 뒤 `uvicorn`을 띄웁니다.
 - 헬스체크 엔드포인트는 `/health` 입니다.
 - 서버는 기본적으로 `8000` 포트를 사용하지만, 이번에 `PORT` 환경변수를 받도록 맞춰 두었습니다. Render에서 `PORT=10000`으로 두거나, 자동 감지에 맡겨도 됩니다.
+- 리플레이는 배포용 이미지에서 `REPLAY_STORAGE_BACKEND=db` 기본값으로 동작하므로, Render에서는 디스크 대신 Postgres `replays` 테이블에 JSONB payload를 저장합니다.
 
 ### 프론트엔드
 
@@ -135,6 +136,7 @@
 - `GOOGLE_CLIENT_ID=<Google OAuth Client ID>`
 - `ALLOWED_ORIGINS=<Vercel 프론트 운영 도메인>`
 - `DEBUG=false`
+- `REPLAY_STORAGE_BACKEND=db`
 
 - `MODEL_TYPE=ppo`
 - `PPO_MODEL_FILENAME=ppo_agent_update_100.pth`

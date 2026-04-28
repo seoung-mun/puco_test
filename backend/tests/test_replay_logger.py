@@ -1,7 +1,10 @@
 import json
 import uuid
 
+from sqlalchemy import text
+
 from app.engine_wrapper.wrapper import create_game_engine
+from app.db.models import GameSession
 from app.services import model_registry
 from app.services.replay_logger import (
     ReplayLogger,
@@ -257,3 +260,59 @@ def test_build_final_scores_payload_handles_duplicate_bot_display_names():
     assert [row["display_name"] for row in final_scores] == ["Bot (ppo)", "Bot (ppo)", "Bot (ppo)"]
     assert set(result_summary["scores"].keys()) == {"player_0", "player_1", "player_2"}
     assert result_summary["winner"] in {"player_0", "player_1", "player_2"}
+
+
+def test_replay_logger_persists_payload_to_db_when_db_storage_enabled(db, monkeypatch):
+    monkeypatch.setenv("REPLAY_STORAGE_BACKEND", "db")
+
+    game_id = uuid.uuid4()
+    players = [
+        {"player": 0, "actor_id": "human-1", "display_name": "Alice", "actor_type": "human", "bot_type": None},
+        {"player": 1, "actor_id": "BOT_random", "display_name": "Bot (random)", "actor_type": "bot", "bot_type": "random"},
+    ]
+    db.add(
+        GameSession(
+            id=game_id,
+            title="DB Replay Room",
+            status="PROGRESS",
+            num_players=len(players),
+            players=["human-1", "BOT_random"],
+            host_id="human-1",
+        )
+    )
+    db.flush()
+
+    ReplayLogger.initialize_game(
+        game_id=game_id,
+        title="DB Replay Room",
+        status="PROGRESS",
+        host_id="human-1",
+        players=players,
+        model_versions={},
+        initial_state_summary=summarize_transition_state(_sample_state()),
+        db=db,
+    )
+    ReplayLogger.append_entry(
+        game_id=game_id,
+        title="DB Replay Room",
+        status="FINISHED",
+        host_id="human-1",
+        players=players,
+        model_versions={},
+        entry={"step": 1, "action": "Select Role: Builder", "commentary": "ok"},
+        rich_state={"meta": {"round": 1}},
+        final_scores=[{"player": 0, "winner": True}],
+        result_summary={"winner": "Alice"},
+        db=db,
+    )
+
+    row = db.execute(
+        text("SELECT payload FROM replays WHERE game_id = :game_id"),
+        {"game_id": game_id},
+    ).one()
+    payload = row[0]
+
+    assert payload["game_id"] == str(game_id)
+    assert payload["status"] == "FINISHED"
+    assert payload["entries"][0]["rich_state"] == {"meta": {"round": 1}}
+    assert payload["final_scores"][0]["winner"] is True

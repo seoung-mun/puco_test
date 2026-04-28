@@ -8,11 +8,12 @@ from sqlalchemy import text
 
 from app.core.security import create_access_token
 from app.db.models import GameSession, User
-from app.services.replay_logger import REPLAY_LOG_DIR, get_replay_file_path
+from app.services.replay_logger import REPLAY_LOG_DIR, ReplayLogger, get_replay_file_path
 
 
 @pytest.fixture(autouse=True)
 def _clear_games_table(db):
+    db.execute(text("DELETE FROM replays"))
     db.execute(text("DELETE FROM game_logs"))
     db.execute(text("DELETE FROM games"))
     db.flush()
@@ -401,3 +402,92 @@ def test_detail_empty_replay_frames_when_no_rich_state(
     body = response.json()
     assert body["total_frames"] == 0
     assert body["replay_frames"] == []
+
+
+def test_detail_reads_db_backed_replay_without_file(client, db, monkeypatch):
+    monkeypatch.setenv("REPLAY_STORAGE_BACKEND", "db")
+
+    viewer = _make_user(db, "viewer")
+    now = datetime.now(timezone.utc)
+    game_id = _make_finished_game(
+        db,
+        players=["BOT_random", "BOT_random", str(viewer)],
+        created_at=now,
+        write_replay=False,
+    )
+
+    ReplayLogger.initialize_game(
+        game_id=game_id,
+        title="DB Replay Room",
+        status="PROGRESS",
+        host_id=str(viewer),
+        players=[
+            {"player": 0, "actor_id": "BOT_random", "display_name": "Random", "actor_type": "bot", "bot_type": "random"},
+            {"player": 1, "actor_id": "BOT_random", "display_name": "Random", "actor_type": "bot", "bot_type": "random"},
+            {"player": 2, "actor_id": str(viewer), "display_name": "viewer", "actor_type": "human", "bot_type": None},
+        ],
+        model_versions={},
+        initial_state_summary={},
+        db=db,
+    )
+    ReplayLogger.append_entry(
+        game_id=game_id,
+        title="DB Replay Room",
+        status="FINISHED",
+        host_id=str(viewer),
+        players=[
+            {"player": 0, "actor_id": "BOT_random", "display_name": "Random", "actor_type": "bot", "bot_type": "random"},
+            {"player": 1, "actor_id": "BOT_random", "display_name": "Random", "actor_type": "bot", "bot_type": "random"},
+            {"player": 2, "actor_id": str(viewer), "display_name": "viewer", "actor_type": "human", "bot_type": None},
+        ],
+        model_versions={},
+        entry={"step": 0, "action": "Select Role", "commentary": "Role selected"},
+        rich_state={"meta": {"round": 1}},
+        final_scores=[],
+        result_summary={},
+        db=db,
+    )
+
+    response = client.get(
+        f"/api/puco/replays/{game_id}", headers=_auth_headers(viewer)
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["total_frames"] == 1
+    assert body["replay_frames"][0]["rich_state"] == {"meta": {"round": 1}}
+
+
+def test_list_includes_db_backed_replay_without_file(client, db, monkeypatch):
+    monkeypatch.setenv("REPLAY_STORAGE_BACKEND", "db")
+
+    viewer = _make_user(db, "viewer")
+    now = datetime.now(timezone.utc)
+    game_id = _make_finished_game(
+        db,
+        players=["BOT_random", "BOT_ppo", str(viewer)],
+        created_at=now,
+        write_replay=False,
+    )
+
+    ReplayLogger.initialize_game(
+        game_id=game_id,
+        title="DB Replay Room",
+        status="FINISHED",
+        host_id=str(viewer),
+        players=[
+            {"player": 0, "actor_id": "BOT_random", "display_name": "Random", "actor_type": "bot", "bot_type": "random"},
+            {"player": 1, "actor_id": "BOT_ppo", "display_name": "Ppo", "actor_type": "bot", "bot_type": "ppo"},
+            {"player": 2, "actor_id": str(viewer), "display_name": "viewer", "actor_type": "human", "bot_type": None},
+        ],
+        model_versions={},
+        initial_state_summary={},
+        db=db,
+    )
+
+    response = client.get("/api/puco/replays/", headers=_auth_headers(viewer))
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["total_items"] == 1
+    assert body["replays"][0]["game_id"] == str(game_id)

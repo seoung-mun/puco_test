@@ -39,6 +39,7 @@ class GameSession(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     logs = relationship("GameLog", back_populates="game_session")
+    replay = relationship("Replay", back_populates="game_session", uselist=False)
 
 
 class GameLog(Base):
@@ -60,3 +61,14 @@ class GameLog(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     game_session = relationship("GameSession", back_populates="logs")
+
+
+class Replay(Base):
+    __tablename__ = "replays"
+
+    game_id = Column(UUID(as_uuid=True), ForeignKey("games.id"), primary_key=True)
+    payload = Column(JSONB, nullable=False, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    game_session = relationship("GameSession", back_populates="replay")

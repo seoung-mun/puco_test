@@ -124,7 +124,9 @@ class GameService:
             players=build_replay_players_snapshot(room, player_names),
             model_versions=dict(room.model_versions or {}),
             initial_state_summary=summarize_transition_state(engine.get_state()),
+            db=self.db,
         )
+        self.db.commit()
 
         # Trigger Bot if first player is a bot
         self._schedule_next_bot_turn_if_needed(game_id, room, engine)
@@ -333,7 +335,9 @@ class GameService:
                     rich_state=rich_state if not suppress_broadcast else None,
                     final_scores=replay_final_scores,
                     result_summary=replay_result_summary,
+                    db=self.db,
                 )
+                self.db.commit()
             except Exception as exc:
                 logger.warning(
                     "[REPLAY_TRACE] append_entry_failed trace_id=%s game=%s actor=%s error=%s",

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,8 +7,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.dependencies import get_db, get_current_user
-from app.db.models import GameSession, User
-from app.schemas.game import RoomPlayerInfo
+from app.db.models import GameSession, Replay, User
 from app.schemas.replay import (
     ReplayDetailResponse,
     ReplayFrame,
@@ -19,10 +16,22 @@ from app.schemas.replay import (
     ReplayPlayerInfo,
 )
 from app.services.agent_registry import resolve_bot_type_from_actor_id
-from app.services.replay_logger import get_replay_file_path
+from app.services.replay_logger import load_replay_payload, replay_storage_backend
 
 
 router = APIRouter()
+
+
+def _finished_replay_games(db: Session) -> list[GameSession]:
+    query = (
+        db.query(GameSession)
+        .filter(GameSession.status == "FINISHED")
+        .order_by(GameSession.created_at.desc())
+    )
+    if replay_storage_backend() == "db":
+        query = query.join(Replay, Replay.game_id == GameSession.id)
+        return query.all()
+    return [g for g in query.all() if load_replay_payload(game_id=g.id, db=db) is not None]
 
 
 def _resolve_player_infos(room: GameSession, db: Session) -> list[ReplayPlayerInfo]:
@@ -90,14 +99,7 @@ async def list_replays(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    games = (
-        db.query(GameSession)
-        .filter(GameSession.status == "FINISHED")
-        .order_by(GameSession.created_at.desc())
-        .all()
-    )
-
-    games = [g for g in games if os.path.exists(get_replay_file_path(g.id))]
+    games = _finished_replay_games(db)
 
     resolved: dict[str, list[ReplayPlayerInfo]] = {
         str(g.id): _resolve_player_infos(g, db) for g in games
@@ -157,25 +159,13 @@ async def get_replay_detail(
     if not room or room.status != "FINISHED":
         raise HTTPException(status_code=404, detail="replay_not_found")
 
-    path = get_replay_file_path(game_id)
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="replay_file_not_found")
-
-    try:
-        with open(path, "r", encoding="utf-8") as handle:
-            payload: dict[str, Any] = json.load(handle)
-    except (OSError, json.JSONDecodeError):
+    payload = load_replay_payload(game_id=game_id, db=db)
+    if not isinstance(payload, dict):
         raise HTTPException(status_code=404, detail="replay_file_not_found")
 
     infos = _resolve_player_infos(room, db)
 
-    all_finished = (
-        db.query(GameSession)
-        .filter(GameSession.status == "FINISHED")
-        .order_by(GameSession.created_at.desc())
-        .all()
-    )
-    all_finished = [g for g in all_finished if os.path.exists(get_replay_file_path(g.id))]
+    all_finished = _finished_replay_games(db)
     resolved: dict[str, list[ReplayPlayerInfo]] = {str(room.id): infos}
     for g in all_finished:
         if str(g.id) not in resolved:

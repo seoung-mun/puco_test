@@ -14,6 +14,7 @@ WORKDIR /app
 
 ENV PYTHONPATH=/app:/PuCo_RL \
     APP_LOG_DIR=/tmp/castone-data/logs \
+    REPLAY_STORAGE_BACKEND=db \
     DEBUG=false
 
 # 의존성 레이어 캐시

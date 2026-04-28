@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.orm import Session
+
+from app.db.models import Replay
 from app.services.contracts import (
     MODEL_OBSERVATION_STATE_KIND,
     REPLAY_SUMMARY_SCHEMA_VERSION,
@@ -28,7 +31,14 @@ from app.services.engine_gateway.constants import (
 )
 
 LOG_DIR = resolve_log_dir()
-REPLAY_LOG_DIR = ensure_log_dir("replay")
+REPLAY_LOG_DIR = os.path.join(LOG_DIR, "replay")
+
+
+def _replay_log_dir() -> str:
+    if replay_storage_backend() == "file":
+        os.makedirs(REPLAY_LOG_DIR, exist_ok=True)
+        return REPLAY_LOG_DIR
+    return REPLAY_LOG_DIR
 
 
 def _iso_now() -> str:
@@ -76,7 +86,20 @@ def _building_name(building_id: int) -> str:
 
 
 def get_replay_file_path(game_id: UUID | str) -> str:
-    return os.path.join(REPLAY_LOG_DIR, f"{game_id}.json")
+    return os.path.join(_replay_log_dir(), f"{game_id}.json")
+
+
+def replay_storage_backend() -> str:
+    configured = os.getenv("REPLAY_STORAGE_BACKEND", "").strip().lower()
+    if configured in {"db", "file"}:
+        return configured
+    return "file"
+
+
+def _db_game_id(game_id: UUID | str) -> UUID:
+    if isinstance(game_id, UUID):
+        return game_id
+    return UUID(str(game_id))
 
 
 def _unwrap_singleton(value: Any) -> Any:
@@ -483,6 +506,41 @@ def _write_payload(path: str, payload: dict[str, Any]) -> None:
     os.replace(tmp_path, path)
 
 
+def _load_payload_from_db(*, game_id: UUID | str, db: Session) -> dict[str, Any] | None:
+    replay = db.query(Replay).filter(Replay.game_id == _db_game_id(game_id)).first()
+    payload = replay.payload if replay else None
+    return payload if isinstance(payload, dict) else None
+
+
+def _write_payload_to_db(*, game_id: UUID | str, payload: dict[str, Any], db: Session) -> None:
+    replay = db.query(Replay).filter(Replay.game_id == _db_game_id(game_id)).first()
+    if replay is None:
+        replay = Replay(game_id=_db_game_id(game_id), payload=payload)
+        db.add(replay)
+    else:
+        replay.payload = payload
+    db.flush()
+
+
+def replay_payload_exists(*, game_id: UUID | str, db: Session | None = None) -> bool:
+    if replay_storage_backend() == "db":
+        if db is None:
+            return False
+        return _load_payload_from_db(game_id=game_id, db=db) is not None
+    return os.path.exists(get_replay_file_path(game_id))
+
+
+def load_replay_payload(*, game_id: UUID | str, db: Session | None = None) -> dict[str, Any] | None:
+    if replay_storage_backend() == "db":
+        if db is None:
+            return None
+        return _load_payload_from_db(game_id=game_id, db=db)
+    try:
+        return _load_payload(get_replay_file_path(game_id))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 class ReplayLogger:
     @staticmethod
     def initialize_game(
@@ -494,17 +552,32 @@ class ReplayLogger:
         players: list[dict[str, Any]],
         model_versions: dict[str, Any] | None,
         initial_state_summary: dict[str, Any] | None,
+        db: Session | None = None,
     ) -> str:
-        path = get_replay_file_path(game_id)
-        payload = _load_payload(path) or _base_payload(
-            game_id=game_id,
-            title=title,
-            status=status,
-            host_id=host_id,
-            players=players,
-            model_versions=model_versions,
-            initial_state_summary=initial_state_summary,
-        )
+        storage_backend = replay_storage_backend()
+        if storage_backend == "db":
+            if db is None:
+                raise RuntimeError("Replay DB storage requires a database session")
+            payload = _load_payload_from_db(game_id=game_id, db=db) or _base_payload(
+                game_id=game_id,
+                title=title,
+                status=status,
+                host_id=host_id,
+                players=players,
+                model_versions=model_versions,
+                initial_state_summary=initial_state_summary,
+            )
+        else:
+            path = get_replay_file_path(game_id)
+            payload = _load_payload(path) or _base_payload(
+                game_id=game_id,
+                title=title,
+                status=status,
+                host_id=host_id,
+                players=players,
+                model_versions=model_versions,
+                initial_state_summary=initial_state_summary,
+            )
         payload["title"] = title
         payload["status"] = status
         payload["host_id"] = host_id
@@ -514,8 +587,12 @@ class ReplayLogger:
         payload["parity"] = build_replay_parity_snapshot(model_versions)
         payload["initial_state_summary"] = initial_state_summary or payload.get("initial_state_summary") or {}
         payload["updated_at"] = _iso_now()
-        _write_payload(path, payload)
-        return path
+        if storage_backend == "db":
+            _write_payload_to_db(game_id=game_id, payload=payload, db=db)
+        else:
+            _write_payload(path, payload)
+            return path
+        return str(game_id)
 
     @staticmethod
     def append_entry(
@@ -530,17 +607,32 @@ class ReplayLogger:
         rich_state: dict[str, Any] | None = None,
         final_scores: list[dict[str, Any]] | None = None,
         result_summary: dict[str, Any] | None = None,
+        db: Session | None = None,
     ) -> str:
-        path = get_replay_file_path(game_id)
-        payload = _load_payload(path) or _base_payload(
-            game_id=game_id,
-            title=title,
-            status=status,
-            host_id=host_id,
-            players=players,
-            model_versions=model_versions,
-            initial_state_summary=None,
-        )
+        storage_backend = replay_storage_backend()
+        if storage_backend == "db":
+            if db is None:
+                raise RuntimeError("Replay DB storage requires a database session")
+            payload = _load_payload_from_db(game_id=game_id, db=db) or _base_payload(
+                game_id=game_id,
+                title=title,
+                status=status,
+                host_id=host_id,
+                players=players,
+                model_versions=model_versions,
+                initial_state_summary=None,
+            )
+        else:
+            path = get_replay_file_path(game_id)
+            payload = _load_payload(path) or _base_payload(
+                game_id=game_id,
+                title=title,
+                status=status,
+                host_id=host_id,
+                players=players,
+                model_versions=model_versions,
+                initial_state_summary=None,
+            )
         payload["title"] = title
         payload["status"] = status
         payload["host_id"] = host_id
@@ -557,5 +649,9 @@ class ReplayLogger:
             payload["final_scores"] = final_scores
         if result_summary is not None:
             payload["result_summary"] = result_summary
-        _write_payload(path, payload)
-        return path
+        if storage_backend == "db":
+            _write_payload_to_db(game_id=game_id, payload=payload, db=db)
+        else:
+            _write_payload(path, payload)
+            return path
+        return str(game_id)
