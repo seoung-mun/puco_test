@@ -1,6 +1,6 @@
 # Castone Contract Document
 
-작성일: 2026-04-14  
+작성일: 2026-04-29  
 범위: `frontend` / `backend` / `PuCo_RL` / Redis / PostgreSQL / replay/logging  
 목적: 현재 코드와 테스트가 실제로 보장하는 supported contract만 정리한다. 이상적인 설계가 아니라, 지금 구현이 내보내는 계약을 기록한다.
 
@@ -9,6 +9,8 @@
 - `design/2026-04-08_engine_cutover_phase2_contract_followup.md`
 - `design/2026-04-08_engine_cutover_batch_f_cleanup.md`
 - `design/2026-04-14_mayor_large_building_masking_fix.md`
+- `design/2026-04-19_model_bundle_adapter_serving_design.md`
+- `docs/superpowers/specs/2026-04-27-action-index-contract-fix-design.md`
 
 ## 1. Source Of Truth
 
@@ -164,9 +166,15 @@
 
 - `action` 호출자는 room의 실제 `players` 멤버여야 한다.
 - `action` 호출자는 현재 턴 actor와 일치해야 한다.
-- 현재 supported public 입력은 `payload.action_index` 정수 하나다.
+- 현재 supported public 입력은 다음 두 키다.
+  - `payload.action_index` (필수, 정수) — engine action mask 인덱스
+  - `payload.canonical_id` (선택, 문자열) — semantic 식별자
 - `payload.action_index`가 없으면 400, 정수로 변환 불가능해도 400이다.
-- 현재 구현은 추가 payload 키를 읽지 않는다.
+- `ActionRequestPayload`는 `extra="forbid"`이며 위 두 키 외 입력은 422다.
+- `payload.canonical_id`를 같이 보내면, 서버는 `action_index`를 디코드해 얻은 canonical_id와 비교한다.
+- 두 값이 불일치하면 422 + structured detail을 반환한다.
+  - shape: `{ "error": "canonical_id_mismatch", "submitted_canonical_id": "...", "decoded_canonical_id": "...", "action_index": <int> }`
+- canonical_id 포맷과 의미는 §4.4를 따른다.
 - 서버는 현재 engine `action_mask` 기준으로 action을 검증하고, invalid action이면 400을 반환한다.
 - `action` 성공 응답 shape는 `{ "status": "success", "state": <GameState>, "action_mask": [...] }`다.
 - REST 응답의 top-level `action_mask`는 convenience duplicate이고, canonical mask는 `state.action_mask`다.
@@ -362,12 +370,23 @@ Mayor phase 추가 convenience fields:
 - `mayor_remaining_colonists`
 - `mayor_legal_island_slots`
 - `mayor_legal_city_slots`
+- `mayor_island_actions`
+- `mayor_city_actions`
 
 Mayor 메타 계약:
 
 - `mayor_legal_island_slots`는 island 배열 index 기준이다.
 - `mayor_legal_city_slots`는 raw engine city index가 아니라 serializer가 `OCCUPIED_SPACE`를 제거한 뒤의 filtered city array index다.
 - 과거 cursor용 `mayor_slot_idx`, `mayor_can_skip`는 포함되지 않는다.
+- `mayor_island_actions[*]` shape: `{ display_position, engine_action_index, tile_name, canonical_id }`
+  - `engine_action_index`는 `120 + TileType.value` (canonical 범위 `120-125`)
+  - `canonical_id`는 `mayor:island:tile_type:<tile_name>`
+  - `display_position`은 island 배열 index와 동일
+- `mayor_city_actions[*]` shape: `{ display_position, engine_action_index, building_name, canonical_id }`
+  - `engine_action_index`는 `140 + BuildingType.value` (canonical 범위 `140-162`)
+  - `canonical_id`는 `mayor:city:building_type:<building_type_id>`
+  - `display_position`은 raw engine city index 기준
+- `mayor_island_actions` / `mayor_city_actions`는 frontend가 click → action 페이로드로 그대로 전송하는 dual-field 인덱스 소스다 (§4.4 참고).
 
 ### 3.2 `decision`, `history`, `bot_players`
 
@@ -396,8 +415,12 @@ Mayor 메타 계약:
 - `roles[*]`에는 `doubloons_on_role`, `taken_by`가 있다.
 - 사용 가능한 role(`taken_by == null`)에는 `action_index`가 포함되며 범위는 `0-7`이다.
 - canonical role key는 serializer 기준으로 `prospector_1`, `prospector_2`를 쓴다.
-- `available_plantations.face_up[*]`는 문자열이 아니라 `{ type, action_index }` 객체다.
-- 일반 plantation slot의 `action_index`는 `8-13`, quarry는 `14`다.
+- `available_plantations.face_up[*]`는 문자열이 아니라 `{ type, display_position, engine_action_index, action_index, canonical_id }` 객체다.
+- 일반 plantation의 `engine_action_index`는 `8 + Good.value` 이며 canonical 범위는 `8-12`다.
+- quarry의 `engine_action_index`는 `13`이다 (canonical). `14`는 legacy alias이며 새 serializer는 `13`만 emit한다.
+- `action_index`는 `engine_action_index`와 동일한 값이 backwards-compat으로 들어가며, 새 코드는 `engine_action_index`를 우선 사용한다.
+- `display_position`은 `face_up` 배열 순서를 그대로 유지한다.
+- `canonical_id`는 `settler:tile_type:<name>` 또는 `settler:quarry`다.
 - `available_buildings[*].action_index`는 build 번역용 인덱스이며 범위는 `16-38`이다.
 - `action_index`가 있다고 해서 현재 그 액션이 legal하다는 뜻은 아니다.
 - 최종 legality는 `action_mask`와 backend 검증이 결정한다.
@@ -528,29 +551,35 @@ bot snapshot 주요 필드:
 현재 codebase가 노출하는 action space 요약:
 
 - `0-7`: role selection
-- `8-13`: face-up plantation pick
-- `14`: quarry pick
+- `8-12`: face-up plantation pick (semantic: `8 + Good.value`)
+- `13`: quarry pick (canonical, == `8 + QUARRY.value`)
+- `14`: quarry pick (legacy alias; serializer는 `13`만 emit, decoder는 둘 다 `settler:quarry`로 디코드)
 - `15`: pass
 - `16-38`: build
-- `39-43`: trade house sell
-- `44-58`: captain ship load
+- `39-43`: trade house sell (`39 + Good.value`)
+- `44-58`: captain ship load (`44 + 5*ship_idx + good`)
 - `59-63`: captain wharf load
-- `64-68`: captain windrose keep
-- `69-71`: reserved legacy Mayor band
+- `64-68`: store windrose keep
+- `69-71`: reserved legacy Mayor band (public contract 아님)
 - `93-97`: craftsman privilege
 - `105`: hacienda draw
-- `106-110`: captain warehouse keep
-- `120-131`: Mayor sequential island slot placement
-- `140-151`: Mayor sequential city slot placement
+- `106-110`: store warehouse keep
+- `120-125`: Mayor island slot placement (semantic: `120 + TileType.value`)
+- `140-162`: Mayor city slot placement (semantic: `140 + BuildingType.value`)
+
+주의:
+
+- `120-131` / `140-151` 식 positional band 표기는 더 이상 정확하지 않다. mayor 인덱스는 semantic enum value 기반이므로 실제 emit/디코드 범위는 위 항목을 따른다.
 
 ### 4.1 Mayor
 
 현재 supported Mayor contract:
 
 - public human contract는 slot-direct sequential placement다.
-- `120-131`: island slot `0-11`에 colonist 1명 배치
-- `140-151`: city slot `0-11`에 colonist 1명 배치
+- island slot 배치는 `120 + TileType.value` (canonical 범위 `120-125`)
+- city slot 배치는 `140 + BuildingType.value` (canonical 범위 `140-162`)
 - 각 배치는 `POST /api/puco/game/{game_id}/action`으로 1회 호출한다.
+- frontend는 click 시 `payload.action_index = engine_action_index` + `payload.canonical_id`를 함께 전송한다 (§4.4 참고).
 - 이미 확정된 배치는 되돌릴 수 없다.
 - 남은 colonist가 0이 되거나 legal slot이 없으면 자동으로 다음 player로 넘어간다.
 
@@ -598,6 +627,72 @@ Builder phase 유효성 계약:
 
 - 게임 종료 트리거는 “도시가 찬 플레이어가 생김”이지만, 현재 구현의 종료 판정 타이밍은 라운드 종료 흐름을 유지한다.
 - 즉, Builder phase에서 도시가 꽉 찼다고 즉시 게임을 끊는 public contract는 아니다.
+
+### 4.4 Action Identity (engine_action_index / canonical_id)
+
+현재 계약은 액션을 두 가지 ID로 식별한다.
+
+- `engine_action_index`: 엔진이 받는 정수 인덱스. action mask 인덱스와 동일하다.
+- `canonical_id`: serializer가 부여한 의미 식별자(문자열).
+
+생성 위치:
+
+- legal action catalog: `backend/app/services/canonical_action.py`의 `_describe_action`
+- face_up plantation, mayor_island_actions, mayor_city_actions: `backend/app/services/state_serializer.py` / `state_serializer_support.py`
+
+`engine_action_index` 의미 매핑:
+
+- `0-7`: role
+- `8-12`: settler tile_type (`8 + Good.value`)
+- `13`: settler quarry (canonical, == `8 + QUARRY.value`)
+- `14`: settler quarry (legacy alias)
+- `15`: pass
+- `16-38`: builder
+- `39-43`: trader sell (`39 + Good.value`)
+- `44-58`: captain ship load (`44 + 5*ship_idx + good`)
+- `59-63`: captain wharf
+- `64-68`: store windrose
+- `93-97`: craftsman privilege
+- `105`: hacienda
+- `106-110`: store warehouse
+- `120-125`: mayor island slot (`120 + TileType.value`)
+- `140-162`: mayor city slot (`140 + BuildingType.value`)
+
+`canonical_id` 포맷:
+
+- `role:<role_name>` — 예: `role:settler`, `role:prospector_1`
+- `settler:tile_type:<name>` — 예: `settler:tile_type:corn`
+- `settler:quarry`
+- `settler:hacienda`
+- `pass`
+- `builder:building:<building_type_id>`
+- `trader:sell:<good>`
+- `captain:load:<good>:ship:<ship_idx>`
+- `captain:wharf:<good>`
+- `store:windrose:<good>` / `store:warehouse:<good>`
+- `craftsman:privilege:<good>`
+- `mayor:island:tile_type:<name>`
+- `mayor:city:building_type:<building_type_id>`
+- `unknown:<idx>` — 미지원 영역에 대한 fallback
+
+요청-응답 계약:
+
+- `POST /api/puco/game/{game_id}/action`의 `payload.canonical_id`는 선택 입력이다.
+- 함께 보내면 서버가 디코드한 canonical_id와 비교한다.
+- 불일치 시 422 + `{ "error": "canonical_id_mismatch", "submitted_canonical_id", "decoded_canonical_id", "action_index" }`.
+- 일치 또는 누락 시 200 + 기존 success shape.
+
+ML logger 계약 (`data/logs/games/<game_id>.jsonl`):
+
+- transition envelope에는 `submitted_canonical_id`, `decoded_canonical_id`, `canonical_id_match`가 포함된다.
+- `submitted_canonical_id`가 없으면 `canonical_id_match`는 `null`이다.
+
+frontend 계약:
+
+- `frontend/src/App.tsx`의 `channelAction(actionIndex, canonicalId?)`이 click 시 `engine_action_index`를 `payload.action_index`에, 동시에 `canonical_id`를 함께 전송한다.
+- `MayorSequentialPanel`은 `mayor_island_actions` / `mayor_city_actions`의 `engine_action_index` + `canonical_id`를 직접 사용한다.
+- `AvailablePlantations`도 `face_up[*].engine_action_index` + `canonical_id`를 사용한다.
+- quarry는 frontend에서 semantic 인덱스 `13`을 emit한다.
 
 ## 5. Naming And Identity Contract
 
@@ -667,10 +762,26 @@ Builder phase 유효성 계약:
 - `backend/tests/test_redis_service.py`
 - `backend/tests/test_replay_api.py`
 - `backend/tests/test_replay_logger_rich_state.py`
+- `backend/tests/test_action_index_contract.py`
+- `backend/tests/test_action_request_canonical_guard.py`
+- `backend/tests/test_canonical_action.py`
+- `backend/tests/test_canonical_state.py`
+- `backend/tests/test_adapter_runtime.py`
+- `backend/tests/test_bundle_integration.py`
+- `backend/tests/test_bot_service_adapter_routing.py`
+- `backend/tests/test_ml_logger.py`
+- `backend/tests/test_playback_api.py`
+- `backend/tests/test_game_speed_state.py`
+- `backend/tests/test_bot_speed_delay.py`
+- `frontend/src/__tests__/App.action-index-contract.test.tsx`
 - `frontend/src/__tests__/App.auth-flow.test.tsx`
 - `frontend/src/__tests__/App.mayor-flow.test.tsx`
 - `frontend/src/hooks/__tests__/useGameWebSocket.test.ts`
 - `frontend/src/components/__tests__/MayorSequentialPanel.test.tsx`
+- `frontend/src/components/__tests__/AvailablePlantations.test.tsx`
+- `frontend/src/components/__tests__/CommonBoardPanel.test.tsx`
+- `frontend/src/components/__tests__/EndGamePanel.test.tsx`
+- `frontend/src/components/__tests__/LoginScreen.test.tsx`
 - `frontend/src/components/__tests__/RoomListScreen.test.tsx`
 - `frontend/src/components/__tests__/LobbyScreen.test.tsx`
 - `frontend/src/components/__tests__/GameScreen.test.tsx`
