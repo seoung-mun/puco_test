@@ -98,7 +98,7 @@ castone/
 
 ### PostgreSQL
 
-주요 테이블은 [models.py](backend/app/db/models.py) 기준으로 아래 세 개입니다.
+주요 테이블은 [models.py](backend/app/db/models.py) 기준으로 아래 네 개입니다.
 
 - `users`
   - Google 로그인 사용자 정보
@@ -109,6 +109,9 @@ castone/
 - `game_logs`
   - 액션 단위 감사 로그
   - `action_data`, `available_options`, `state_before`, `state_after`, `state_summary`
+- `replays`
+  - 종료 게임 리플레이 메타
+  - `game_id`, `players`, `final_scores`, `result_summary`, `frame_count`
 
 ### Redis
 
@@ -329,10 +332,26 @@ OpenAPI/Swagger는 `DEBUG=true` 일 때만 열립니다.
 | Method | Path | 설명 |
 | --- | --- | --- |
 | `POST` | `/api/puco/game/{game_id}/start` | 게임 시작 |
-| `POST` | `/api/puco/game/{game_id}/action` | 일반 액션 수행 |
-| `POST` | `/api/puco/game/{game_id}/mayor-distribute` | Mayor 배치 처리 |
+| `POST` | `/api/puco/game/{game_id}/action` | 일반 액션 수행 (`action_index` 필수, `canonical_id` 선택) |
+| `POST` | `/api/puco/game/{game_id}/mayor-distribute` | 410 Gone (legacy, slot-direct로 대체) |
 | `POST` | `/api/puco/game/{game_id}/add-bot` | 대기방에 봇 추가 |
+| `DELETE` | `/api/puco/game/{game_id}/bots/{slot_index}` | 대기방 봇 제거 |
 | `GET` | `/api/puco/game/{game_id}/final-score` | 최종 점수 계산 |
+
+#### Playback (봇 전용 게임)
+
+| Method | Path | 설명 |
+| --- | --- | --- |
+| `GET` | `/api/puco/games/{game_id}/playback` | 배속/일시정지 상태 조회 |
+| `POST` | `/api/puco/games/{game_id}/speed` | 배속 변경 (1, 2, 4) |
+| `POST` | `/api/puco/games/{game_id}/pause` | 일시정지/재개 |
+
+#### Replay
+
+| Method | Path | 설명 |
+| --- | --- | --- |
+| `GET` | `/api/puco/replays/` | 종료 게임 리플레이 목록 (페이지네이션, 플레이어 필터) |
+| `GET` | `/api/puco/replays/{game_id}` | 단일 리플레이 상세 (rich frames) |
 
 #### WebSocket
 
@@ -373,6 +392,8 @@ OpenAPI/Swagger는 `DEBUG=true` 일 때만 열립니다.
   - lineage/storage/behavior/audit 리포트 생성
 - [vis/db/README.md](vis/db/README.md)
   - DB와 로그를 사람이 직접 대조하는 절차
+- [contract.md](contract.md)
+  - 현재 코드가 보장하는 supported public contract
 - [docs/merge_readiness.md](docs/merge_readiness.md)
   - 최근 TDD/MLOps/운영 정리
 
