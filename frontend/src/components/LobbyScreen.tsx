@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LobbyPlayer } from '../types/gameState';
+import { buildApiUrl } from '../config';
 
 interface BotAgent { type: string; name: string; }
 
@@ -32,7 +33,7 @@ export default function LobbyScreen({ players, host, myName, onStart, onLogout, 
   const canAddBot = isHost && activePlayers.length < 3;
 
   useEffect(() => {
-    fetch('/api/bot-types')
+    fetch(buildApiUrl('/api/bot-types'))
       .then(r => r.json())
       .then((data: BotAgent[]) => {
         setBotAgents(data);

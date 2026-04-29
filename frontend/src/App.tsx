@@ -13,7 +13,7 @@ import {
   getTurnFocusTargetId,
   shouldAutoFocusTurn,
 } from './utils/turnFocus';
-import { backendOrigin, buildWebSocketUrl } from './config';
+import { backendOrigin, buildApiUrl, buildWebSocketUrl } from './config';
 import './App.css';
 
 type Screen =
@@ -432,7 +432,7 @@ export default function App() {
   async function leaveLobbyRoom() {
     if (!gameId || !authToken) return;
     try {
-      await fetch(`/api/puco/rooms/${gameId}/leave`, {
+      await fetch(buildApiUrl(`/api/puco/rooms/${gameId}/leave`), {
         method: 'POST',
         headers: { Authorization: `Bearer ${authToken}` },
       });

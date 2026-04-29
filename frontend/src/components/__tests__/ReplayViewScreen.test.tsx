@@ -2,8 +2,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import ReplayViewScreen from '../ReplayViewScreen';
 import type { ReplayDetailResponse } from '../../types/replay';
+
+async function loadReplayViewScreen() {
+  vi.resetModules();
+  return (await import('../ReplayViewScreen')).default;
+}
 
 function mockResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -32,22 +36,32 @@ function makeDetail(): ReplayDetailResponse {
 describe('ReplayViewScreen', () => {
   beforeEach(() => {
     localStorage.setItem('lang', 'ko');
+    vi.stubEnv('VITE_BACKEND_ORIGIN', 'https://backend.example');
   });
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
   it('fetches detail and renders initial frame', async () => {
+    const ReplayViewScreen = await loadReplayViewScreen();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse(makeDetail()));
     render(<ReplayViewScreen token="tok" gameId="g1" onBack={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByText('04_13_Random_PPO_seoungmun_01')).toBeTruthy();
     });
+    expect(fetch).toHaveBeenCalledWith(
+      'https://backend.example/api/puco/replays/g1',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer tok' },
+      }),
+    );
     expect(screen.getByTestId('replay-frame-info').textContent).toContain('Select Role: Builder');
   });
 
   it('next advances frame', async () => {
+    const ReplayViewScreen = await loadReplayViewScreen();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse(makeDetail()));
     render(<ReplayViewScreen token="tok" gameId="g1" onBack={() => {}} />);
     await waitFor(() => {
@@ -60,6 +74,7 @@ describe('ReplayViewScreen', () => {
   });
 
   it('shows not-found state on 404', async () => {
+    const ReplayViewScreen = await loadReplayViewScreen();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse({ detail: 'not found' }, 404));
     render(<ReplayViewScreen token="tok" gameId="g1" onBack={() => {}} />);
     await waitFor(() => {
@@ -68,6 +83,7 @@ describe('ReplayViewScreen', () => {
   });
 
   it('onBack invoked from back button', async () => {
+    const ReplayViewScreen = await loadReplayViewScreen();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse(makeDetail()));
     const onBack = vi.fn();
     render(<ReplayViewScreen token="tok" gameId="g1" onBack={onBack} />);
@@ -77,6 +93,7 @@ describe('ReplayViewScreen', () => {
   });
 
   it('shows error on non-404 HTTP failure', async () => {
+    const ReplayViewScreen = await loadReplayViewScreen();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse({}, 500));
     render(<ReplayViewScreen token="tok" gameId="g1" onBack={() => {}} />);
     await waitFor(() => {

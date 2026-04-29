@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { buildApiUrl } from '../config';
 
 export interface RoomPlayerInfo {
   display_name: string;
@@ -65,7 +66,7 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/puco/rooms/', {
+      const res = await fetch(buildApiUrl('/api/puco/rooms/'), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('방 목록을 불러오지 못했습니다');
@@ -89,7 +90,7 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
     async function fetchBotAgents() {
       setLoadingBotTypes(true);
       try {
-        const res = await fetch('/api/bot-types');
+        const res = await fetch(buildApiUrl('/api/bot-types'));
         if (!res.ok) throw new Error('봇 목록을 불러오지 못했습니다');
         const data: BotAgent[] = await res.json();
         if (cancelled) return;
@@ -181,7 +182,7 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
     setJoining(true);
     setJoinError(null);
     try {
-      const res = await fetch(`/api/puco/rooms/${roomId}/join`, {
+      const res = await fetch(buildApiUrl(`/api/puco/rooms/${roomId}/join`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ password }),

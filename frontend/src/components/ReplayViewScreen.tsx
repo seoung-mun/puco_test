@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { buildApiUrl } from '../config';
 import { useReplayPlayer } from '../hooks/useReplayPlayer';
 import type { ReplayDetailResponse } from '../types/replay';
 
@@ -22,7 +23,7 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
     setLoading(true);
     setError(null);
     setNotFound(false);
-    fetch(`/api/puco/replays/${gameId}`, {
+    fetch(buildApiUrl(`/api/puco/replays/${gameId}`), {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (res) => {
