@@ -10,6 +10,7 @@
 - `004_add_room_privacy.py`: 방 공개/비공개 관련 필드
 - `005_add_host_id.py`: host 식별 필드
 - `006_fix_title_unique_partial_index.py`: room title uniqueness 보정
+- `007_add_replays_table.py`: 종료 게임 replay 메타 테이블
 
 ## 의존성
 

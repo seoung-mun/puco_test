@@ -4,7 +4,7 @@
 
 ## 주요 파일
 
-- [models.py](models.py): `User`, `GameSession`, `GameLog`
+- [models.py](models.py): `User`, `GameSession`, `GameLog`, `Replay`
 
 ## 역할
 
