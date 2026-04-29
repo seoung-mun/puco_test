@@ -5,6 +5,8 @@
 ## 현재 테스트
 
 - `useGameWebSocket.test.ts`: auth-first message, dedupe, reconnect, cleanup
+- `useReplayList.test.ts`: 리플레이 목록 페이지네이션/필터
+- `useReplayPlayer.test.ts`: 리플레이 재생 상태 머신
 
 ## 메모
 

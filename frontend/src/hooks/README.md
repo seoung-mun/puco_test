@@ -11,6 +11,8 @@
 - [useAuthBootstrap.ts](useAuthBootstrap.ts): 토큰/유저/닉네임 bootstrap
 - [useGameWebSocket.ts](useGameWebSocket.ts): 현재 기본 실시간 게임 상태 수신
 - [useGameSSE.ts](useGameSSE.ts): 레거시 SSE 경로
+- [useReplayList.ts](useReplayList.ts): 종료 게임 리플레이 목록 페이지네이션/필터
+- [useReplayPlayer.ts](useReplayPlayer.ts): 리플레이 재생 상태 (재생/일시정지/스텝 이동)
 
 ## 의존성
 

@@ -4,7 +4,8 @@ frontend가 소비하는 canonical type 정의 폴더입니다.
 
 ## 현재 파일
 
-- [gameState.ts](gameState.ts): backend serializer rich state, lobby player, final score 타입
+- [gameState.ts](gameState.ts): backend serializer rich state, lobby player, final score, mayor/face_up `engine_action_index`+`canonical_id` 타입
+- [replay.ts](replay.ts): 리플레이 목록/상세 응답 타입
 
 ## 의존성
 

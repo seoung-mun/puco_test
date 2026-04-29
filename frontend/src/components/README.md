@@ -17,8 +17,9 @@
 - 플레이어/보드 표현
   - `PlayerPanel.tsx`, `PlayerAdvantages.tsx`, `CityGrid.tsx`, `IslandGrid.tsx`, `SanJuan.tsx`
 - 액션 서브패널
-  - `AvailablePlantations.tsx`, `CargoShips.tsx`, `TradingHouse.tsx`, `ColonistShip.tsx`, `MayorSequentialPanel.tsx`
-- 운영 보조
+  - `AvailablePlantations.tsx`, `CargoShips.tsx`, `TradingHouse.tsx`, `ColonistShip.tsx`, `MayorSequentialPanel.tsx`, `MayorStrategyPanel.tsx`
+- 리플레이/운영 보조
+  - `ReplayListScreen.tsx`, `ReplayViewScreen.tsx`, `ReplayConfirmModal.tsx`, `Pagination.tsx`
   - `AdminPanel.tsx`
 
 ## 의존성
@@ -30,3 +31,5 @@
 
 - `GameScreen.tsx`가 현재 게임 화면의 container 역할을 하고, 나머지는 주로 presentational or focused interaction component입니다.
 - Mayor 관련 UI는 `MayorSequentialPanel.tsx`와 보드 slot highlight를 통해 slot-direct contract를 드러냅니다.
+- 액션 클릭 페이로드는 `engine_action_index` + `canonical_id` 둘 다 들고 가야 backend canonical_id mismatch 가드를 통과합니다 (`AvailablePlantations`, `MayorSequentialPanel`).
+- 봇 전용 게임은 `GameScreen.tsx`에서 배속/일시정지 컨트롤을 노출합니다.

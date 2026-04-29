@@ -15,9 +15,12 @@
 ## 주요 파일
 
 - [main.tsx](main.tsx): React mount
-- [App.tsx](App.tsx): 앱 orchestration
+- [App.tsx](App.tsx): 앱 orchestration (`channelAction`이 `action_index`+`canonical_id`를 페이로드로 묶음)
 - [App.css](App.css), [index.css](index.css): 글로벌 스타일
 - [i18n.ts](i18n.ts): 다국어 초기화
+- [config.ts](config.ts): API base URL 등 런타임 설정
+- [googleOAuth.ts](googleOAuth.ts): Google OAuth helper
+- [utils/turnFocus.ts](utils/turnFocus.ts): 내 턴 진입 시 포커스 유틸
 
 ## 데이터 흐름
 

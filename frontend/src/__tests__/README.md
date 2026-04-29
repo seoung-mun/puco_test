@@ -6,6 +6,9 @@
 
 - `App.auth-flow.test.tsx`: 로그인/부트스트랩 흐름
 - `App.mayor-flow.test.tsx`: Mayor sequential panel 노출과 흐름
+- `App.action-index-contract.test.tsx`: click 시 `engine_action_index` + `canonical_id`가 함께 전송되는지 검증
+- `googleOAuth.test.ts`: Google OAuth helper
+- `turnFocus.test.ts`: 내 턴 포커스 유틸
 
 ## 의존성
 

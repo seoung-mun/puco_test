@@ -36,9 +36,13 @@
 ## 현재 핵심 계약
 
 - 기본 실시간 경로는 WebSocket이며 SSE는 레거시 보조 경로입니다.
-- Mayor는 `120-131` island / `140-151` city action 중 하나를 매번 제출합니다.
-- 프론트는 `mayor_legal_island_slots`, `mayor_legal_city_slots`, `action_mask`를 함께 사용해 slot-direct Mayor UI를 렌더링합니다.
+- Mayor는 `120 + TileType.value` (island, 120-125) / `140 + BuildingType.value` (city, 140-162) 중 하나를 매번 제출합니다.
+- 프론트는 `mayor_island_actions` / `mayor_city_actions`의 `engine_action_index` + `canonical_id`를 직접 사용해 slot-direct Mayor UI를 렌더링합니다 (`mayor_legal_*_slots`는 보조 인덱스).
+- face_up plantation pick도 `face_up[*].engine_action_index`와 `canonical_id`를 사용하며, quarry는 의미 인덱스 `13`을 emit합니다.
+- 액션 제출 페이로드는 `{ action_index, canonical_id }` (canonical_id는 선택). 불일치 시 backend 422.
 - `GameState`는 backend serializer가 만든 rich state shape를 기준으로 유지합니다.
+- 봇 전용 게임은 `/api/puco/games/{game_id}/playback|speed|pause`로 배속/일시정지를 컨트롤할 수 있습니다.
+- 종료 게임은 `/api/puco/replays/`에서 리플레이 목록과 상세를 조회할 수 있습니다.
 
 ## 실행
 
@@ -63,7 +67,8 @@ docker compose exec frontend npm run build
 
 ## 변경 시 체크
 
-- 액션 인덱스를 손대면 `App.tsx`, `GameScreen.tsx`, `types/gameState.ts`, backend serializer, `PuCo_RL/env/pr_env.py`를 함께 확인합니다.
+- 액션 인덱스를 손대면 `App.tsx`(`channelAction`), `GameScreen.tsx`, `types/gameState.ts`, `MayorSequentialPanel.tsx`, `AvailablePlantations.tsx`, backend serializer/canonical_action, `PuCo_RL/env/pr_env.py`를 함께 확인합니다.
+- canonical_id 포맷이 바뀌면 backend `_describe_action`과 frontend가 즉시 422를 받게 되므로 양쪽을 한 commit에서 맞춥니다.
 - `screen` 전이나 socket lifecycle을 바꾸면 [src/__tests__/README.md](src/__tests__/README.md)와 [src/hooks/__tests__/README.md](src/hooks/__tests__/README.md)의 테스트도 같이 손봅니다.
 
 ### 현재 내 플레이어 식별은 표시 이름에 의존하는 경로가 있습니다
