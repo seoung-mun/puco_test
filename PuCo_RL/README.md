@@ -102,24 +102,31 @@ observation = {
 
 ### Action Space (Discrete(200))
 
+`PuCo_RL/env/pr_env.py::_define_action_space()` 기준의 현재 canonical 매핑입니다.
+- semantic 인덱스(`8 + Good.value`, `120 + TileType.value`, `140 + BuildingType.value`)를 사용하므로
+  positional band 표기는 더 이상 정확하지 않습니다.
+
 | 범위 | 행동 | Phase |
 |:----:|------|:-----:|
-| 0-7 | 역할 선택 (Settler~Prospector2) | END_ROUND |
-| 8-13 | 공개 농장 타일 선택 (index 0~5) | SETTLER |
-| 14 | Quarry 선택 | SETTLER |
+| 0-7 | 역할 선택 (Settler~Prospector_2) | END_ROUND |
+| 8-12 | Settler — face-up plantation by TileType (`8 + Good.value`) | SETTLER |
+| 13 | Settler — Take Quarry (canonical, `8 + QUARRY.value`) | SETTLER |
+| 14 | Settler — Take Quarry (legacy alias) | SETTLER |
 | 15 | Pass (Phase별 패스) | ALL |
 | 16-38 | 건물 건설 (BuildingType 0~22) | BUILDER |
 | 39-43 | 물건 판매 (Good 0~4) | TRADER |
-| 44-58 | 화물선 적재 (ship×5 + good) | CAPTAIN |
+| 44-58 | 화물선 적재 (`ship_idx*5 + good`) | CAPTAIN |
 | 59-63 | Wharf 적재 (Good 0~4) | CAPTAIN |
-| 64-68 | 물건 보관 (Good 0~4) | CAPTAIN_STORE |
-| 69-80 | Mayor Island 토글 (slot 0~11) | MAYOR |
-| 81-92 | Mayor City 토글 (slot 0~11) | MAYOR |
+| 64-68 | Store Windrose 보관 (Good 0~4) | CAPTAIN_STORE |
 | 93-97 | Craftsman 특권 물건 선택 (Good 0~4) | CRAFTSMAN |
-| 98-103 | Settler + Hacienda 조합 (face-up 0~5) | SETTLER |
-| 104 | Settler + Hacienda + Quarry | SETTLER |
-| 105 | Settler + Hacienda + Pass | SETTLER |
-| 106-199 | (Reserved) | — |
+| 105 | Hacienda draw | SETTLER |
+| 106-110 | Store Warehouse 보관 (Good 0~4) | CAPTAIN_STORE |
+| 120-125 | Mayor Island slot placement (`120 + TileType.value`) | MAYOR |
+| 140-162 | Mayor City slot placement (`140 + BuildingType.value`) | MAYOR |
+| 기타 | (Reserved/legacy) | — |
+
+backend가 이 인덱스를 받을 때 `canonical_id`(예: `settler:tile_type:corn`, `mayor:city:building_type:5`)와
+짝지어 검증하는 계약은 [`../contract.md`](../contract.md) §4.4를 참고하세요.
 
 ## 🚀 빠른 시작
 
