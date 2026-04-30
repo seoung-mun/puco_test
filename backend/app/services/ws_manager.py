@@ -206,10 +206,15 @@ class ConnectionManager:
                     await self._broadcast(game_id, data)
                 if game_id not in self.active_connections:
                     break
+        except asyncio.CancelledError:
+            logger.info("Redis listener cancelled during shutdown: %s", game_id)
         except Exception as e:
             logger.error("Redis listener error for %s: %s", game_id, e)
         finally:
-            await pubsub.unsubscribe(f"game:{game_id}:events")
+            try:
+                await pubsub.unsubscribe(f"game:{game_id}:events")
+            except Exception:
+                pass
             logger.debug("Redis listener stopped: %s", game_id)
 
     async def broadcast_to_game(self, game_id: str, message: dict):

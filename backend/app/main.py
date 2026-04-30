@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +19,69 @@ logger = logging.getLogger(__name__)
 
 _DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # === STARTUP ===
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+        logger.info("PostgreSQL connection verified")
+    except Exception as e:
+        logger.error("PostgreSQL connection failed: %s", e)
+
+    try:
+        await async_redis_client.ping()
+        logger.info("Redis connection verified")
+    except Exception as e:
+        logger.error("Redis connection failed: %s", e)
+
+    try:
+        with SessionLocal() as db:
+            cleanup_stale_rooms(db)
+    except Exception as e:
+        logger.error("Startup room cleanup failed: %s", e)
+
+    yield
+
+    # === SHUTDOWN ===
+    logger.info("Shutdown initiated, cleaning up...")
+
+    from app.services.ws_manager import manager as ws_mgr
+    from app.services.game_service import GameService
+
+    for task in list(ws_mgr._disconnect_timers.values()):
+        task.cancel()
+    ws_mgr._disconnect_timers.clear()
+
+    for task in list(GameService._bot_tasks):
+        task.cancel()
+    GameService._bot_tasks.clear()
+
+    for task in list(GameService._bot_stall_watchdogs.values()):
+        task.cancel()
+    GameService._bot_stall_watchdogs.clear()
+
+    if hasattr(GameService, "_background_log_tasks"):
+        for task in list(GameService._background_log_tasks):
+            task.cancel()
+        GameService._background_log_tasks.clear()
+
+    try:
+        await async_redis_client.aclose()
+    except Exception as e:
+        logger.warning("Error closing async Redis: %s", e)
+
+    try:
+        from app.core.redis import sync_redis_client
+        sync_redis_client.close()
+    except Exception as e:
+        logger.warning("Error closing sync Redis: %s", e)
+
+    await asyncio.sleep(0.5)
+    logger.info("Shutdown cleanup complete")
+
+
 # H-3: Swagger/OpenAPI 비프로덕션에서만 노출
 app = FastAPI(
     title="Puerto Rico AI Battle Platform API",
@@ -25,6 +90,7 @@ app = FastAPI(
     docs_url="/docs" if _DEBUG else None,
     redoc_url="/redoc" if _DEBUG else None,
     openapi_url="/openapi.json" if _DEBUG else None,
+    lifespan=lifespan,
 )
 
 # CORS Setting
@@ -55,27 +121,6 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
-@app.on_event("startup")
-async def startup_checks():
-    try:
-        with SessionLocal() as db:
-            db.execute(text("SELECT 1"))
-        logger.info("PostgreSQL connection verified")
-    except Exception as e:
-        logger.error("PostgreSQL connection failed: %s", e)
-
-    try:
-        await async_redis_client.ping()
-        logger.info("Redis connection verified")
-    except Exception as e:
-        logger.error("Redis connection failed: %s", e)
-
-    try:
-        with SessionLocal() as db:
-            cleanup_stale_rooms(db)
-    except Exception as e:
-        logger.error("Startup room cleanup failed: %s", e)
-
 
 @app.get("/")
 async def root():
@@ -102,9 +147,11 @@ async def health():
         logger.error("Redis health check failed: %s", e)
 
     all_ok = all(v == "ok" for v in checks.values())
+    # Always return 200 for Render liveness probe;
+    # body contains degraded status for monitoring.
     return JSONResponse(
         content={"status": "ok" if all_ok else "degraded", "checks": checks},
-        status_code=200 if all_ok else 503,
+        status_code=200,
     )
 
 
