@@ -260,7 +260,7 @@ def _build_commentary(
     after_phase = after_summary.get("phase")
     if before_phase and after_phase and before_phase != after_phase:
         notes.append(f"Phase {before_phase} -> {after_phase}")
-
+ 
     before_player_idx = before_summary.get("current_player")
     after_player_idx = after_summary.get("current_player")
     if (
