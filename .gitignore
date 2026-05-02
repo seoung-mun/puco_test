@@ -89,6 +89,7 @@ ehthumbs.db
 .claudeignore
 .geminiignore
 GEMINI.md
+.worktrees/
 
 # --- Ad-hoc Reports To Keep Out Of Merge ---
 error_report/
