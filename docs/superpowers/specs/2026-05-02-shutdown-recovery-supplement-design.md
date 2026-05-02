@@ -682,3 +682,294 @@ v2 spec은 v1 머지 후 별도 작성.
 3. writing-plans 스킬로 v0 PR + v1 PR 각각의 implementation plan 작성.
 4. v0 → v1 순으로 구현/머지.
 5. v1 머지 후 별도 spec으로 v2(idempotency) + footprint 최적화 + 다인전 abandonment 진행.
+
+## 14. 검토 1차 반영 (보강)
+
+이 섹션은 spec review에서 발견된 5개 BLOCKER + 10개 GAP을 정정한다. 본문(§3~§13)의 해당 항목은 이 §14가 supersede한다.
+
+### 14.1 [B1] EngineWrapper 속성 경로 정정
+
+**문제**: 본문 §3.2/§5.3/§7.3이 `self.env.unwrapped.engine.*` 경로를 가정. 실제 `backend/app/engine_wrapper/wrapper.py:49,139,140`은 `self.env.game.*`를 사용. `pr_env.py:141`은 `self.game = PuertoRicoGame(...)`로 생성 (engine이 아닌 game 속성).
+
+**정정**: 모든 경로를 `self.env.game.*`로 통일. 엔진 클래스명은 `PuertoRicoGame`.
+
+새 EngineWrapper API (§5.3 대체):
+```python
+@property
+def current_phase(self) -> str:
+    """state_serializer와 동일한 정규화 적용 (END_ROUND/PROSPECTOR → role_selection)."""
+    from app.services.state_serializer_support import PHASE_TO_STR
+    return PHASE_TO_STR.get(self.env.game.current_phase, "role_selection")
+
+@property
+def active_player(self) -> str:
+    return f"player_{self.env.game.current_player_idx}"
+
+@property
+def initial_governor_idx(self) -> int:
+    return self._initial_governor_idx  # _reset_environment에서 캡처
+
+@property
+def seed_used(self) -> int:
+    return self._seed_used  # _reset_environment에서 캡처
+```
+
+`_reset_environment`(wrapper.py:85)에서 reset 직후 `self._seed_used`, `self._initial_governor_idx = self.env.game.governor_idx`를 캡처한다.
+
+### 14.2 [B2] `_reset_environment` retry loop와 시드 결정성
+
+**문제**: `wrapper.py:97-106` retry loop가 `seed=game_seed+attempt`로 거버너를 맞출 때까지 시도. 시작 시 캡처한 시드와 복구 시 사용 시드가 어긋날 우려.
+
+**정정**: v0 fix 후엔 `reset(seed=X)`이 결정적이므로, **start_game은 governor_idx를 지정하지 않고**(retry loop 진입 안 함), 복구 시에도 **governor_idx를 인자로 넘기지 않는다**. DB의 `governor_idx`는 검증값으로만 사용한다.
+
+수정된 흐름:
+- start_game: `create_game_engine(num_players, game_seed=X)` (governor_idx=None) → `_reset_environment`는 line 86-88로 `self.env.reset(seed=X); return` (retry 없음). 캡처: `_seed_used=X`, `_initial_governor_idx=engine.governor_idx`. DB에 둘 다 저장.
+- recovery: `create_game_engine(num_players, game_seed=X)` (governor_idx=None) → 동일 reset → 결정성에 의해 같은 governor_idx 산출. **검증**: `engine.initial_governor_idx == game.governor_idx`이 아니면 `replay_validation_failed`로 정지화면.
+
+§6.3 step 3 수정:
+```python
+engine = create_game_engine(
+    num_players=game.num_players,
+    game_seed=game.game_seed,
+)
+if engine.initial_governor_idx != game.governor_idx:
+    await self._mark_blocked(game_id, "replay_validation_failed")
+    return EngineLoadResult(state="blocked", reason="replay_validation_failed")
+```
+
+이로써 retry loop가 복구 결정성에 영향을 주지 않는다.
+
+### 14.3 [B3] `action_data` 키 이름 정정
+
+**문제**: 본문 §6.3 step 7이 `e.action_data["action_index"]`를 가정. `game_service.py:278-281`은 `action_data={"action": <int>, "model_info": ...}`로 저장.
+
+**정정 (양방향)**:
+
+`process_action` 변경 (§5.2 보강):
+```python
+game_log = GameLog(
+    ...,
+    action_data={
+        "action_index": action,            # 신규 — 표준 키
+        "canonical_id": canonical_id,      # 신규 — contract §4.4와 정합
+        "model_info": actor_model_info,
+    },
+    ...,
+)
+```
+
+`canonical_id`는 contract §4.4의 `_describe_action(action)` 디코드 결과(서버가 이미 422 검증에 사용 중)를 그대로 사용. v2에서 `action_intent_id`도 같은 dict에 추가 가능.
+
+복구 replay(§6.3 step 7):
+```python
+engine.replay_step(int(e.action_data["action_index"]))
+```
+
+`backend/tests/test_db_schema.py:180`은 `action_data` shape를 검증하므로 새 키 추가에 맞춰 fixture 갱신.
+
+기존 ML/replay logger의 `action_data["action"]` 참조는 **현재 코드에 없음**(grep 결과). 안전하게 키 변경 가능.
+
+### 14.4 [B4] `_bot_tasks` set → Dict 마이그레이션
+
+**문제**: `game_service.py:39` `_bot_tasks = set()`. 본문 §7.3은 dict 의미(`get`/`__setitem__`)로 사용.
+
+**정정**: `_bot_tasks: Dict[UUID, asyncio.Task] = {}`로 변경.
+
+영향 분석 필요한 기존 호출:
+```bash
+grep -nE "_bot_tasks" backend/app/services/game_service.py
+```
+모든 사용처를 dict 의미로 일괄 수정. 변경 범위 작음(추정 10줄 미만). 변경 PR에 명시.
+
+### 14.5 [B5] async/sync DB 접근 정합성
+
+**문제**: GameService는 `Session`(sync). 본문 §6의 `await db.get_game(...)`/`await db.execute(...)`는 동작하지 않음. WS handler(`ws.py:57`)는 sync session을 `with`로 잡고 있음.
+
+**정정**: `ensure_engine_loaded`는 `async def`로 유지하되(asyncio.Lock 의미 유지), DB·CPU heavy 작업은 thread offload.
+
+```python
+async def ensure_engine_loaded(self, game_id: UUID) -> EngineLoadResult:
+    if game_id in self.active_engines:
+        return EngineLoadResult(state="ready",
+                                state_revision=self._engine_revision[game_id])
+    lock = await self._get_or_create_recovery_lock(game_id)
+    async with lock:
+        if game_id in self.active_engines:
+            return EngineLoadResult(state="ready",
+                                    state_revision=self._engine_revision[game_id])
+        return await asyncio.to_thread(self._do_recovery_sync, game_id)
+
+def _do_recovery_sync(self, game_id: UUID) -> EngineLoadResult:
+    """Worker thread에서 실행. 자체 Session을 SessionLocal()로 연다."""
+    with SessionLocal() as db:
+        # §6.3의 흐름을 sync DB 호출로 수행
+        # game = db.query(GameSession).filter(...).first()
+        # entries = db.query(GameLog).filter(GameLog.game_id == game_id,
+        #                                    GameLog.revision.isnot(None)).order_by(GameLog.revision).all()
+        # ...
+        ...
+```
+
+`_mark_blocked`도 sync 버전으로 동일 패턴 (자체 session, db.execute).
+
+WS 핸들러(§7.1)에서 `ensure_engine_loaded` await는 ws.py 기존 `with SessionLocal() as db:` 블록(line 57-60) 종료 **이후**에 호출되므로 session 보유 우려 없음. 그대로 사용.
+
+### 14.6 [G1] ORM 모델 수정
+
+`backend/app/db/models.py`의 `GameSession`(25-43)과 `GameLog`(45-63)에 신규 컬럼 SQLAlchemy 선언 추가:
+
+```python
+class GameSession(Base):
+    ...
+    game_seed = Column(BigInteger, nullable=True)
+    governor_idx = Column(Integer, nullable=True)
+    engine_compat_version = Column(Integer, nullable=True)
+    state_revision = Column(Integer, nullable=False, server_default="0", default=0)
+    recovery_blocked_reason = Column(String(64), nullable=True)
+
+class GameLog(Base):
+    ...
+    revision = Column(Integer, nullable=True)
+    phase_before = Column(String(32), nullable=True)
+    active_player_before = Column(String(16), nullable=True)
+```
+
+마이그레이션과 함께 같은 PR에 포함. 누락 시 ORM 경유 write가 신규 컬럼을 안 채움.
+
+### 14.7 [G2] `RECOVERY_BLOCKED` 상태 필터 호출 사이트
+
+신규 status 값 도입에 따라 다음 위치를 함께 수정:
+
+| 파일:라인 (대략) | 현재 동작 | 변경 |
+|---|---|---|
+| `backend/app/api/channel/playback.py:18` | `status != "PROGRESS"`이면 reject | `RECOVERY_BLOCKED`도 자연스럽게 reject (변경 없음, 확인만) |
+| `backend/app/api/channel/game.py` action route | action 진입 전 status 체크 | `ensure_engine_loaded`가 `blocked` 반환하면 409 |
+| `backend/app/services/ws_manager.py:90,137,138,184` | game state broadcast | `RECOVERY_BLOCKED` 게임에는 STATE_UPDATE 자동 broadcast 안 함 (메모리 엔진 없으니 자연스럽게 발동 안 됨, 확인만) |
+| `backend/app/api/channel/game.py` final-score | PROGRESS만 active engine 조회 | `ensure_engine_loaded`로 blocked 응답 처리 |
+
+마이그레이션 PR의 점검 체크리스트로 명시.
+
+### 14.8 [G3] `PHASE_TO_STR` 재사용
+
+**정정**: 새 정규화 헬퍼를 만들지 않는다. `backend/app/services/state_serializer_support.py:19`의 기존 `PHASE_TO_STR` dict를 그대로 import해서 사용 (§14.1 참조).
+
+### 14.9 [G4] `process_action`의 두 commit 명시
+
+`game_service.py`의 두 `db.commit()`:
+- line 316: GameLog insert + 종료 시 `room.status="FINISHED"` + `room.winner_id` 갱신
+- line 340: `ReplayLogger.append_entry` 후의 별도 commit (replay payload 갱신)
+
+**정정**: `state_revision` update를 **line 316 commit에 묶는다**. GameLog row + GameSession.state_revision은 같은 트랜잭션. ReplayLogger commit(line 340)은 best-effort로 별개 — 실패해도 복구에는 영향 없음(replay 파일은 사람 가독용, 정본 아님). 다음 복구가 GameLog 기준으로 검증.
+
+### 14.10 [G5] frontend 훅 콜백 API
+
+`frontend/src/hooks/useGameWebSocket.ts:26-`은 options 객체 패턴(`{onStateUpdate, onGameEnded, onPlayerDisconnected, ...}`)을 사용. 새 콜백 추가:
+
+```ts
+export function useGameWebSocket({
+  ...
+  onRecoveryStarted,   // () => void
+  onRecoveryBlocked,   // (msg: { reason: string }) => void
+  ...
+}: UseGameWebSocketOptions) {
+  ...
+  // message 핸들러:
+  // case 'RECOVERY_STARTED': onRecoveryStarted?.()
+  // case 'RECOVERY_BLOCKED': onRecoveryBlocked?.({ reason: msg.reason })
+}
+```
+
+overlay/modal 상태는 호출 측 컴포넌트(예: `GameScreen`)의 useState로 관리. 콜백에서 setter 호출.
+
+테스트(§8.3) 시그니처는 동일 패턴: `useGameWebSocket({onRecoveryStarted: spy, ...})`로 mock.
+
+### 14.11 [G6] fingerprint 헬퍼 정의
+
+§4.6의 `_action_space_fingerprint`/`_mayor_semantics_fingerprint`:
+
+```python
+import hashlib, json
+from app.services.canonical_action import CANONICAL_ACTION_TABLE  # 또는 동등 export
+
+def _action_space_fingerprint() -> str:
+    payload = json.dumps(CANONICAL_ACTION_TABLE, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+def _mayor_semantics_fingerprint() -> str:
+    # mayor canonical 매핑(120-125 island, 140-162 city) — TileType / BuildingType enum value 표
+    payload = json.dumps({
+        "island": [(t.name, t.value) for t in TileType],
+        "city": [(b.name, b.value) for b in BuildingType],
+    }, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+```
+
+`canonical_action.py`/`mayor_*` enum 정의가 변경되면 자동 fingerprint 변동 → 복구 시 mismatch 잡음 → 정지화면.
+
+### 14.12 [G7] `secrets` import
+
+`backend/app/services/game_service.py` 상단 import에 `import secrets` 추가 (§5.1의 `secrets.randbits(63)` 사용).
+
+### 14.13 [G8] WS 핸들러 session 수명
+
+`ws.py:57-60`의 sync session `with` 블록은 line 60에서 종료(line 80 auth_ok 전에 이미 닫힘). `ensure_engine_loaded` await(§7.1)는 이 블록 밖에서 호출되므로 sync session을 await 동안 보유하지 않음 — 안전.
+
+### 14.14 [G9] `_fetch_or_build_rich_state` 메서드 정합성
+
+§7.5의 `_fetch_last_rich_state`/`_fetch_or_build_rich_state` 둘 다 GameService 인스턴스 메서드:
+
+```python
+async def _fetch_last_rich_state(self, game_id: UUID) -> Optional[Dict]:
+    cached = redis_client.get(f"game:{game_id}:state")  # sync redis OK
+    if cached:
+        return json.loads(cached)
+    return await asyncio.to_thread(_read_last_rich_state_from_replay_log, game_id)
+
+async def _fetch_or_build_rich_state(self, game_id: UUID) -> Dict:
+    engine = self.active_engines.get(game_id)
+    if engine is not None:
+        return await asyncio.to_thread(self._build_rich_state_sync, game_id, engine)
+    cached = redis_client.get(f"game:{game_id}:state")
+    return json.loads(cached) if cached else {}
+
+def _build_rich_state_sync(self, game_id: UUID, engine: EngineWrapper) -> Dict:
+    with SessionLocal() as db:
+        room = db.query(GameSession).filter(GameSession.id == game_id).first()
+        return build_rich_state(db, game_id, engine, room)
+```
+
+`build_rich_state`(state_serializer.py)의 시그니처는 `(db, game_id, engine, room)` 그대로 (game_service.py:114, :320 사용 패턴과 동일).
+
+### 14.15 [G10] 테스트 fixture 참조
+
+§8.2의 신규 테스트는 `backend/tests/conftest.py`의 기존 fixture 재사용:
+- `db` — sync session
+- `client` — TestClient (FastAPI)
+- `mock_sync_redis` / `mock_async_redis` — Redis 호출 mock
+
+비동기 테스트는 `pytest-asyncio` 마커 사용(기존 `test_ws_disconnect.py` 패턴 참고).
+
+WS 테스트는 `from fastapi.testclient import TestClient`의 `websocket_connect` 컨텍스트 매니저 사용. `test_game_ws_auth_contract.py` 참고.
+
+### 14.16 [N1] 라인 인용 정정
+
+§7.1의 "ws.py:81-83 사이"는 정확히는 "auth_ok send(line 80)와 manager.connect(line 83) 사이"가 맞다. 본문 그대로 두되 의미 동일.
+
+### 14.17 [N2] §3.1 "전체 5곳"
+
+명시적 5건:
+1. `pr_env.py:131` `random.seed(seed)` 제거
+2. `pr_env.py:132` `np.random.seed(seed)` 제거
+3. `engine.py:67` `random.randint(...)` → `self._rng.randint(...)`
+4. `engine.py:96` `random.shuffle(stack)` → `self._rng.shuffle(stack)`
+5. `engine.py:141` `random.shuffle(self.plantation_discard)` → `self._rng.shuffle(self.plantation_discard)`
+
+추가로: `PuertoRicoGame.__init__(num_players, seed=None)`에 `self._rng = random.Random(seed); self._np_rng = np.random.default_rng(seed)` 두 줄 추가. `pr_env.reset`에서 `seed_used = seed if seed is not None else random.randrange(2**63)` 결정 후 `self.game = PuertoRicoGame(self.num_players, seed=seed_used)`로 생성. `pr_env._seed_used = seed_used`로 캡처.
+
+### 14.18 [N3] bot 식별자 prefix
+
+`contract.md` §2.3: room 저장용 bot actor id는 `BOT_<bot_type>` (예: `BOT_random`, `BOT_ppo`). §7.3의 `str(actor_id).startswith("BOT_")` 검사는 정확. lobby WS의 synthetic key `BOT_<bot_type>_<slot_index>`와는 다른 식별자(room.players JSON에 들어가는 값은 전자).
+
+---
+
+본문(§3~§13) 위에 §14가 우선한다. spec review는 본문 + §14 합집합으로 평가.
