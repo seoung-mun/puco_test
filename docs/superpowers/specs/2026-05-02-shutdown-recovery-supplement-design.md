@@ -1033,15 +1033,43 @@ class GameService:
 
 **문제**: §14.11의 `CANONICAL_ACTION_TABLE`은 `canonical_action.py`에 존재하지 않음. 실제 export는 `_describe_action`, `CANONICAL_ACTION_VERSION`, `build_canonical_action_catalog`.
 
-**정정**: `build_canonical_action_catalog`의 결정적 출력에서 fingerprint를 산출:
+**정정**: `_describe_action`의 **state-독립 분기만**을 열거해 fingerprint를 산출. `build_canonical_action_catalog`(`canonical_action.py:192`)는 시그니처가 `(action_mask, state)`로 stateless가 아니므로 fingerprint에 부적합. 대신 다음의 결정적 정적 카탈로그를 직접 만든다:
 
 ```python
 import hashlib, json
-from app.services.canonical_action import build_canonical_action_catalog, CANONICAL_ACTION_VERSION
+from app.services.canonical_action import _describe_action, CANONICAL_ACTION_VERSION
 
 def _action_space_fingerprint() -> str:
-    """전체 action 0~199에 대한 _describe_action 결과를 표로 묶어 해시."""
-    catalog = build_canonical_action_catalog()  # 시그니처는 함수 본체에서 확인
+    """state-독립 action 분기만 열거한 fingerprint.
+    
+    포함되는 인덱스 범위 (모두 _describe_action(i, state={})으로 결정적 결과):
+    - 0-7   role selection
+    - 8-13  settler tile (canonical) + 14 legacy alias
+    - 15    pass
+    - 16-38 builder
+    - 39-43 trader sell
+    - 44-58 captain ship load
+    - 59-63 captain wharf
+    - 64-68 store windrose
+    - 93-97 craftsman privilege
+    - 105   hacienda
+    - 106-110 store warehouse
+    - 120-125 mayor island
+    - 140-162 mayor city
+    
+    state-의존 분기(현재 없음 — 위 목록은 모두 정적 매핑)에 추가가 생기면 그때
+    enumeration을 갱신.
+    """
+    indices = (
+        list(range(0, 16)) + [15] +              # role + settler + pass
+        list(range(16, 39)) +                    # builder
+        list(range(39, 69)) +                    # trader/captain/store
+        list(range(93, 98)) + [105] +            # craftsman + hacienda
+        list(range(106, 111)) +                  # warehouse
+        list(range(120, 126)) +                  # mayor island
+        list(range(140, 163))                    # mayor city
+    )
+    catalog = {i: _describe_action(i, state={}) for i in sorted(set(indices))}
     payload = json.dumps({
         "version": CANONICAL_ACTION_VERSION,
         "catalog": catalog,
@@ -1049,7 +1077,7 @@ def _action_space_fingerprint() -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 ```
 
-`build_canonical_action_catalog`의 정확한 시그니처와 인자(예: state context 필요 여부)는 구현 시 확인 필요. 만약 stateless하지 않다면, fallback으로 0~199 인덱스에 대해 `_describe_action(i, state={})`를 순회한 결과를 모아 해시.
+핵심: `state={}`로 호출해도 결정적 결과가 나오는 분기만 fingerprint에 포함. 인덱스 범위는 contract.md §4의 action space 표 그대로. 만약 향후 `_describe_action`에 state-의존 분기가 추가되면, 그 시점에 fingerprint 자체를 다시 정의 (룰 변경이므로 `ENGINE_COMPAT_VERSION` +1과 함께 진행).
 
 mayor fingerprint:
 ```python
