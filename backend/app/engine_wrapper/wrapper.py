@@ -85,6 +85,8 @@ class EngineWrapper:
     def _reset_environment(self, game_seed: Optional[int], governor_idx: Optional[int]) -> None:
         if governor_idx is None:
             self.env.reset(seed=game_seed)
+            self._seed_used = self.env._seed_used
+            self._initial_governor_idx = self.env.game.governor_idx
             return
 
         if governor_idx < 0 or governor_idx >= self.env.num_players:
@@ -99,11 +101,23 @@ class EngineWrapper:
             seed = None if game_seed is None else game_seed + attempt
             self.env.reset(seed=seed)
             if self.env.game.governor_idx == governor_idx:
+                self._seed_used = self.env._seed_used
+                self._initial_governor_idx = self.env.game.governor_idx
                 return
 
         raise RuntimeError(
             f"Unable to initialize engine with governor_idx={governor_idx} after {max_attempts} attempts"
         )
+
+    @property
+    def seed_used(self) -> int:
+        """Seed actually used to initialize this engine instance."""
+        return self._seed_used
+
+    @property
+    def initial_governor_idx(self) -> int:
+        """Governor index chosen at engine initialization time."""
+        return self._initial_governor_idx
 
     def get_state(self) -> Dict[str, Any]:
         """Returns the current state/observation as a serializable dict."""
