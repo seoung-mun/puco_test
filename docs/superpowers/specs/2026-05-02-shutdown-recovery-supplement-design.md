@@ -973,3 +973,200 @@ WS 테스트는 `from fastapi.testclient import TestClient`의 `websocket_connec
 ---
 
 본문(§3~§13) 위에 §14가 우선한다. spec review는 본문 + §14 합집합으로 평가.
+
+## 15. 검토 2차 반영 (보강)
+
+iter 2 review에서 §14가 도입한 신규 BLOCKER 3개 + GAP 3개를 추가 정정한다. §14 위에 §15가 우선한다.
+
+### 15.1 [B6] sync FastAPI 라우터에서 async ensure_engine_loaded 호출
+
+**문제**: `backend/app/api/channel/playback.py:27 def get_playback`, `:40 def set_speed`는 sync 라우터. async `ensure_engine_loaded`를 await 못함.
+
+**정정**: 두 라우터를 `async def`로 전환. 본문은 이미 `set_pause`가 `async def`(:52)인 패턴을 따름. 변경 분량 작음:
+
+```python
+# playback.py
+@router.get("/{game_id}/playback", response_model=PlaybackState)
+async def get_playback(...):              # def → async def
+    load_result = await game_service.ensure_engine_loaded(UUID(game_id))
+    if load_result.state == "blocked":
+        raise HTTPException(409, detail={"error": "recovery_blocked", "reason": load_result.reason})
+    ...
+
+@router.post("/{game_id}/speed")
+async def set_speed(...):                 # def → async def
+    load_result = await game_service.ensure_engine_loaded(UUID(game_id))
+    ...
+```
+
+`backend/app/api/channel/game.py`의 action 라우터(`game.py:60- async def channel_action`)도 이미 async이므로 그대로 await 가능. final-score 라우터의 sync/async 여부는 같은 파일 grep으로 확인 후 필요 시 동일 전환.
+
+영향 받는 회귀 테스트(contract §7): `test_playback_api.py`, `test_game_speed_state.py`. async 전환에 따른 fixture 변경 점검 필요(TestClient는 sync/async 라우터 모두 호출 가능하므로 보통 영향 없음).
+
+### 15.2 [B7] `_engine_revision` 클래스 변수 선언
+
+**문제**: `_engine_revision`은 §5.1, §5.2, §6 전반에서 사용되지만 어디에도 선언이 없음.
+
+**정정**: §14.4의 `_bot_tasks` 변경과 같은 위치에 함께 선언:
+
+```python
+# game_service.py:36-43 영역
+class GameService:
+    active_engines: Dict[UUID, EngineWrapper] = {}
+    _bot_tasks: Dict[UUID, asyncio.Task] = {}          # §14.4
+    _engine_revision: Dict[UUID, int] = {}             # 신규
+    _bot_stall_watchdogs: Dict[str, asyncio.Task] = {}
+    _game_speed: Dict[UUID, int] = {}
+    _game_paused: Dict[UUID, bool] = {}
+    ...
+```
+
+초기화 시점:
+- `start_game`: 게임 시작 시 `_engine_revision[game_id] = 0`
+- `_do_recovery_sync`: 메모리 등록 직후 `_engine_revision[game_id] = game.state_revision`
+
+정리 시점:
+- `END_GAME_REQUEST` / disconnect timeout 정리 경로에서 `pop(game_id, None)`
+- `_mark_blocked`에서 pop (메모리 누수 방지)
+
+### 15.3 [B8] fingerprint 헬퍼의 실제 심볼
+
+**문제**: §14.11의 `CANONICAL_ACTION_TABLE`은 `canonical_action.py`에 존재하지 않음. 실제 export는 `_describe_action`, `CANONICAL_ACTION_VERSION`, `build_canonical_action_catalog`.
+
+**정정**: `build_canonical_action_catalog`의 결정적 출력에서 fingerprint를 산출:
+
+```python
+import hashlib, json
+from app.services.canonical_action import build_canonical_action_catalog, CANONICAL_ACTION_VERSION
+
+def _action_space_fingerprint() -> str:
+    """전체 action 0~199에 대한 _describe_action 결과를 표로 묶어 해시."""
+    catalog = build_canonical_action_catalog()  # 시그니처는 함수 본체에서 확인
+    payload = json.dumps({
+        "version": CANONICAL_ACTION_VERSION,
+        "catalog": catalog,
+    }, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+```
+
+`build_canonical_action_catalog`의 정확한 시그니처와 인자(예: state context 필요 여부)는 구현 시 확인 필요. 만약 stateless하지 않다면, fallback으로 0~199 인덱스에 대해 `_describe_action(i, state={})`를 순회한 결과를 모아 해시.
+
+mayor fingerprint:
+```python
+from PuCo_RL.env.engine import TileType, BuildingType  # 실제 import 경로 확인 필요
+
+def _mayor_semantics_fingerprint() -> str:
+    payload = json.dumps({
+        "island_offset": 120,
+        "city_offset": 140,
+        "tiles": sorted([(t.name, t.value) for t in TileType]),
+        "buildings": sorted([(b.name, b.value) for b in BuildingType]),
+    }, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+```
+
+`TileType`/`BuildingType` enum의 실제 모듈 경로는 구현 시 grep 확인 (`PuCo_RL/env/engine.py` 또는 별도 enums 모듈). import 실패 시 ImportError 즉시 발생 → CI에서 잡힘 → spec과 코드 동기 강제.
+
+### 15.4 [B4 보강] `_bot_tasks` set→dict의 정확한 5곳 변경
+
+**iter1 추정치 정정**: 사용처는 정확히 5곳:
+
+| 라인 | 현재 | 변경 |
+|---|---|---|
+| `:39` | `_bot_tasks = set()` | `_bot_tasks: Dict[UUID, asyncio.Task] = {}` |
+| `:463` | `self._bot_tasks.add(task)` | `self._bot_tasks[game_id] = task` |
+| `:471` | `len(self._bot_tasks)` | 동일 (dict도 len() 동작) |
+| `:483` | `self._bot_tasks.discard(task)` | `self._bot_tasks.pop(game_id, None) if self._bot_tasks.get(game_id) is task else None` |
+| `:504` | `len(self._bot_tasks)` | 동일 |
+
+`:483`의 done callback 정정 — "지금 끝난 task가 여전히 dict에 등록된 그 task일 때만" pop. race로 새 봇 task가 같은 game_id에 등록된 사이 옛 task의 done callback이 실행되는 경우, 새 task를 잘못 지우면 안 됨 (G12 응답).
+
+### 15.5 [G1 보강] models.py import 추가
+
+`backend/app/db/models.py:3` import 라인에 `BigInteger` 추가:
+
+```python
+from sqlalchemy import Column, Integer, BigInteger, Float, String, Boolean, DateTime, ForeignKey, Index
+```
+
+§14.6의 컬럼 선언 PR에 이 한 줄 변경 포함.
+
+### 15.6 [G2 보강] 추가 status 필터 사이트
+
+iter1 누락분:
+- `backend/app/api/channel/replay.py:28,159` — `status == "FINISHED"` 기준 리플레이 목록. `RECOVERY_BLOCKED`는 자연스럽게 제외됨 (FINISHED 아니므로). **변경 불필요**, 다만 spec에 "RECOVERY_BLOCKED 게임은 리플레이 목록에 안 나타남" 명시.
+
+리플레이 노출 정책:
+- 사용자가 "종료" 버튼으로 `RECOVERY_BLOCKED → FINISHED` 전환한 경우만 리플레이 목록에 들어감 (정상 흐름).
+- 영영 `RECOVERY_BLOCKED`로 남은 게임은 리플레이에서 안 보임. 이는 의도된 동작.
+
+### 15.7 [G11] `process_action`에 `canonical_id` 전달
+
+**문제**: `game.py:64-65`에서 라우터가 이미 `decoded_canonical` 계산. `process_action`은 이를 받지 않음.
+
+**정정**: `process_action` 시그니처에 새 인자 추가:
+
+```python
+def process_action(
+    self,
+    game_id: UUID,
+    actor_id: str,
+    action: int,
+    canonical_id: Optional[str] = None,  # 신규
+    suppress_broadcast: bool = False,
+):
+    ...
+    game_log = GameLog(
+        ...,
+        action_data={
+            "action_index": action,
+            "canonical_id": canonical_id,
+            "model_info": actor_model_info,
+        },
+        ...,
+    )
+```
+
+action 라우터(`game.py:102`) 호출 변경:
+```python
+result = service.process_action(game_id, actor_id, action_int, canonical_id=decoded_canonical)
+```
+
+봇 chain의 sync_callback(`game_service.py:415`)도 동일 시그니처로 갱신. 봇은 `canonical_id`를 모르므로 None 전달 — 그러면 GameLog에 `canonical_id=None`. 검증/복구에는 영향 없음 (action_index만 사용).
+
+### 15.8 [G12] dict 마이그레이션의 done-callback 안전성
+
+§15.4의 `:483` 변경에 명시. "지금 끝난 task가 dict에 등록된 그 task일 때만" pop. race에서도 새 task를 잘못 지우지 않음.
+
+### 15.9 [G13] governor_idx 검증의 의미
+
+§14.2의 `engine.initial_governor_idx != game.governor_idx` 체크는 v0 결정성이 유지되면 항상 통과한다. 그럼에도 두는 이유:
+1. v0 fix가 손상된 PR이 머지되는 것을 즉시 감지 (운영 안전망).
+2. 엔진 내부의 다른 비결정 소스가 새로 들어왔을 때 자동으로 잡힘.
+3. 비용 거의 0 (정수 비교 1회).
+
+방어적 검증으로 명시한다.
+
+### 15.10 [N1] `test_db_schema.py` 픽스처 갱신 사이트
+
+`action_data` shape 변경에 따라 갱신 필요한 5곳: `:143, :165, :180, :201, :223, :259` (실제 라인 일부 차이 가능, 구현 시 grep으로 확정). 모두 `{"action": <int>, ...}` 형태에서 `{"action_index": <int>, "canonical_id": ...}`로 보강.
+
+### 15.11 [N2] `SessionLocal` import 경로
+
+§14.5의 `_do_recovery_sync` 안 `SessionLocal()` 호출은 `from app.dependencies import SessionLocal`이 필요. game_service.py 상단 import 확인 후 누락 시 추가.
+
+### 15.12 [N3] §6.3 원본 블록의 supersede 표시
+
+§6.3의 `await db.get_game(...)`/`await db.execute(...)`는 §14.5(`_do_recovery_sync`)로 supersede됨. 본문 §6.3 끝에 다음 한 줄 보강:
+
+> 위 §6.3 코드 블록의 async DB 호출은 §14.5의 sync 패턴(`with SessionLocal() as db: ...`)으로 supersede된다. 흐름과 검증 단계 순서는 동일.
+
+### 15.13 Python 버전
+
+`backend/Dockerfile`은 Python 3.12 기반. `asyncio.Lock()` 클래스 변수 선언은 Python 3.10+에서 lazy 초기화 동작이 안전. **추가 조치 불필요.**
+
+### 15.14 종합
+
+iter 2 도입 BLOCKER 3개 + GAP 3개 + NIT 3개 모두 §15에서 반영. 본문 + §14 + §15 합집합이 최종 spec.
+
+다음 단계: iter 3 review로 §15가 새 문제를 도입하지 않았는지 확인.
