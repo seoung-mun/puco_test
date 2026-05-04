@@ -90,12 +90,16 @@ def test_channel_action_endpoint_passes_exact_action_index_to_game_service(clien
         actor_id,
         action,
         canonical_id=None,
+        action_intent_id=None,
+        expected_state_revision=None,
         suppress_broadcast=False,
     ):
         captured["game_id"] = game_id
         captured["actor_id"] = actor_id
         captured["action"] = action
         captured["canonical_id"] = canonical_id
+        captured["action_intent_id"] = action_intent_id
+        captured["expected_state_revision"] = expected_state_revision
         captured["suppress_broadcast"] = suppress_broadcast
         return {"state": {"meta": {"phase": "role_selection", "active_player": "player_0"}}, "action_mask": [0] * 200}
 

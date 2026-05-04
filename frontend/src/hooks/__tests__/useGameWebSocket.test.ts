@@ -172,7 +172,7 @@ describe('useGameWebSocket', () => {
   // ── 4. STATE_UPDATE 수신 → onStateUpdate 호출 ────────────────────────────
 
   it('calls onStateUpdate when STATE_UPDATE message is received', () => {
-    renderHook(() =>
+    const { result } = renderHook(() =>
       useGameWebSocket({
         gameId: 'game-123',
         token: 'tok',
@@ -190,6 +190,35 @@ describe('useGameWebSocket', () => {
 
     expect(onStateUpdate).toHaveBeenCalledOnce()
     expect(onStateUpdate).toHaveBeenCalledWith(MOCK_STATE, MOCK_MASK)
+    expect(result.current.getLatestRevision()).toBe(0)
+  })
+
+  it('tracks the latest state_revision from STATE_UPDATE messages', () => {
+    const revisionedState = {
+      ...MOCK_STATE,
+      meta: {
+        ...MOCK_STATE.meta,
+        state_revision: 9,
+      },
+    } as GameState
+
+    const { result } = renderHook(() =>
+      useGameWebSocket({
+        gameId: 'game-123',
+        token: 'tok',
+        onStateUpdate,
+        onGameEnded,
+        onPlayerDisconnected,
+      })
+    )
+
+    const ws = MockWebSocket.latest()
+    act(() => {
+      ws.simulateOpen()
+      ws.simulateMessage({ type: 'STATE_UPDATE', data: revisionedState, action_mask: MOCK_MASK })
+    })
+
+    expect(result.current.getLatestRevision()).toBe(9)
   })
 
   // ── 5. 동일 상태 수신 → 중복 호출 없음 ──────────────────────────────────

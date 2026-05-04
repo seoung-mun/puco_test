@@ -5,7 +5,7 @@ from uuid import UUID
 
 from app.dependencies import get_db
 from app.schemas.game import AddBotRequest, GameAction
-from app.services.game_service import GameService
+from app.services.game_service import GameService, StaleRevisionError
 from app.api.deps import get_current_user
 from app.db.models import User, GameSession
 from app.services.state_serializer import compute_score_breakdown
@@ -69,6 +69,8 @@ async def perform_action(
 
         action_int = action_data.payload.action_index
         submitted_canonical = action_data.payload.canonical_id
+        intent_id = action_data.payload.action_intent_id
+        expected_revision = action_data.payload.expected_state_revision
         decoded = _describe_action(action_int, state={})
         decoded_canonical = decoded.get("canonical_id") if decoded else None
 
@@ -112,8 +114,26 @@ async def perform_action(
             actor_id,
             action_int,
             canonical_id=decoded_canonical,
+            action_intent_id=intent_id,
+            expected_state_revision=expected_revision,
         )
-        return {"status": "success", "state": result["state"], "action_mask": result["action_mask"]}
+        response = {
+            "status": "success",
+            "state": result["state"],
+            "action_mask": result["action_mask"],
+        }
+        if result.get("duplicate") is True:
+            response["duplicate"] = True
+        return response
+    except StaleRevisionError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "stale_state",
+                "expected_state_revision": exc.expected,
+                "current_state_revision": exc.current,
+            },
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

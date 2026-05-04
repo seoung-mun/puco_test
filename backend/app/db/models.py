@@ -1,6 +1,17 @@
 import uuid
 
-from sqlalchemy import Column, Integer, BigInteger, Float, String, Boolean, DateTime, ForeignKey, Index
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.sql import func
@@ -51,6 +62,13 @@ class GameLog(Base):
     __tablename__ = "game_logs"
     __table_args__ = (
         Index("ix_game_logs_game_round", "game_id", "round"),
+        Index(
+            "ux_game_logs_game_intent",
+            "game_id",
+            "action_intent_id",
+            unique=True,
+            postgresql_where=text("action_intent_id IS NOT NULL"),
+        ),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -64,6 +82,7 @@ class GameLog(Base):
     state_after = Column(JSONB)
     state_summary = Column(JSONB, nullable=True)
     revision = Column(Integer, nullable=True)
+    action_intent_id = Column(String(64), nullable=True)
     phase_before = Column(String(32), nullable=True)
     active_player_before = Column(String(16), nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)

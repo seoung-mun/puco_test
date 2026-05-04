@@ -16,6 +16,7 @@ interface UseGameWebSocketOptions {
 
 interface GameWebSocketHandle {
   sendJson: (payload: Record<string, unknown>) => boolean
+  getLatestRevision: () => number
 }
 
 /**
@@ -55,6 +56,7 @@ export function useGameWebSocket({
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const intentionalCloseRef = useRef(false)
+  const latestRevisionRef = useRef(0)
 
   // 중복 상태 감지용 (JSON 직렬화로 비교)
   const lastStateKeyRef = useRef<string | null>(null)
@@ -91,6 +93,7 @@ export function useGameWebSocket({
           const richState = msg.data!
           // action_mask may be embedded in the rich state (channel API) or at top level (legacy)
           const actionMask: number[] = msg.action_mask ?? (richState as unknown as Record<string, unknown>)['action_mask'] as number[] ?? []
+          latestRevisionRef.current = richState.meta.state_revision ?? latestRevisionRef.current
           console.warn('[STATE_TRACE] frontend_state_update_received', {
             gameId,
             active_player: richState.meta.active_player,
@@ -150,6 +153,7 @@ export function useGameWebSocket({
         wsRef.current = null
       }
       lastStateKeyRef.current = null
+      latestRevisionRef.current = 0
     }
   }, [gameId, token])  // gameId 또는 token 변경 시 재연결
 
@@ -159,6 +163,9 @@ export function useGameWebSocket({
       if (!ws || ws.readyState !== WebSocket.OPEN) return false
       ws.send(JSON.stringify(payload))
       return true
+    },
+    getLatestRevision() {
+      return latestRevisionRef.current
     },
   }
 }

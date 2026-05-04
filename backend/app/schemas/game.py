@@ -12,6 +12,8 @@ class ActionRequestPayload(BaseModel):
     schema_version: str = ACTION_REQUEST_SCHEMA_VERSION
     action_index: int
     canonical_id: Optional[str] = None
+    action_intent_id: Optional[str] = Field(default=None, max_length=64)
+    expected_state_revision: Optional[int] = Field(default=None, ge=0)
 
 
 class GameAction(BaseModel):

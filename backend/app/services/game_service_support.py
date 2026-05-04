@@ -54,6 +54,7 @@ def build_rich_state(db: Session, game_id: UUID, engine: EngineWrapper, room: Ga
         game_id=str(game_id),
         bot_players=bot_players,
     )
+    state.setdefault("meta", {})["state_revision"] = int(room.state_revision or 0)
     state["model_versions"] = dict(room.model_versions or {})
     return state
 

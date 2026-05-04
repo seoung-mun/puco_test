@@ -14,6 +14,7 @@ export interface Meta {
   phase: PhaseType;
   active_role: RoleName | null;
   active_player: string;
+  state_revision?: number;
   players_acted_this_phase: string[];
   end_game_triggered: boolean;
   end_game_reason: string | null;

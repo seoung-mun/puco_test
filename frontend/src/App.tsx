@@ -494,12 +494,14 @@ export default function App() {
   async function channelAction(actionIndex: number, canonicalId?: string): Promise<void> {
     if (!gameId || !authToken) return;
     const requestSeq = ++actionRequestSeqRef.current;
+    const expectedStateRevision = gameSocket?.getLatestRevision?.() ?? state?.meta.state_revision ?? 0;
     const maskAllowed = state?.action_mask?.[actionIndex] ?? null;
     console.warn('[ACTION_TRACE] frontend_action_submit', {
       gameId,
       requestSeq,
       actionIndex,
       canonicalId: canonicalId ?? null,
+      expectedStateRevision,
       phase: state?.meta.phase ?? null,
       activePlayer: state?.meta.active_player ?? null,
       maskAllowed,
@@ -511,7 +513,18 @@ export default function App() {
     setSaving(true);
     setError(null);
     try {
-      const payload: { action_index: number; canonical_id?: string } = { action_index: actionIndex };
+      const payload: {
+        schema_version: string;
+        action_index: number;
+        canonical_id?: string;
+        action_intent_id: string;
+        expected_state_revision: number;
+      } = {
+        schema_version: 'action-request.v1',
+        action_index: actionIndex,
+        action_intent_id: crypto.randomUUID(),
+        expected_state_revision: expectedStateRevision,
+      };
       if (canonicalId) payload.canonical_id = canonicalId;
       const res = await fetch(`${BACKEND}/api/puco/game/${gameId}/action`, {
         method: 'POST',
@@ -521,6 +534,18 @@ export default function App() {
         },
         body: JSON.stringify({ payload }),
       });
+      if (res.status === 409) {
+        const body = await res.json();
+        if (body?.detail?.error === 'stale_state') {
+          console.warn('[ACTION_TRACE] frontend_action_stale_state', {
+            gameId,
+            requestSeq,
+            actionIndex,
+            detail: body.detail,
+          });
+          return;
+        }
+      }
       if (!res.ok) {
         setError(await parseApiError(res));
         return;

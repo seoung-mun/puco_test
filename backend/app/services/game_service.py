@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.redis import sync_redis_client as redis_client
@@ -47,6 +48,16 @@ class EngineLoadResult:
     state: Literal["ready", "blocked"]
     reason: Optional[str] = None
     state_revision: Optional[int] = None
+
+
+class StaleRevisionError(Exception):
+    """Raised when the client's expected revision no longer matches server state."""
+
+    def __init__(self, expected: int, current: int):
+        self.expected = expected
+        self.current = current
+        super().__init__(f"stale_state expected={expected} current={current}")
+
 
 class GameService:
     # In-memory store for active engines (Class variable to persist between requests)
@@ -194,6 +205,8 @@ class GameService:
         actor_id: str,
         action: int,
         canonical_id: Optional[str] = None,
+        action_intent_id: Optional[str] = None,
+        expected_state_revision: Optional[int] = None,
         suppress_broadcast: bool = False,
     ):
         trace_id = uuid4().hex
@@ -214,6 +227,22 @@ class GameService:
         engine = GameService.active_engines.get(game_id)
         if not engine:
             raise ValueError(f"Active game engine not found for game {game_id}")
+
+        prior = None
+        if action_intent_id is not None:
+            prior = self._lookup_prior_intent(game_id, action_intent_id)
+            if prior is not None:
+                return {**prior, "duplicate": True}
+
+        current_revision = GameService._engine_revision.get(game_id, 0)
+        if (
+            expected_state_revision is not None
+            and expected_state_revision != current_revision
+        ):
+            raise StaleRevisionError(
+                expected=expected_state_revision,
+                current=current_revision,
+            )
 
         # Turn validation: actor_id must be the current turn player
         room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
@@ -344,6 +373,8 @@ class GameService:
             action_data={
                 "action_index": action,
                 "canonical_id": canonical_id,
+                "action_intent_id": action_intent_id,
+                "expected_state_revision": expected_state_revision,
                 "model_info": actor_model_info,
             },
             available_options=current_mask,
@@ -351,6 +382,7 @@ class GameService:
             state_after=result["state_after"],
             state_summary=summary,
             revision=new_revision,
+            action_intent_id=action_intent_id,
             phase_before=phase_before_step,
             active_player_before=active_player_before_step,
         )
@@ -386,7 +418,18 @@ class GameService:
         if room:
             room.state_revision = new_revision
         GameService._engine_revision[game_id] = new_revision
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError as exc:
+            if action_intent_id is not None and "ux_game_logs_game_intent" in str(exc.orig):
+                self.db.rollback()
+                GameService._engine_revision[game_id] = max(new_revision - 1, 0)
+                if room:
+                    room.state_revision = max(new_revision - 1, 0)
+                prior = self._lookup_prior_intent(game_id, action_intent_id)
+                if prior is not None:
+                    return {**prior, "duplicate": True}
+            raise
 
         terminated = result.get("terminated", result["done"])
         if room:
@@ -447,6 +490,31 @@ class GameService:
             getattr(engine.env, "agent_selection", None),
         )
         return {"state": rich_state, "action_mask": new_action_mask}
+
+    def _lookup_prior_intent(self, game_id: UUID, intent_id: str) -> Optional[Dict]:
+        """Return the already-committed result shape for a prior human action intent."""
+        log = (
+            self.db.query(GameLog)
+            .filter(
+                GameLog.game_id == game_id,
+                GameLog.action_intent_id == intent_id,
+            )
+            .order_by(GameLog.id.desc())
+            .first()
+        )
+        if log is None:
+            return None
+
+        engine = GameService.active_engines.get(game_id)
+        room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
+        if engine is None or room is None:
+            return None
+
+        rich_state = build_rich_state(self.db, game_id, engine, room)
+        return {
+            "state": rich_state,
+            "action_mask": rich_state.get("action_mask", engine.get_action_mask()),
+        }
 
     def _schedule_next_bot_turn_if_needed(self, game_id: UUID, room: GameSession, engine: EngineWrapper):
         next_idx = engine.env.game.current_player_idx
