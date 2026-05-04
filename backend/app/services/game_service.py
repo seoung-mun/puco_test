@@ -335,6 +335,7 @@ class GameService:
             summary = serialize_compact_summary(engine)
         except Exception:
             summary = None
+        new_revision = GameService._engine_revision.get(game_id, 0) + 1
         game_log = GameLog(
             game_id=game_id,
             round=result["info"].get("round", 0),
@@ -349,15 +350,14 @@ class GameService:
             state_before=result["state_before"],
             state_after=result["state_after"],
             state_summary=summary,
-            revision=GameService._engine_revision.get(game_id, 0) + 1,
+            revision=new_revision,
             phase_before=phase_before_step,
             active_player_before=active_player_before_step,
         )
         self.db.add(game_log)
-        
+
         # Load the room to check players (for bot scheduling)
         room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
-        new_revision = game_log.revision
         replay_status = room.status if room else None
         replay_final_scores = None
         replay_result_summary = None
