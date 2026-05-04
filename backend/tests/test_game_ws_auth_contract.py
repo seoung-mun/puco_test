@@ -71,9 +71,9 @@ async def test_game_ws_auth_ok_for_room_player(monkeypatch, db):
 
     await ws_module.websocket_endpoint(websocket, str(room.id))
 
-    websocket.send_json.assert_awaited_once_with(
-        {"type": "auth_ok", "player_id": str(player.id)}
-    )
+    assert websocket.send_json.await_count >= 1
+    first_message = websocket.send_json.await_args_list[0].args[0]
+    assert first_message == {"type": "auth_ok", "player_id": str(player.id)}
     connect_mock.assert_awaited_once_with(str(room.id), websocket, player_id=str(player.id))
     disconnect_mock.assert_awaited_once_with(str(room.id), websocket, player_id=str(player.id))
 
@@ -147,8 +147,8 @@ async def test_game_ws_allows_host_spectator_for_bot_only_game(monkeypatch, db):
 
     await ws_module.websocket_endpoint(websocket, str(room.id))
 
-    websocket.send_json.assert_awaited_once_with(
-        {"type": "auth_ok", "player_id": str(host.id)}
-    )
+    assert websocket.send_json.await_count >= 1
+    first_message = websocket.send_json.await_args_list[0].args[0]
+    assert first_message == {"type": "auth_ok", "player_id": str(host.id)}
     connect_mock.assert_awaited_once_with(str(room.id), websocket, player_id=str(host.id))
     disconnect_mock.assert_awaited_once_with(str(room.id), websocket, player_id=str(host.id))

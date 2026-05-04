@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy import text
 from app.db.models import GameLog, GameSession, User
 from app.core.security import create_access_token
-from app.services.game_service import GameService
+from app.services.game_service import EngineLoadResult, GameService
 
 
 def test_game_action_logs_to_db(client, db):
@@ -81,13 +81,25 @@ def test_channel_action_endpoint_passes_exact_action_index_to_game_service(clien
 
     captured = {}
 
-    def fake_process_action(self, game_id, actor_id, action, suppress_broadcast=False):
+    async def fake_ensure_engine_loaded(self, game_id):
+        return EngineLoadResult(state="ready", state_revision=0)
+
+    def fake_process_action(
+        self,
+        game_id,
+        actor_id,
+        action,
+        canonical_id=None,
+        suppress_broadcast=False,
+    ):
         captured["game_id"] = game_id
         captured["actor_id"] = actor_id
         captured["action"] = action
+        captured["canonical_id"] = canonical_id
         captured["suppress_broadcast"] = suppress_broadcast
         return {"state": {"meta": {"phase": "role_selection", "active_player": "player_0"}}, "action_mask": [0] * 200}
 
+    monkeypatch.setattr(GameService, "ensure_engine_loaded", fake_ensure_engine_loaded)
     monkeypatch.setattr(GameService, "process_action", fake_process_action)
 
     headers = {"Authorization": f"Bearer {create_access_token(subject=str(user.id))}"}

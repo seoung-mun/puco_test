@@ -189,17 +189,18 @@ class TestPayloadValidation:
             json={"payload": {}},
             headers=_bearer(current_user.id),
         )
-        assert res.status_code == 400
-        assert "action_index" in res.json()["detail"].lower()
+        assert res.status_code == 422
+        assert "action_index" in res.text
 
-    def test_no_engine_returns_400(self, client, db):
-        """Action on a game that was never started should 400."""
+    def test_no_engine_returns_recovery_blocked(self, client, db):
+        """Action on a game that was never started now yields recovery_blocked."""
         user = _make_user(db)
         game = _make_game(db, [str(user.id), "BOT_random", "BOT_random"])
         # Skip start — no engine in active_engines
 
         res = _action(client, game.id, 0, _bearer(user.id))
-        assert res.status_code == 400
+        assert res.status_code == 409
+        assert res.json()["detail"]["error"] == "recovery_blocked"
 
     def test_out_of_range_action_returns_400(self, client, db):
         game, users = _make_human_game(db, "PayloadRange")

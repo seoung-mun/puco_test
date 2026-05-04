@@ -96,6 +96,8 @@ describe('useGameWebSocket', () => {
   let onStateUpdate: ReturnType<typeof vi.fn>
   let onGameEnded: ReturnType<typeof vi.fn>
   let onPlayerDisconnected: ReturnType<typeof vi.fn>
+  let onRecoveryStarted: ReturnType<typeof vi.fn>
+  let onRecoveryBlocked: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     MockWebSocket.reset()
@@ -105,6 +107,8 @@ describe('useGameWebSocket', () => {
     onStateUpdate = vi.fn<[GameState, number[]], void>()
     onGameEnded = vi.fn<[string], void>()
     onPlayerDisconnected = vi.fn<[string], void>()
+    onRecoveryStarted = vi.fn<[], void>()
+    onRecoveryBlocked = vi.fn<[{ reason: string }], void>()
   })
 
   afterEach(() => {
@@ -245,6 +249,8 @@ describe('useGameWebSocket', () => {
         onStateUpdate,
         onGameEnded,
         onPlayerDisconnected,
+        onRecoveryStarted,
+        onRecoveryBlocked,
       })
     )
 
@@ -256,6 +262,73 @@ describe('useGameWebSocket', () => {
 
     expect(onPlayerDisconnected).toHaveBeenCalledOnce()
     expect(onPlayerDisconnected).toHaveBeenCalledWith('player_1')
+  })
+
+  it('calls onRecoveryStarted when RECOVERY_STARTED message is received', () => {
+    renderHook(() =>
+      useGameWebSocket({
+        gameId: 'game-123',
+        token: 'tok',
+        onStateUpdate,
+        onGameEnded,
+        onPlayerDisconnected,
+        onRecoveryStarted,
+      })
+    )
+
+    const ws = MockWebSocket.latest()
+    act(() => {
+      ws.simulateOpen()
+      ws.simulateMessage({ type: 'RECOVERY_STARTED' })
+    })
+
+    expect(onRecoveryStarted).toHaveBeenCalledOnce()
+  })
+
+  it('continues to deliver STATE_UPDATE after RECOVERY_STARTED', () => {
+    renderHook(() =>
+      useGameWebSocket({
+        gameId: 'game-123',
+        token: 'tok',
+        onStateUpdate,
+        onGameEnded,
+        onPlayerDisconnected,
+        onRecoveryStarted,
+      })
+    )
+
+    const ws = MockWebSocket.latest()
+    act(() => {
+      ws.simulateOpen()
+      ws.simulateMessage({ type: 'RECOVERY_STARTED' })
+      ws.simulateMessage({ type: 'STATE_UPDATE', data: MOCK_STATE, action_mask: MOCK_MASK })
+    })
+
+    expect(onRecoveryStarted).toHaveBeenCalledOnce()
+    expect(onStateUpdate).toHaveBeenCalledOnce()
+    expect(onStateUpdate).toHaveBeenCalledWith(MOCK_STATE, MOCK_MASK)
+  })
+
+  it('calls onRecoveryBlocked when RECOVERY_BLOCKED message is received', () => {
+    renderHook(() =>
+      useGameWebSocket({
+        gameId: 'game-123',
+        token: 'tok',
+        onStateUpdate,
+        onGameEnded,
+        onPlayerDisconnected,
+        onRecoveryBlocked,
+      })
+    )
+
+    const ws = MockWebSocket.latest()
+    act(() => {
+      ws.simulateOpen()
+      ws.simulateMessage({ type: 'RECOVERY_BLOCKED', reason: 'no_metadata' })
+    })
+
+    expect(onRecoveryBlocked).toHaveBeenCalledOnce()
+    expect(onRecoveryBlocked).toHaveBeenCalledWith({ reason: 'no_metadata' })
   })
 
   // ── 8. 잘못된 JSON → 조용히 무시 ─────────────────────────────────────────

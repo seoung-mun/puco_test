@@ -96,6 +96,9 @@ export default function App() {
   const [discardProtected, setDiscardProtected] = useState<string[]>([]);
   const [discardSingleExtra, setDiscardSingleExtra] = useState<string | null>(null);
   const [finalScores, setFinalScores] = useState<FinalScoreSummary | null>(null);
+  const [recoveryOverlay, setRecoveryOverlay] = useState(false);
+  const [recoveryBlockedReason, setRecoveryBlockedReason] = useState<string | null>(null);
+  const [recoveryBlockedModalOpen, setRecoveryBlockedModalOpen] = useState(false);
   const prevRoundRef = useRef<number | null>(null);
   const prevPhaseRef = useRef<string | null>(null);
   const prevActivePlayerRef = useRef<string | null>(null);
@@ -135,6 +138,7 @@ export default function App() {
   const [lobbyError, setLobbyError] = useState<string | null>(null);
 
   const lobbyWsRef = useRef<WebSocket | null>(null);
+  const recoveryBlockedActive = recoveryBlockedReason !== null;
   const isBotTurn = !!(state?.bot_players && state?.decision?.player && state.bot_players[state.decision.player] !== undefined);
   const isMyTurn = isSpectator
     ? false
@@ -142,7 +146,7 @@ export default function App() {
       ? !isBotTurn
       : (myPlayerId !== null && state?.decision?.player === myPlayerId);
   const isBlocked = !!state?.meta.bot_thinking || isBotTurn;
-  const interactionLocked = isBlocked || saving;
+  const interactionLocked = isBlocked || saving || recoveryOverlay || recoveryBlockedActive;
   const canPass = (state?.action_mask?.[15] ?? 1) === 1;
   const isBotGame = state
     ? state.meta.player_order.every((id) => state.bot_players?.[id] !== undefined)
@@ -376,10 +380,13 @@ export default function App() {
   });
 
   // Channel WebSocket: game 화면에서 gameId가 있을 때 실시간 상태 수신
-  useGameWebSocket({
+  const gameSocket = useGameWebSocket({
     gameId: screen === 'game' ? gameId : null,
     token: authToken,
     onStateUpdate: (gs, actionMask) => {
+      setRecoveryOverlay(false);
+      setRecoveryBlockedReason(null);
+      setRecoveryBlockedModalOpen(false);
       const nextState = actionMask.length > 0
         ? { ...gs, action_mask: actionMask }
         : gs;
@@ -401,6 +408,14 @@ export default function App() {
     },
     onGameEnded: () => {},
     onPlayerDisconnected: () => {},
+    onRecoveryStarted: () => {
+      setRecoveryOverlay(true);
+    },
+    onRecoveryBlocked: ({ reason }) => {
+      setRecoveryOverlay(false);
+      setRecoveryBlockedReason(reason);
+      setRecoveryBlockedModalOpen(true);
+    },
   });
 
   // Channel mode: lobby 및 heartbeat 폴링 불필요 — WebSocket이 실시간 상태 전달
@@ -708,6 +723,9 @@ export default function App() {
     setDiscardProtected([]);
     setDiscardSingleExtra(null);
     setFinalScores(null);
+    setRecoveryOverlay(false);
+    setRecoveryBlockedReason(null);
+    setRecoveryBlockedModalOpen(false);
     setLobbyError(null);
     prevRoundRef.current = null;
     prevPhaseRef.current = null;
@@ -973,75 +991,111 @@ export default function App() {
   }
 
   return (
-    <GameScreen
-      backend={BACKEND}
-      state={state}
-      error={error}
-      saving={saving}
-      passing={passing}
-      buildConfirm={buildConfirm}
-      pendingSettlement={pendingSettlement}
-      roundFlash={roundFlash}
-      discardProtected={discardProtected}
-      discardSingleExtra={discardSingleExtra}
-      finalScores={finalScores}
-      popups={popups}
-      isAdmin={isAdmin}
-      isSpectator={isSpectator}
-      isMultiplayer={isMultiplayer}
-      myName={myName}
-      lobbyPlayers={lobbyPlayers}
-      isMyTurn={isMyTurn}
-      isBotTurn={isBotTurn}
-      isBlocked={isBlocked}
-      interactionLocked={interactionLocked}
-      canPass={canPass}
-      isBotGame={isBotGame}
-      playbackSpeed={playbackSpeed}
-      playbackPaused={playbackPaused}
-      onSpeedChange={handleSpeedChange}
-      onPauseToggle={handlePauseToggle}
-      onStateLoaded={setState}
-      onGoToRoomsPreservingAuth={goToRoomsPreservingAuth}
-      onLogoutToLogin={logoutToLogin}
-      onExitSpectator={() => { setIsSpectator(false); logoutToLogin(); }}
-      onDismissError={() => setError(null)}
-      onClearPopups={() => {
-        popupTimersRef.current.forEach(clearTimeout);
-        popupTimersRef.current = [];
-        setPopups([]);
-      }}
-      onConfirmBuild={(buildingName) => {
-        build(buildingName);
-        setBuildConfirm(null);
-      }}
-      onCancelBuildConfirm={() => setBuildConfirm(null)}
-      onConfirmSettlement={confirmSettlement}
-      onSelectRole={selectRole}
-      onSettlePlantation={settlePlantation}
-      onUseHacienda={useHacienda}
-      onPlaceMayorColonist={placeMayorColonist}
-      onPassAction={passAction}
-      onSellGood={sellGood}
-      onCraftsmanPrivilege={craftsmanPrivilege}
-      onLoadShip={loadShip}
-      onCaptainPass={captainPass}
-      onToggleDiscardProtected={(good) => {
-        const maxProtected = (state.players[state.meta.active_player]?.city.buildings.some((b) => b.name === 'large_warehouse' && b.is_active) ? 2 : 0)
-          + (state.players[state.meta.active_player]?.city.buildings.some((b) => b.name === 'small_warehouse' && b.is_active) ? 1 : 0);
-        if (discardProtected.includes(good)) {
-          setDiscardProtected((prev) => prev.filter((x) => x !== good));
-          return;
-        }
-        if (discardProtected.length < maxProtected) {
-          setDiscardProtected((prev) => [...prev, good]);
-          if (discardSingleExtra === good) setDiscardSingleExtra(null);
-        }
-      }}
-      onSetDiscardSingleExtra={setDiscardSingleExtra}
-      onDoDiscardGoods={doDiscardGoods}
-      onRequestBuild={requestBuild}
-      onReturnToRooms={handleReturnToRooms}
-    />
+    <>
+      <GameScreen
+        backend={BACKEND}
+        state={state}
+        error={error}
+        saving={saving}
+        passing={passing}
+        buildConfirm={buildConfirm}
+        pendingSettlement={pendingSettlement}
+        roundFlash={roundFlash}
+        discardProtected={discardProtected}
+        discardSingleExtra={discardSingleExtra}
+        finalScores={finalScores}
+        popups={popups}
+        isAdmin={isAdmin}
+        isSpectator={isSpectator}
+        isMultiplayer={isMultiplayer}
+        myName={myName}
+        lobbyPlayers={lobbyPlayers}
+        isMyTurn={isMyTurn}
+        isBotTurn={isBotTurn}
+        isBlocked={isBlocked || recoveryOverlay || recoveryBlockedActive}
+        interactionLocked={interactionLocked}
+        canPass={canPass}
+        isBotGame={isBotGame}
+        playbackSpeed={playbackSpeed}
+        playbackPaused={playbackPaused}
+        onSpeedChange={handleSpeedChange}
+        onPauseToggle={handlePauseToggle}
+        onStateLoaded={setState}
+        onGoToRoomsPreservingAuth={goToRoomsPreservingAuth}
+        onLogoutToLogin={logoutToLogin}
+        onExitSpectator={() => { setIsSpectator(false); logoutToLogin(); }}
+        onDismissError={() => setError(null)}
+        onClearPopups={() => {
+          popupTimersRef.current.forEach(clearTimeout);
+          popupTimersRef.current = [];
+          setPopups([]);
+        }}
+        onConfirmBuild={(buildingName) => {
+          build(buildingName);
+          setBuildConfirm(null);
+        }}
+        onCancelBuildConfirm={() => setBuildConfirm(null)}
+        onConfirmSettlement={confirmSettlement}
+        onSelectRole={selectRole}
+        onSettlePlantation={settlePlantation}
+        onUseHacienda={useHacienda}
+        onPlaceMayorColonist={placeMayorColonist}
+        onPassAction={passAction}
+        onSellGood={sellGood}
+        onCraftsmanPrivilege={craftsmanPrivilege}
+        onLoadShip={loadShip}
+        onCaptainPass={captainPass}
+        onToggleDiscardProtected={(good) => {
+          const maxProtected = (state.players[state.meta.active_player]?.city.buildings.some((b) => b.name === 'large_warehouse' && b.is_active) ? 2 : 0)
+            + (state.players[state.meta.active_player]?.city.buildings.some((b) => b.name === 'small_warehouse' && b.is_active) ? 1 : 0);
+          if (discardProtected.includes(good)) {
+            setDiscardProtected((prev) => prev.filter((x) => x !== good));
+            return;
+          }
+          if (discardProtected.length < maxProtected) {
+            setDiscardProtected((prev) => [...prev, good]);
+            if (discardSingleExtra === good) setDiscardSingleExtra(null);
+          }
+        }}
+        onSetDiscardSingleExtra={setDiscardSingleExtra}
+        onDoDiscardGoods={doDiscardGoods}
+        onRequestBuild={requestBuild}
+        onReturnToRooms={handleReturnToRooms}
+      />
+      {recoveryOverlay && (
+        <div className="recovery-overlay">
+          <div className="recovery-modal">
+            <p>게임 복구 중...</p>
+          </div>
+        </div>
+      )}
+      {recoveryBlockedActive && recoveryBlockedModalOpen && (
+        <div className="recovery-overlay">
+          <div className="recovery-modal">
+            <h2>복구 불가</h2>
+            <p>이 게임은 복구할 수 없습니다. 사유: {recoveryBlockedReason}</p>
+            <div className="recovery-modal__actions">
+              <button
+                className="recovery-secondary-btn"
+                onClick={() => setRecoveryBlockedModalOpen(false)}
+              >
+                그대로 보기
+              </button>
+              <button
+                className="recovery-primary-btn"
+                onClick={() => {
+                  const sent = gameSocket.sendJson({ type: 'END_GAME_REQUEST' });
+                  if (!sent) {
+                    setError('게임 종료 요청을 전송하지 못했습니다.');
+                  }
+                }}
+              >
+                종료
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

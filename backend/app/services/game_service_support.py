@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Dict, List, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.services.canonical_action import CANONICAL_ACTION_VERSION, _describe_action
 from app.db.models import GameSession, User
 from app.services.agent_registry import (
     require_valid_bot_type,
@@ -17,6 +20,7 @@ from app.services.model_registry import (
     build_human_snapshot,
     enrich_actor_snapshot,
 )
+from app.services.engine_gateway.constants import BuildingType, TileType
 from app.services.state_serializer import serialize_game_state_from_engine
 
 
@@ -77,6 +81,46 @@ def build_replay_players_snapshot(room: GameSession, player_names: List[str]) ->
     return players_snapshot
 
 
+def _action_space_fingerprint() -> str:
+    indices = sorted(
+        set(
+            list(range(0, 16))
+            + list(range(16, 39))
+            + list(range(39, 69))
+            + list(range(93, 98))
+            + [105]
+            + list(range(106, 111))
+            + list(range(120, 126))
+            + list(range(140, 163))
+        )
+    )
+    catalog = {idx: _describe_action(idx, state={}) for idx in indices}
+    payload = json.dumps(
+        {
+            "version": CANONICAL_ACTION_VERSION,
+            "catalog": catalog,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def _mayor_semantics_fingerprint() -> str:
+    payload = json.dumps(
+        {
+            "island_offset": 120,
+            "city_offset": 140,
+            "tiles": sorted((tile.name, int(tile.value)) for tile in TileType),
+            "buildings": sorted((building.name, int(building.value)) for building in BuildingType),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
 def build_model_versions_snapshot(room: GameSession) -> Dict[str, Dict]:
     players = room.players or []
     snapshot: Dict[str, Dict] = {}
@@ -104,6 +148,13 @@ def build_model_versions_snapshot(room: GameSession) -> Dict[str, Dict]:
                 snapshot[key] = artifact.to_snapshot(bot_type=bot_type)
         else:
             snapshot[key] = build_human_snapshot(pid)
+    from app.services.engine_gateway.factory import ENGINE_COMPAT_VERSION
+
+    snapshot["__engine__"] = {
+        "compat_version": ENGINE_COMPAT_VERSION,
+        "action_space": _action_space_fingerprint(),
+        "mayor_semantics": _mayor_semantics_fingerprint(),
+    }
     return snapshot
 
 

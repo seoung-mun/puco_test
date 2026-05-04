@@ -161,6 +161,66 @@ h1 { color: #f0c040; margin-bottom: 0.25rem; }
 .hospice-no:hover { background: #3a3a5a; }
 .hospice-no:disabled { opacity: 0.4; cursor: default; }
 
+.recovery-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 11, 22, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+  padding: 1rem;
+}
+
+.recovery-modal {
+  width: min(92vw, 420px);
+  background: linear-gradient(180deg, #172033 0%, #0f1728 100%);
+  border: 1px solid #4a638c;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  padding: 1.25rem 1.4rem;
+  text-align: center;
+}
+
+.recovery-modal h2 {
+  margin: 0 0 0.75rem;
+  color: #f6d37a;
+}
+
+.recovery-modal p {
+  margin: 0;
+  color: #d5dfef;
+  line-height: 1.5;
+}
+
+.recovery-modal__actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+.recovery-primary-btn,
+.recovery-secondary-btn {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0.6rem 1rem;
+}
+
+.recovery-primary-btn {
+  background: #8f3b2e;
+  border-color: #c86a56;
+  color: #fff2ef;
+}
+
+.recovery-secondary-btn {
+  background: #1d2a44;
+  border-color: #4a638c;
+  color: #d5dfef;
+}
+
 /* Trader table (inside action-card) */
 .trader-table {
   width: 100%;

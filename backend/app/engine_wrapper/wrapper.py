@@ -119,6 +119,23 @@ class EngineWrapper:
         """Governor index chosen at engine initialization time."""
         return self._initial_governor_idx
 
+    @property
+    def current_phase(self) -> str:
+        """Normalized phase string used by serializer and recovery validation."""
+        from app.services.state_serializer_support import PHASE_TO_STR
+
+        return PHASE_TO_STR.get(self.env.game.current_phase, "role_selection")
+
+    @property
+    def active_player(self) -> str:
+        """Active player in channel-contract format."""
+        return f"player_{self.env.game.current_player_idx}"
+
+    def replay_step(self, action_index: int) -> None:
+        """Apply a journal action without any persistence side effects."""
+        self.env.step(action_index)
+        self._refresh_cached_view()
+
     def get_state(self) -> Dict[str, Any]:
         """Returns the current state/observation as a serializable dict."""
         # Use the last_obs which is updated after each step or reset

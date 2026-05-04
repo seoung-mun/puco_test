@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, Integer, Float, String, Boolean, DateTime, ForeignKey, Index
+from sqlalchemy import Column, Integer, BigInteger, Float, String, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.sql import func
@@ -35,6 +35,11 @@ class GameSession(Base):
     model_versions = Column(JSONB, default=dict)
     winner_id = Column(String, nullable=True)
     host_id = Column(String, nullable=True, index=True)
+    game_seed = Column(BigInteger, nullable=True)
+    governor_idx = Column(Integer, nullable=True)
+    engine_compat_version = Column(Integer, nullable=True)
+    state_revision = Column(Integer, nullable=False, server_default="0", default=0)
+    recovery_blocked_reason = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -58,6 +63,9 @@ class GameLog(Base):
     state_before = Column(JSONB)
     state_after = Column(JSONB)
     state_summary = Column(JSONB, nullable=True)
+    revision = Column(Integer, nullable=True)
+    phase_before = Column(String(32), nullable=True)
+    active_player_before = Column(String(16), nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     game_session = relationship("GameSession", back_populates="logs")

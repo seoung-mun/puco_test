@@ -3,11 +3,13 @@ import json
 import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
+from uuid import UUID
 from app.services.ws_manager import manager
 from app.dependencies import SessionLocal
 import jwt
 from app.core.security import SECRET_KEY, ALGORITHM
 from app.db.models import GameSession, User
+from app.services.game_service import GameService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -79,6 +81,22 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
     player_id = user_id
     await websocket.send_json({"type": "auth_ok", "player_id": player_id})
     logger.warning("[WS_TRACE] ws_auth_ok_sent game=%s connection_id=%s user_id=%s", game_id, connection_id, player_id)
+
+    service = GameService(None)
+    load_result = await service.ensure_engine_loaded(UUID(game_id))
+    if load_result.state == "blocked":
+        last_state = await service._fetch_last_rich_state(UUID(game_id))
+        if last_state is not None:
+            await websocket.send_json({"type": "STATE_UPDATE", "data": last_state})
+        await websocket.send_json(
+            {
+                "type": "RECOVERY_BLOCKED",
+                "reason": load_result.reason,
+            }
+        )
+    else:
+        rich_state = await service._fetch_or_build_rich_state(UUID(game_id))
+        await websocket.send_json({"type": "STATE_UPDATE", "data": rich_state})
 
     await manager.connect(game_id, websocket, player_id=player_id)
     try:

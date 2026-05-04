@@ -3,6 +3,9 @@ from typing import Any, Optional
 from app.engine_wrapper.wrapper import EngineWrapper, create_game_engine as _create_game_engine
 
 
+ENGINE_COMPAT_VERSION = 1
+
+
 def create_game_engine(
     num_players: int = 3,
     game_seed: Optional[int] = None,

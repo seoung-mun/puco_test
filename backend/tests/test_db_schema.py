@@ -140,7 +140,7 @@ class TestGameSessionModel:
             round=1,
             step=0,
             actor_id="user_abc",
-            action_data={"action": 3},
+            action_data={"action_index": 3, "canonical_id": None},
             available_options=[0, 1, 0, 1],
             state_before={"round": 1},
             state_after={"round": 1},
@@ -162,7 +162,7 @@ class TestGameLogModel:
         db.add(game)
         db.flush()
 
-        action_data = {"action": 5, "role": "settler"}
+        action_data = {"action_index": 5, "canonical_id": None, "role": "settler"}
         log = GameLog(
             game_id=game.id,
             round=2,
@@ -198,7 +198,7 @@ class TestGameLogModel:
         log = GameLog(
             game_id=game.id, round=3, step=0,
             actor_id="player_0",
-            action_data={"action": 1},
+            action_data={"action_index": 1, "canonical_id": None},
             available_options=[0, 1],
             state_before=state_before,
             state_after=state_after,
@@ -220,7 +220,7 @@ class TestGameLogModel:
 
         log = GameLog(
             game_id=game.id, round=1, step=0,
-            actor_id="player_0", action_data={"action": 0},
+            actor_id="player_0", action_data={"action_index": 0, "canonical_id": None},
             available_options=[1], state_before={}, state_after={},
         )
         db.add(log)
@@ -256,7 +256,7 @@ class TestGameLogModel:
 
         log = GameLog(
             game_id=game.id, round=1, step=0, actor_id="player_0",
-            action_data={"action": 7, "role": "captain"},
+            action_data={"action_index": 7, "canonical_id": None, "role": "captain"},
             available_options=[0, 0, 0, 0, 0, 0, 0, 1],
             state_before={"phase": "role_selection"},
             state_after={"phase": "captain_action"},

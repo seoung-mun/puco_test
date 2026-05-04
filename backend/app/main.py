@@ -51,20 +51,36 @@ async def lifespan(app: FastAPI):
     from app.services.game_service import GameService
 
     for task in list(ws_mgr._disconnect_timers.values()):
-        task.cancel()
+        try:
+            if not task.done():
+                task.cancel()
+        except RuntimeError:
+            logger.warning("Disconnect timer cleanup skipped because event loop is closed")
     ws_mgr._disconnect_timers.clear()
 
-    for task in list(GameService._bot_tasks):
-        task.cancel()
+    for task in list(GameService._bot_tasks.values()):
+        try:
+            if not task.done():
+                task.cancel()
+        except RuntimeError:
+            logger.warning("Bot task cleanup skipped because event loop is closed")
     GameService._bot_tasks.clear()
 
     for task in list(GameService._bot_stall_watchdogs.values()):
-        task.cancel()
+        try:
+            if not task.done():
+                task.cancel()
+        except RuntimeError:
+            logger.warning("Bot watchdog cleanup skipped because event loop is closed")
     GameService._bot_stall_watchdogs.clear()
 
     if hasattr(GameService, "_background_log_tasks"):
         for task in list(GameService._background_log_tasks):
-            task.cancel()
+            try:
+                if not task.done():
+                    task.cancel()
+            except RuntimeError:
+                logger.warning("Background log task cleanup skipped because event loop is closed")
         GameService._background_log_tasks.clear()
 
     try:

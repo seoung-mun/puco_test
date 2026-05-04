@@ -3,6 +3,7 @@ import uuid
 import pytest
 from app.core.security import create_access_token
 from app.db.models import GameSession, User
+from app.services.game_service import GameService
 
 
 def _make_user(db, nickname="Tester"):
@@ -17,13 +18,15 @@ def _make_bot_game(db, host_id, status="PROGRESS"):
     room = GameSession(
         id=gid,
         title="Bot Speed Test",
-        status=status,
+        status="WAITING" if status == "PROGRESS" else status,
         num_players=3,
         players=["BOT_ppo", "BOT_random", "BOT_random"],
         host_id=str(host_id),
     )
     db.add(room)
     db.flush()
+    if status == "PROGRESS":
+        GameService(db).start_game(gid)
     return gid
 
 

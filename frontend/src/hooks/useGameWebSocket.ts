@@ -10,6 +10,12 @@ interface UseGameWebSocketOptions {
   onStateUpdate: (state: GameState, actionMask: number[]) => void
   onGameEnded: (reason: string) => void
   onPlayerDisconnected: (playerId: string) => void
+  onRecoveryStarted?: () => void
+  onRecoveryBlocked?: (msg: { reason: string }) => void
+}
+
+interface GameWebSocketHandle {
+  sendJson: (payload: Record<string, unknown>) => boolean
 }
 
 /**
@@ -29,15 +35,21 @@ export function useGameWebSocket({
   onStateUpdate,
   onGameEnded,
   onPlayerDisconnected,
-}: UseGameWebSocketOptions): void {
+  onRecoveryStarted,
+  onRecoveryBlocked,
+}: UseGameWebSocketOptions): GameWebSocketHandle {
   // 콜백 ref — effect 재실행 없이 항상 최신 콜백 참조
   const onStateUpdateRef = useRef(onStateUpdate)
   const onGameEndedRef = useRef(onGameEnded)
   const onPlayerDisconnectedRef = useRef(onPlayerDisconnected)
+  const onRecoveryStartedRef = useRef(onRecoveryStarted)
+  const onRecoveryBlockedRef = useRef(onRecoveryBlocked)
   useLayoutEffect(() => {
     onStateUpdateRef.current = onStateUpdate
     onGameEndedRef.current = onGameEnded
     onPlayerDisconnectedRef.current = onPlayerDisconnected
+    onRecoveryStartedRef.current = onRecoveryStarted
+    onRecoveryBlockedRef.current = onRecoveryBlocked
   })
 
   const wsRef = useRef<WebSocket | null>(null)
@@ -101,6 +113,12 @@ export function useGameWebSocket({
         } else if (msg.type === 'PLAYER_DISCONNECTED') {
           console.warn('[WS_TRACE] frontend_player_disconnected_received', { gameId, playerId: msg.player_id ?? '' })
           onPlayerDisconnectedRef.current(msg.player_id ?? '')
+        } else if (msg.type === 'RECOVERY_STARTED') {
+          console.warn('[WS_TRACE] frontend_recovery_started_received', { gameId })
+          onRecoveryStartedRef.current?.()
+        } else if (msg.type === 'RECOVERY_BLOCKED') {
+          console.warn('[WS_TRACE] frontend_recovery_blocked_received', { gameId, reason: msg.reason ?? '' })
+          onRecoveryBlockedRef.current?.({ reason: msg.reason ?? '' })
         }
       }
 
@@ -134,4 +152,13 @@ export function useGameWebSocket({
       lastStateKeyRef.current = null
     }
   }, [gameId, token])  // gameId 또는 token 변경 시 재연결
+
+  return {
+    sendJson(payload) {
+      const ws = wsRef.current
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false
+      ws.send(JSON.stringify(payload))
+      return true
+    },
+  }
 }

@@ -2,15 +2,20 @@ import asyncio
 import copy
 import json
 import logging
-from typing import Dict, List
+import secrets
+from dataclasses import dataclass
+from typing import Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
 from app.core.redis import sync_redis_client as redis_client
+from app.dependencies import SessionLocal
 from app.db.models import GameSession, GameLog, User
 from app.services.engine_gateway import create_game_engine, EngineWrapper
 from app.services.game_service_support import (
+    _action_space_fingerprint,
+    _mayor_semantics_fingerprint,
     build_model_versions_snapshot,
     build_player_control_modes,
     build_replay_players_snapshot,
@@ -28,15 +33,27 @@ from app.services.replay_logger import (
     ReplayLogger,
     build_final_scores_payload,
     build_replay_entry,
+    load_replay_payload,
     summarize_transition_state,
 )
 from app.services.contracts import MODEL_OBSERVATION_STATE_KIND, extract_state_kind
 logger = logging.getLogger(__name__)
 
+_recovery_locks_meta_lock = asyncio.Lock()
+
+
+@dataclass
+class EngineLoadResult:
+    state: Literal["ready", "blocked"]
+    reason: Optional[str] = None
+    state_revision: Optional[int] = None
+
 class GameService:
     # In-memory store for active engines (Class variable to persist between requests)
     active_engines: Dict[UUID, EngineWrapper] = {}
-    _bot_tasks = set()
+    _bot_tasks: Dict[UUID, asyncio.Task] = {}
+    _engine_revision: Dict[UUID, int] = {}
+    _recovery_locks: Dict[UUID, asyncio.Lock] = {}
     _bot_stall_watchdogs: Dict[str, asyncio.Task] = {}
     _game_speed: Dict[UUID, int] = {}      # game_id -> 1 | 2 | 4
     _game_paused: Dict[UUID, bool] = {}    # game_id -> True | False
@@ -90,6 +107,37 @@ class GameService:
     def _resolve_actor_model_info(self, room: GameSession | None, actor_id: str) -> Dict | None:
         return resolve_actor_model_info(room, actor_id)
 
+    async def _get_or_create_recovery_lock(self, game_id: UUID) -> asyncio.Lock:
+        global _recovery_locks_meta_lock
+        async with _recovery_locks_meta_lock:
+            lock = GameService._recovery_locks.get(game_id)
+            if lock is None:
+                lock = asyncio.Lock()
+                GameService._recovery_locks[game_id] = lock
+            return lock
+
+    async def ensure_engine_loaded(self, game_id: UUID) -> EngineLoadResult:
+        if game_id in GameService.active_engines:
+            return EngineLoadResult(
+                state="ready",
+                state_revision=GameService._engine_revision.get(game_id, 0),
+            )
+
+        lock = await self._get_or_create_recovery_lock(game_id)
+        async with lock:
+            if game_id in GameService.active_engines:
+                return EngineLoadResult(
+                    state="ready",
+                    state_revision=GameService._engine_revision.get(game_id, 0),
+                )
+            if self.db is not None:
+                result = self._recover_with_db(self.db, game_id)
+            else:
+                result = await asyncio.to_thread(self._do_recovery_sync, game_id)
+            if result.state == "ready":
+                await self._resume_bot_after_recovery(game_id)
+            return result
+
     def start_game(self, game_id: UUID):
         room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
         if not room:
@@ -99,15 +147,22 @@ class GameService:
         if actual_players < 3:
             raise ValueError(f"Need at least 3 players to start, currently {actual_players}")
 
-        # Initialize engine with actual number of players
+        game_seed = secrets.randbits(63)
         engine = create_game_engine(
             num_players=actual_players,
+            game_seed=game_seed,
             player_control_modes=build_player_control_modes(room),
         )
         GameService.active_engines[game_id] = engine
+        GameService._engine_revision[game_id] = 0
 
+        from app.services.engine_gateway.factory import ENGINE_COMPAT_VERSION
         room.status = "PROGRESS"
         room.model_versions = build_model_versions_snapshot(room)
+        room.game_seed = game_seed
+        room.governor_idx = engine.initial_governor_idx
+        room.engine_compat_version = ENGINE_COMPAT_VERSION
+        room.state_revision = 0
         self.db.commit()
 
         # Build rich state and broadcast
@@ -133,7 +188,14 @@ class GameService:
 
         return {"state": rich_state, "action_mask": action_mask}
 
-    def process_action(self, game_id: UUID, actor_id: str, action: int, suppress_broadcast: bool = False):
+    def process_action(
+        self,
+        game_id: UUID,
+        actor_id: str,
+        action: int,
+        canonical_id: Optional[str] = None,
+        suppress_broadcast: bool = False,
+    ):
         trace_id = uuid4().hex
         logger.warning(
             "[STATE_TRACE] process_action_enter trace_id=%s game=%s actor=%s action=%s",
@@ -186,6 +248,9 @@ class GameService:
         )
         if not (0 <= action < len(current_mask)) or not current_mask[action]:
             raise ValueError(f"Action {action} is invalid for the current state.")
+
+        phase_before_step = engine.current_phase
+        active_player_before_step = engine.active_player
 
         # Step through engine (wrapper handles snapshot & logging prep)
         result = engine.step(action)
@@ -276,18 +341,23 @@ class GameService:
             step=result["info"].get("step", 0),
             actor_id=actor_id,
             action_data={
-                "action": action,
+                "action_index": action,
+                "canonical_id": canonical_id,
                 "model_info": actor_model_info,
             },
             available_options=current_mask,
             state_before=result["state_before"],
             state_after=result["state_after"],
             state_summary=summary,
+            revision=GameService._engine_revision.get(game_id, 0) + 1,
+            phase_before=phase_before_step,
+            active_player_before=active_player_before_step,
         )
         self.db.add(game_log)
         
         # Load the room to check players (for bot scheduling)
         room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
+        new_revision = game_log.revision
         replay_status = room.status if room else None
         replay_final_scores = None
         replay_result_summary = None
@@ -313,6 +383,9 @@ class GameService:
             except Exception as e:
                 logger.warning("Redis meta update failed: %s", e)
 
+        if room:
+            room.state_revision = new_revision
+        GameService._engine_revision[game_id] = new_revision
         self.db.commit()
 
         terminated = result.get("terminated", result["done"])
@@ -403,6 +476,15 @@ class GameService:
             
         next_actor = players[next_idx]
         if str(next_actor).startswith("BOT_"):
+            existing = GameService._bot_tasks.get(game_id)
+            if existing is not None and not existing.done():
+                logger.warning(
+                    "[BOT_TRACE] schedule_skip_existing_task game=%s next_actor=%s task_id=%s",
+                    game_id,
+                    next_actor,
+                    id(existing),
+                )
+                return
             logger.warning(
                 "[BOT_TRACE] schedule_bot game=%s next_actor=%s idx=%d",
                 game_id,
@@ -423,7 +505,12 @@ class GameService:
                 with SessionLocal() as bg_db:
                     bg_service = GameService(bg_db)
                     try:
-                        bg_service.process_action(bg_game_id, bg_actor_id, bg_action, suppress_broadcast=suppress_broadcast)
+                        bg_service.process_action(
+                            bg_game_id,
+                            bg_actor_id,
+                            bg_action,
+                            suppress_broadcast=suppress_broadcast,
+                        )
                         logger.warning(
                             "[BOT_TRACE] callback_exit game=%s actor=%s action=%s",
                             bg_game_id,
@@ -443,12 +530,13 @@ class GameService:
 
             # Store reference to prevent GC reaping the task
             try:
-                task = asyncio.create_task(
+                loop = asyncio.get_running_loop()
+                task = loop.create_task(
                     BotService.run_bot_turn(
-                        game_id=game_id, 
-                        engine=engine, 
-                        actor_id=next_actor, 
-                        process_action_callback=sync_callback
+                        game_id=game_id,
+                        engine=engine,
+                        actor_id=next_actor,
+                        process_action_callback=sync_callback,
                     )
                 )
             except RuntimeError as exc:
@@ -460,7 +548,7 @@ class GameService:
                 )
                 return
 
-            self._bot_tasks.add(task)
+            self._bot_tasks[game_id] = task
             task.add_done_callback(self._make_bot_task_done_callback(game_id, next_actor))
             self._start_bot_stall_watchdog(game_id, next_actor)
             logger.warning(
@@ -480,7 +568,8 @@ class GameService:
 
     def _make_bot_task_done_callback(self, game_id: UUID, actor_id: str):
         def _done(task: asyncio.Task):
-            self._bot_tasks.discard(task)
+            if self._bot_tasks.get(game_id) is task:
+                self._bot_tasks.pop(game_id, None)
             key = f"{game_id}:{actor_id}"
             watchdog = self._bot_stall_watchdogs.pop(key, None)
             if watchdog:
@@ -504,6 +593,233 @@ class GameService:
                 len(self._bot_tasks),
             )
         return _done
+
+    def _clear_recovery_runtime_state(self, game_id: UUID) -> None:
+        GameService.active_engines.pop(game_id, None)
+        GameService._engine_revision.pop(game_id, None)
+        GameService._bot_tasks.pop(game_id, None)
+        GameService._recovery_locks.pop(game_id, None)
+        GameService.clear_playback_state(game_id)
+
+    def _mark_blocked_in_db(
+        self,
+        db: Session,
+        game_id: UUID,
+        reason: str,
+        room: Optional[GameSession] = None,
+    ) -> None:
+        room = room or db.query(GameSession).filter(GameSession.id == game_id).first()
+        if room is not None:
+            room.status = "RECOVERY_BLOCKED"
+            room.recovery_blocked_reason = reason
+            db.commit()
+
+        self._clear_recovery_runtime_state(game_id)
+
+        try:
+            redis_client.hset(
+                f"game:{game_id}:meta",
+                mapping={"status": "RECOVERY_BLOCKED"},
+            )
+            redis_client.expire(f"game:{game_id}:meta", 900)
+        except Exception:
+            logger.warning("[RECOVERY] could not update redis meta for blocked game=%s", game_id, exc_info=True)
+
+        logger.warning("[RECOVERY] blocked game=%s reason=%s", game_id, reason)
+
+    def _mark_blocked(self, game_id: UUID, reason: str) -> None:
+        with SessionLocal() as db:
+            self._mark_blocked_in_db(db, game_id, reason)
+
+    def _broadcast_recovery_started(self, game_id: UUID) -> None:
+        try:
+            redis_client.publish(
+                f"game:{game_id}:events",
+                json.dumps({"type": "RECOVERY_STARTED"}),
+            )
+        except Exception:
+            logger.warning(
+                "[RECOVERY] could not broadcast RECOVERY_STARTED game=%s",
+                game_id,
+                exc_info=True,
+            )
+
+    def _recover_with_db(self, db: Session, game_id: UUID) -> EngineLoadResult:
+        from app.services.engine_gateway.factory import ENGINE_COMPAT_VERSION
+
+        game = db.query(GameSession).filter(GameSession.id == game_id).first()
+        if not game:
+            return EngineLoadResult(state="blocked", reason="not_recoverable")
+        if game.status == "RECOVERY_BLOCKED":
+            return EngineLoadResult(
+                state="blocked",
+                reason=game.recovery_blocked_reason or "not_recoverable",
+            )
+        if game.status != "PROGRESS":
+            return EngineLoadResult(state="blocked", reason="not_recoverable")
+
+        if (
+            game.game_seed is None
+            or game.engine_compat_version is None
+            or game.governor_idx is None
+        ):
+            self._mark_blocked_in_db(db, game_id, "no_metadata", room=game)
+            return EngineLoadResult(state="blocked", reason="no_metadata")
+
+        if game.engine_compat_version != ENGINE_COMPAT_VERSION:
+            self._mark_blocked_in_db(db, game_id, "engine_version_mismatch", room=game)
+            return EngineLoadResult(state="blocked", reason="engine_version_mismatch")
+
+        stored_engine = (game.model_versions or {}).get("__engine__", {})
+        if (
+            stored_engine.get("action_space") != _action_space_fingerprint()
+            or stored_engine.get("mayor_semantics") != _mayor_semantics_fingerprint()
+        ):
+            self._mark_blocked_in_db(db, game_id, "fingerprint_mismatch", room=game)
+            return EngineLoadResult(state="blocked", reason="fingerprint_mismatch")
+
+        engine = create_game_engine(
+            num_players=game.num_players,
+            game_seed=game.game_seed,
+        )
+        if engine.initial_governor_idx != game.governor_idx:
+            self._mark_blocked_in_db(db, game_id, "replay_validation_failed", room=game)
+            return EngineLoadResult(state="blocked", reason="replay_validation_failed")
+
+        entries = (
+            db.query(GameLog)
+            .filter(GameLog.game_id == game_id, GameLog.revision.isnot(None))
+            .order_by(GameLog.revision)
+            .all()
+        )
+
+        expected_rev = 0
+        for entry in entries:
+            expected_rev += 1
+            if entry.revision != expected_rev:
+                self._mark_blocked_in_db(db, game_id, "journal_corrupt", room=game)
+                return EngineLoadResult(state="blocked", reason="journal_corrupt")
+
+        if len(entries) >= 30:
+            self._broadcast_recovery_started(game_id)
+
+        for entry in entries:
+            if engine.current_phase != entry.phase_before:
+                self._mark_blocked_in_db(db, game_id, "replay_validation_failed", room=game)
+                return EngineLoadResult(state="blocked", reason="replay_validation_failed")
+            if engine.active_player != entry.active_player_before:
+                self._mark_blocked_in_db(db, game_id, "replay_validation_failed", room=game)
+                return EngineLoadResult(state="blocked", reason="replay_validation_failed")
+            try:
+                action_data = entry.action_data or {}
+                engine.replay_step(int(action_data["action_index"]))
+            except Exception:
+                logger.exception(
+                    "[RECOVERY] replay_step failed game=%s revision=%s",
+                    game_id,
+                    entry.revision,
+                )
+                self._mark_blocked_in_db(db, game_id, "replay_validation_failed", room=game)
+                return EngineLoadResult(state="blocked", reason="replay_validation_failed")
+
+        if game.state_revision != len(entries):
+            self._mark_blocked_in_db(db, game_id, "replay_validation_failed", room=game)
+            return EngineLoadResult(state="blocked", reason="replay_validation_failed")
+
+        GameService.active_engines[game_id] = engine
+        GameService._engine_revision[game_id] = game.state_revision
+
+        rich_state = build_rich_state(db, game_id, engine, game)
+        self._sync_to_redis(game_id, rich_state)
+        self._store_game_meta(game_id, game)
+
+        return EngineLoadResult(
+            state="ready",
+            state_revision=game.state_revision,
+        )
+
+    def _do_recovery_sync(self, game_id: UUID) -> EngineLoadResult:
+        with SessionLocal() as db:
+            return self._recover_with_db(db, game_id)
+
+    def _maybe_resume_bot(self, game_id: UUID, room: GameSession, engine: EngineWrapper) -> None:
+        if room.status != "PROGRESS":
+            return
+        if GameService.get_game_paused(game_id):
+            return
+
+        players = list(room.players or [])
+        active_idx = engine.env.game.current_player_idx
+        if active_idx >= len(players):
+            return
+        if not str(players[active_idx]).startswith("BOT_"):
+            return
+
+        existing = GameService._bot_tasks.get(game_id)
+        if existing is not None and not existing.done():
+            return
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return
+
+        self._schedule_next_bot_turn_if_needed(game_id, room, engine)
+
+    async def _resume_bot_after_recovery(self, game_id: UUID) -> None:
+        engine = GameService.active_engines.get(game_id)
+        if engine is None:
+            return
+        if self.db is not None:
+            room = self.db.query(GameSession).filter(GameSession.id == game_id).first()
+            if room is not None:
+                self._maybe_resume_bot(game_id, room, engine)
+            return
+
+        with SessionLocal() as db:
+            room = db.query(GameSession).filter(GameSession.id == game_id).first()
+            if room is not None:
+                self._maybe_resume_bot(game_id, room, engine)
+
+    async def _fetch_last_rich_state(self, game_id: UUID) -> Optional[Dict]:
+        cached = redis_client.get(f"game:{game_id}:state")
+        if cached:
+            try:
+                return json.loads(cached)
+            except Exception:
+                logger.warning("[RECOVERY] invalid cached rich state game=%s", game_id, exc_info=True)
+        return await asyncio.to_thread(self._read_last_rich_state_from_replay_payload, game_id)
+
+    def _read_last_rich_state_from_replay_payload(self, game_id: UUID) -> Optional[Dict]:
+        with SessionLocal() as db:
+            payload = load_replay_payload(game_id=game_id, db=db)
+        if not isinstance(payload, dict):
+            return None
+        for entry in reversed(payload.get("entries") or []):
+            rich_state = entry.get("rich_state")
+            if isinstance(rich_state, dict):
+                return rich_state
+        return None
+
+    async def _fetch_or_build_rich_state(self, game_id: UUID) -> Dict:
+        engine = GameService.active_engines.get(game_id)
+        if engine is not None:
+            return await asyncio.to_thread(self._build_rich_state_sync, game_id, engine)
+
+        cached = redis_client.get(f"game:{game_id}:state")
+        if cached:
+            try:
+                return json.loads(cached)
+            except Exception:
+                logger.warning("[RECOVERY] invalid cached rich state game=%s", game_id, exc_info=True)
+        return {}
+
+    def _build_rich_state_sync(self, game_id: UUID, engine: EngineWrapper) -> Dict:
+        with SessionLocal() as db:
+            room = db.query(GameSession).filter(GameSession.id == game_id).first()
+            if room is None:
+                return {}
+            return build_rich_state(db, game_id, engine, room)
 
     def _start_bot_stall_watchdog(self, game_id: UUID, actor_id: str) -> None:
         key = f"{game_id}:{actor_id}"

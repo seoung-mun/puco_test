@@ -12,6 +12,7 @@ from app.services.state_serializer import compute_score_breakdown
 from app.services.lobby_manager import lobby_manager, _build_lobby_payload
 from app.services.agent_registry import make_bot_player_id, require_valid_bot_type
 from app.services.canonical_action import _describe_action
+from app.services.replay_logger import load_replay_payload
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -59,6 +60,13 @@ async def perform_action(
     actor_id = str(current_user.id)
     service = GameService(db)
     try:
+        load_result = await service.ensure_engine_loaded(game_id)
+        if load_result.state == "blocked":
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "recovery_blocked", "reason": load_result.reason},
+            )
+
         action_int = action_data.payload.action_index
         submitted_canonical = action_data.payload.canonical_id
         decoded = _describe_action(action_int, state={})
@@ -99,7 +107,12 @@ async def perform_action(
             action_data.payload.schema_version,
         )
 
-        result = service.process_action(game_id, actor_id, action_int)
+        result = service.process_action(
+            game_id,
+            actor_id,
+            action_int,
+            canonical_id=decoded_canonical,
+        )
         return {"status": "success", "state": result["state"], "action_mask": result["action_mask"]}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -209,9 +222,22 @@ async def get_final_score(
         raise HTTPException(status_code=403, detail="You are not allowed to view this game's final score")
 
     engine = GameService.active_engines.get(game_id)
-    if not engine:
-        raise HTTPException(status_code=404, detail="Game engine not found (game may not have started)")
-
     service = GameService(db)
+    if room.status == "PROGRESS":
+        load_result = await service.ensure_engine_loaded(game_id)
+        if load_result.state == "blocked":
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "recovery_blocked", "reason": load_result.reason},
+            )
+        engine = GameService.active_engines.get(game_id)
+
     player_names, _ = service._resolve_player_names_and_bots(room)
-    return compute_score_breakdown(engine.env.game, player_names)
+    if engine:
+        return compute_score_breakdown(engine.env.game, player_names)
+
+    replay_payload = load_replay_payload(game_id=game_id, db=db) or {}
+    result_summary = replay_payload.get("result_summary")
+    if isinstance(result_summary, dict):
+        return result_summary
+    raise HTTPException(status_code=404, detail="Game engine not found (game may not have started)")

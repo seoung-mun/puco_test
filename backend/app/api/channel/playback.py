@@ -24,12 +24,19 @@ def _get_bot_game(db: Session, game_id: UUID) -> GameSession:
 
 
 @router.get("/{game_id}/playback", response_model=PlaybackState)
-def get_playback(
+async def get_playback(
     game_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     _get_bot_game(db, game_id)
+    service = GameService(db)
+    load_result = await service.ensure_engine_loaded(game_id)
+    if load_result.state == "blocked":
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "recovery_blocked", "reason": load_result.reason},
+        )
     return PlaybackState(
         speed=GameService.get_game_speed(game_id),
         paused=GameService.get_game_paused(game_id),
@@ -37,13 +44,20 @@ def get_playback(
 
 
 @router.post("/{game_id}/speed")
-def set_speed(
+async def set_speed(
     game_id: UUID,
     body: SpeedRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     _get_bot_game(db, game_id)
+    service = GameService(db)
+    load_result = await service.ensure_engine_loaded(game_id)
+    if load_result.state == "blocked":
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "recovery_blocked", "reason": load_result.reason},
+        )
     GameService.set_game_speed(game_id, body.speed)
     return {"speed": body.speed}
 
@@ -56,6 +70,13 @@ async def set_pause(
     current_user: User = Depends(get_current_user),
 ):
     _get_bot_game(db, game_id)
+    service = GameService(db)
+    load_result = await service.ensure_engine_loaded(game_id)
+    if load_result.state == "blocked":
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "recovery_blocked", "reason": load_result.reason},
+        )
     GameService.set_game_paused(game_id, body.paused)
     if not body.paused:
         _try_resume_bot(game_id, db)
