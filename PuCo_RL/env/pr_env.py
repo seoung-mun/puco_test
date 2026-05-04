@@ -125,11 +125,13 @@ class PuertoRicoEnv(AECEnv):
         return spaces.Dict(obs_space)
 
     def reset(self, seed=None, options=None):
-        if seed is not None:
-            # Note: We should ideally pass seed to the engine, but for now we'll rely on global random
-            import random
-            random.seed(seed)
-            np.random.seed(seed)
+        import random as _stdlib_random
+
+        if seed is None:
+            seed_used = _stdlib_random.randrange(2**63)
+        else:
+            seed_used = int(seed)
+        self._seed_used = seed_used
             
         self.agents = self.possible_agents[:]
         self.rewards = {agent: 0.0 for agent in self.agents}
@@ -138,7 +140,7 @@ class PuertoRicoEnv(AECEnv):
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
 
-        self.game = PuertoRicoGame(self.num_players)
+        self.game = PuertoRicoGame(self.num_players, seed=seed_used)
         self.game.start_game()
         self._game_step_count = 0
         

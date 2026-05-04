@@ -1,4 +1,5 @@
 import random
+import numpy as np
 from typing import List, Dict, Optional, Tuple
 
 from configs.constants import (
@@ -13,11 +14,14 @@ from env.components import CargoShip
 from env.player import Player
 
 class PuertoRicoGame:
-    def __init__(self, num_players: int):
+    def __init__(self, num_players: int, seed: Optional[int] = None):
         if num_players not in [2, 3, 4, 5]:
             raise ValueError("Puerto Rico only supports 2, 3, 4, or 5 players.")
         
         self.num_players = num_players
+        # Per-instance RNG isolates engine randomness from global module state.
+        self._rng = random.Random(seed)
+        self._np_rng = np.random.default_rng(seed)
         self.players: List[Player] = [Player(i) for i in range(num_players)]
         
         # Global State Variables
@@ -64,7 +68,7 @@ class PuertoRicoGame:
         self.roles_in_play: List[Role] = [] # Roles currently picked by players this round
         
         # State Machine Tracking
-        self.governor_idx = random.randint(0, num_players - 1)
+        self.governor_idx = self._rng.randint(0, num_players - 1)
         self.current_player_idx = self.governor_idx
         self.current_phase: Optional[Phase] = None
         self.active_role: Optional[Role] = None
@@ -93,7 +97,7 @@ class PuertoRicoGame:
             if self.num_players == 2:
                 count -= 3
             stack.extend([t_type] * count)
-        random.shuffle(stack)
+        self._rng.shuffle(stack)
         return stack
 
     def _init_roles(self) -> List[Role]:
@@ -138,7 +142,7 @@ class PuertoRicoGame:
         
         for _ in range(needed):
             if not self.plantation_stack and self.plantation_discard:
-                random.shuffle(self.plantation_discard)
+                self._rng.shuffle(self.plantation_discard)
                 self.plantation_stack = self.plantation_discard
                 self.plantation_discard = []
                 
@@ -895,4 +899,3 @@ class PuertoRicoGame:
                     ship.good_type = None
             # Reset captain privilege
             self._captain_privilege_used = False
-
