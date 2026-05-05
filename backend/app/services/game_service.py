@@ -3,6 +3,7 @@ import copy
 import json
 import logging
 import secrets
+import time
 from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional
 from uuid import UUID, uuid4
@@ -68,6 +69,11 @@ class GameService:
     _bot_stall_watchdogs: Dict[str, asyncio.Task] = {}
     _game_speed: Dict[UUID, int] = {}      # game_id -> 1 | 2 | 4
     _game_paused: Dict[UUID, bool] = {}    # game_id -> True | False
+    # Track scheduler skip reasons for liveness diagnostics (Task 2A §1.2.1)
+    # Shape: {"reason": str, "actor": str, "at": float, "current_idx": int, ...}
+    _last_skip_reason: Dict[UUID, dict] = {}
+    # Track when bot tasks were started (for "seconds_since_existing_task_started")
+    _bot_task_started_at: Dict[UUID, float] = {}
     game_session_model = GameSession
 
     def __init__(self, db: Session):
@@ -530,10 +536,23 @@ class GameService:
         )
 
         if GameService.get_game_paused(game_id):
+            GameService._last_skip_reason[game_id] = {
+                "reason": "paused",
+                "actor": None,
+                "at": time.time(),
+                "current_idx": next_idx,
+            }
             logger.warning("[BOT_TRACE] schedule_skipped_paused game=%s", game_id)
             return
 
         if not players or next_idx >= len(players):
+            GameService._last_skip_reason[game_id] = {
+                "reason": "idx_out_of_range",
+                "actor": None,
+                "at": time.time(),
+                "current_idx": next_idx,
+                "players_len": len(players),
+            }
             logger.warning(
                 "[BOT_TRACE] schedule_abort game=%s reason=idx_out_of_range next_idx=%d players_len=%d",
                 game_id,
@@ -541,16 +560,36 @@ class GameService:
                 len(players),
             )
             return
-            
+
         next_actor = players[next_idx]
         if str(next_actor).startswith("BOT_"):
             existing = GameService._bot_tasks.get(game_id)
             if existing is not None and not existing.done():
+                started_at = GameService._bot_task_started_at.get(game_id)
+                seconds_since = (time.time() - started_at) if started_at is not None else None
+                engine_revision = GameService._engine_revision.get(game_id)
+                # Try to surface the existing task's actor (best effort)
+                existing_task_actor = getattr(existing, "_bot_actor_id", None)
+                GameService._last_skip_reason[game_id] = {
+                    "reason": "in_flight_self",
+                    "actor": next_actor,
+                    "existing_task_actor": existing_task_actor,
+                    "at": time.time(),
+                    "current_idx": next_idx,
+                    "engine_revision": engine_revision,
+                    "seconds_since_existing_task_started": seconds_since,
+                }
                 logger.warning(
-                    "[BOT_TRACE] schedule_skip_existing_task game=%s next_actor=%s task_id=%s",
+                    "[BOT_TRACE] schedule_skip_existing_task game=%s next_actor=%s task_id=%s "
+                    "existing_task_actor=%s engine_revision=%s current_player_idx=%d "
+                    "seconds_since_existing_task_started=%s",
                     game_id,
                     next_actor,
                     id(existing),
+                    existing_task_actor,
+                    engine_revision,
+                    next_idx,
+                    seconds_since,
                 )
                 return
             logger.warning(
@@ -616,7 +655,15 @@ class GameService:
                 )
                 return
 
+            # Tag the task with its actor so future skip events can report it.
+            try:
+                setattr(task, "_bot_actor_id", next_actor)
+            except Exception:
+                pass
             self._bot_tasks[game_id] = task
+            GameService._bot_task_started_at[game_id] = time.time()
+            # Clear any stale skip reason since a new task is now active.
+            GameService._last_skip_reason.pop(game_id, None)
             task.add_done_callback(self._make_bot_task_done_callback(game_id, next_actor))
             self._start_bot_stall_watchdog(game_id, next_actor)
             logger.warning(
@@ -636,8 +683,11 @@ class GameService:
 
     def _make_bot_task_done_callback(self, game_id: UUID, actor_id: str):
         def _done(task: asyncio.Task):
+            # IMPORTANT: clear the slot BEFORE attempting to reschedule so that the
+            # follow-up scheduler call does not skip itself with `in_flight_self`.
             if self._bot_tasks.get(game_id) is task:
                 self._bot_tasks.pop(game_id, None)
+                GameService._bot_task_started_at.pop(game_id, None)
             key = f"{game_id}:{actor_id}"
             watchdog = self._bot_stall_watchdogs.pop(key, None)
             if watchdog:
@@ -660,12 +710,119 @@ class GameService:
                 exc,
                 len(self._bot_tasks),
             )
+
+            # Step 1 — Re-trigger the next bot turn if the deterministic deadlock
+            # described in §1.2.1 of the plan would otherwise leave a bot-only
+            # game frozen. We intentionally only reschedule for *cleanly finished*
+            # tasks: cancelled/exception tasks are surfaced with a structured
+            # log line and skipped to avoid infinite reschedule loops.
+            if cancelled or exc is not None:
+                last_revision = GameService._engine_revision.get(game_id)
+                logger.warning(
+                    "[BOT_TRACE] scheduler_skipped_failed_task game=%s actor=%s "
+                    "last_revision=%s exception_repr=%r cancelled=%s",
+                    game_id,
+                    actor_id,
+                    last_revision,
+                    exc,
+                    cancelled,
+                )
+                return
+
+            # Don't reschedule if the game is paused / finished / lost its engine.
+            if GameService.get_game_paused(game_id):
+                return
+            engine = GameService.active_engines.get(game_id)
+            if engine is None:
+                return
+
+            try:
+                next_idx = engine.env.game.current_player_idx
+            except Exception:
+                logger.warning(
+                    "[BOT_TRACE] task_done_reschedule_engine_inspect_failed game=%s actor=%s",
+                    game_id,
+                    actor_id,
+                    exc_info=True,
+                )
+                return
+
+            # Schedule the follow-up on the next event-loop tick. Doing this via
+            # call_soon avoids re-entering the scheduler while still inside the
+            # current `task_done` callback context (which would otherwise race
+            # against itself when self-rescheduling).
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                logger.warning(
+                    "[BOT_TRACE] task_done_no_running_loop game=%s actor=%s "
+                    "next_idx=%d (skipping follow-up reschedule)",
+                    game_id,
+                    actor_id,
+                    next_idx,
+                )
+                return
+
+            def _reschedule_next_bot_turn() -> None:
+                # Don't trust the engine pointer / players list across a session
+                # boundary — re-fetch the room from a fresh DB session, since the
+                # original caller's session is closed by the time this fires.
+                try:
+                    current_engine = GameService.active_engines.get(game_id)
+                    if current_engine is None:
+                        return
+                    if GameService.get_game_paused(game_id):
+                        return
+                    try:
+                        idx = current_engine.env.game.current_player_idx
+                    except Exception:
+                        logger.warning(
+                            "[BOT_TRACE] reschedule_engine_inspect_failed game=%s",
+                            game_id,
+                            exc_info=True,
+                        )
+                        return
+                    with SessionLocal() as fresh_db:
+                        fresh_room = (
+                            fresh_db.query(GameSession)
+                            .filter(GameSession.id == game_id)
+                            .first()
+                        )
+                        if fresh_room is None:
+                            return
+                        if fresh_room.status not in ("PROGRESS",):
+                            # Game over / blocked / waiting — no follow-up.
+                            return
+                        players = fresh_room.players or []
+                        if not players or idx >= len(players):
+                            return
+                        next_actor = players[idx]
+                        if not str(next_actor).startswith("BOT_"):
+                            return
+                        # Already replaced by some other code path? Don't clobber.
+                        if GameService._bot_tasks.get(game_id) is not None:
+                            return
+                        fresh_service = GameService(fresh_db)
+                        fresh_service._schedule_next_bot_turn_if_needed(
+                            game_id, fresh_room, current_engine
+                        )
+                except Exception:
+                    logger.warning(
+                        "[BOT_TRACE] task_done_reschedule_failed game=%s actor=%s",
+                        game_id,
+                        actor_id,
+                        exc_info=True,
+                    )
+
+            loop.call_soon(_reschedule_next_bot_turn)
         return _done
 
     def _clear_recovery_runtime_state(self, game_id: UUID) -> None:
         GameService.active_engines.pop(game_id, None)
         GameService._engine_revision.pop(game_id, None)
         GameService._bot_tasks.pop(game_id, None)
+        GameService._bot_task_started_at.pop(game_id, None)
+        GameService._last_skip_reason.pop(game_id, None)
         GameService._recovery_locks.pop(game_id, None)
         GameService.clear_playback_state(game_id)
 
@@ -898,10 +1055,13 @@ class GameService:
         async def _watch():
             try:
                 await asyncio.sleep(5)
+                last_skip_reason = GameService._last_skip_reason.get(game_id)
                 logger.warning(
-                    "[BOT_STALL] watchdog_timeout game=%s actor=%s threshold_seconds=5",
+                    "[BOT_STALL] watchdog_timeout game=%s actor=%s threshold_seconds=5 "
+                    "last_skip_reason=%r",
                     game_id,
                     actor_id,
+                    last_skip_reason,
                 )
             except asyncio.CancelledError:
                 return
