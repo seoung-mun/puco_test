@@ -67,6 +67,7 @@ class GameService:
     _engine_revision: Dict[UUID, int] = {}
     _recovery_locks: Dict[UUID, asyncio.Lock] = {}
     _bot_stall_watchdogs: Dict[str, asyncio.Task] = {}
+    _bot_stall_watchdog_meta: Dict[UUID, dict] = {}
     _game_speed: Dict[UUID, int] = {}      # game_id -> 1 | 2 | 4
     _game_paused: Dict[UUID, bool] = {}    # game_id -> True | False
     # Track scheduler skip reasons for liveness diagnostics (Task 2A §1.2.1)
@@ -568,17 +569,24 @@ class GameService:
                 started_at = GameService._bot_task_started_at.get(game_id)
                 seconds_since = (time.time() - started_at) if started_at is not None else None
                 engine_revision = GameService._engine_revision.get(game_id)
+                skip_at = time.time()
                 # Try to surface the existing task's actor (best effort)
                 existing_task_actor = getattr(existing, "_bot_actor_id", None)
                 GameService._last_skip_reason[game_id] = {
                     "reason": "in_flight_self",
                     "actor": next_actor,
                     "existing_task_actor": existing_task_actor,
-                    "at": time.time(),
+                    "at": skip_at,
                     "current_idx": next_idx,
                     "engine_revision": engine_revision,
                     "seconds_since_existing_task_started": seconds_since,
                 }
+                self._start_bot_stall_watchdog(
+                    game_id,
+                    str(next_actor),
+                    started_at=skip_at,
+                    source="schedule_skip",
+                )
                 logger.warning(
                     "[BOT_TRACE] schedule_skip_existing_task game=%s next_actor=%s task_id=%s "
                     "existing_task_actor=%s engine_revision=%s current_player_idx=%d "
@@ -661,11 +669,17 @@ class GameService:
             except Exception:
                 pass
             self._bot_tasks[game_id] = task
-            GameService._bot_task_started_at[game_id] = time.time()
+            task_started_at = time.time()
+            GameService._bot_task_started_at[game_id] = task_started_at
             # Clear any stale skip reason since a new task is now active.
             GameService._last_skip_reason.pop(game_id, None)
             task.add_done_callback(self._make_bot_task_done_callback(game_id, next_actor))
-            self._start_bot_stall_watchdog(game_id, next_actor)
+            self._start_bot_stall_watchdog(
+                game_id,
+                next_actor,
+                started_at=task_started_at,
+                source="task_created",
+            )
             logger.warning(
                 "[BOT_TRACE] task_created game=%s next_actor=%s task_id=%s active_bot_tasks=%d",
                 game_id,
@@ -688,9 +702,17 @@ class GameService:
             if self._bot_tasks.get(game_id) is task:
                 self._bot_tasks.pop(game_id, None)
                 GameService._bot_task_started_at.pop(game_id, None)
-            key = f"{game_id}:{actor_id}"
-            watchdog = self._bot_stall_watchdogs.pop(key, None)
-            if watchdog:
+            key = GameService._bot_stall_watchdog_key(game_id)
+            watchdog = self._bot_stall_watchdogs.get(key)
+            watchdog_meta = GameService._bot_stall_watchdog_meta.get(game_id)
+            if (
+                watchdog is not None
+                and watchdog_meta is not None
+                and watchdog_meta.get("source") == "task_created"
+                and watchdog_meta.get("actor_id") == actor_id
+            ):
+                self._bot_stall_watchdogs.pop(key, None)
+                GameService._bot_stall_watchdog_meta.pop(game_id, None)
                 watchdog.cancel()
 
             cancelled = task.cancelled()
@@ -824,6 +846,7 @@ class GameService:
         GameService._bot_task_started_at.pop(game_id, None)
         GameService._last_skip_reason.pop(game_id, None)
         GameService._recovery_locks.pop(game_id, None)
+        self._cancel_bot_stall_watchdog(game_id)
         GameService.clear_playback_state(game_id)
 
     def _mark_blocked_in_db(
@@ -1046,27 +1069,61 @@ class GameService:
                 return {}
             return build_rich_state(db, game_id, engine, room)
 
-    def _start_bot_stall_watchdog(self, game_id: UUID, actor_id: str) -> None:
-        key = f"{game_id}:{actor_id}"
+    @staticmethod
+    def _bot_stall_watchdog_key(game_id: UUID) -> str:
+        return str(game_id)
+
+    @staticmethod
+    def _cancel_bot_stall_watchdog(game_id: UUID) -> None:
+        key = GameService._bot_stall_watchdog_key(game_id)
+        watchdog = GameService._bot_stall_watchdogs.pop(key, None)
+        GameService._bot_stall_watchdog_meta.pop(game_id, None)
+        if watchdog:
+            watchdog.cancel()
+
+    def _start_bot_stall_watchdog(
+        self,
+        game_id: UUID,
+        actor_id: str,
+        *,
+        started_at: Optional[float] = None,
+        source: str = "task_created",
+    ) -> None:
+        key = GameService._bot_stall_watchdog_key(game_id)
         old_watchdog = self._bot_stall_watchdogs.pop(key, None)
         if old_watchdog:
             old_watchdog.cancel()
+        started_at = started_at if started_at is not None else time.time()
+        GameService._bot_stall_watchdog_meta[game_id] = {
+            "actor_id": actor_id,
+            "source": source,
+            "started_at": started_at,
+        }
+
+        watchdog_task: asyncio.Task | None = None
 
         async def _watch():
             try:
-                await asyncio.sleep(5)
+                elapsed = max(0.0, time.time() - started_at)
+                await asyncio.sleep(max(0.0, 5 - elapsed))
                 last_skip_reason = GameService._last_skip_reason.get(game_id)
                 logger.warning(
                     "[BOT_STALL] watchdog_timeout game=%s actor=%s threshold_seconds=5 "
-                    "last_skip_reason=%r",
+                    "source=%s last_skip_reason=%r",
                     game_id,
                     actor_id,
+                    source,
                     last_skip_reason,
                 )
             except asyncio.CancelledError:
                 return
+            finally:
+                if watchdog_task is not None and self._bot_stall_watchdogs.get(key) is watchdog_task:
+                    self._bot_stall_watchdogs.pop(key, None)
+                    GameService._bot_stall_watchdog_meta.pop(game_id, None)
 
-        self._bot_stall_watchdogs[key] = asyncio.create_task(_watch())
+        watchdog_task = asyncio.create_task(_watch())
+        self._bot_stall_watchdogs[key] = watchdog_task
 
     def _store_game_meta(self, game_id: UUID, room: GameSession):
         """Store game metadata in Redis for disconnect/timeout logic."""
