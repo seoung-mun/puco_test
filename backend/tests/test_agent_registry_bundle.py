@@ -8,6 +8,7 @@ from app.services import agent_registry
 from app.services.agent_registry import (
     AGENT_REGISTRY,
     clear_wrapper_cache,
+    describe_model_artifact_resolution,
     get_adapter_runtime,
     resolve_model_artifact,
 )
@@ -140,7 +141,7 @@ def test_get_adapter_runtime_returns_none_when_manifest_missing(tmp_path, monkey
     assert get_adapter_runtime("ppo") is None
 
 
-def test_get_adapter_runtime_skips_default_bundle_when_model_override_is_set(tmp_path, monkeypatch):
+def test_get_adapter_runtime_prefers_bundle_when_model_override_is_set(tmp_path, monkeypatch):
     nested_checkpoint = tmp_path / "ppo_checkpoints" / "smoke" / "PPO_test.pth"
     nested_checkpoint.parent.mkdir(parents=True, exist_ok=True)
     nested_checkpoint.write_bytes(b"placeholder")
@@ -155,19 +156,19 @@ def test_get_adapter_runtime_skips_default_bundle_when_model_override_is_set(tmp
     monkeypatch.delenv("PPO_BUNDLE_DIR", raising=False)
     clear_wrapper_cache()
 
-    assert get_adapter_runtime("ppo") is None
+    runtime = get_adapter_runtime("ppo")
+
+    assert runtime is not None
+    assert runtime.adapter.obs_dim == 293
 
 
-def test_resolve_model_artifact_uses_nested_model_override_when_bundle_env_missing(tmp_path, monkeypatch):
+def test_resolve_model_artifact_uses_nested_model_override_when_bundle_missing(tmp_path, monkeypatch):
     nested_checkpoint = tmp_path / "ppo_checkpoints" / "smoke" / "PPO_test.pth"
     nested_checkpoint.parent.mkdir(parents=True, exist_ok=True)
     nested_checkpoint.write_bytes(b"placeholder")
 
-    bundle_dir = tmp_path / "default-bundle"
-    _write_bundle(bundle_dir)
-
     monkeypatch.setattr(agent_registry, "_MODELS_DIR", str(tmp_path))
-    monkeypatch.setitem(AGENT_REGISTRY["ppo"], "bundle_dir", "default-bundle")
+    monkeypatch.setitem(AGENT_REGISTRY["ppo"], "bundle_dir", "missing-bundle")
     monkeypatch.setitem(AGENT_REGISTRY["ppo"], "use_adapter", True)
     monkeypatch.setenv("PPO_MODEL_FILENAME", "PPO_test.pth")
     monkeypatch.delenv("PPO_BUNDLE_DIR", raising=False)
@@ -179,3 +180,28 @@ def test_resolve_model_artifact_uses_nested_model_override_when_bundle_env_missi
     assert artifact.metadata_source == "static_config"
     assert artifact.checkpoint_path == str(nested_checkpoint)
     assert artifact.checkpoint_filename == "PPO_test.pth"
+
+
+def test_describe_model_artifact_resolution_prefers_bundle_over_model_override(tmp_path, monkeypatch):
+    nested_checkpoint = tmp_path / "ppo_checkpoints" / "smoke" / "PPO_test.pth"
+    nested_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    nested_checkpoint.write_bytes(b"placeholder")
+
+    bundle_dir = tmp_path / "default-bundle"
+    _write_bundle(bundle_dir)
+
+    monkeypatch.setattr(agent_registry, "_MODELS_DIR", str(tmp_path))
+    monkeypatch.setitem(AGENT_REGISTRY["ppo"], "bundle_dir", "default-bundle")
+    monkeypatch.setitem(AGENT_REGISTRY["ppo"], "use_adapter", True)
+    monkeypatch.setenv("PPO_MODEL_FILENAME", "PPO_test.pth")
+    monkeypatch.delenv("PPO_BUNDLE_DIR", raising=False)
+    clear_wrapper_cache()
+
+    resolution = describe_model_artifact_resolution("ppo")
+
+    assert resolution.artifact is not None
+    assert resolution.artifact.metadata_source == "bundle_v2"
+    assert resolution.artifact.artifact_name == "ppo-test-bundle"
+    assert resolution.warning is not None
+    assert "PPO_MODEL_FILENAME" in resolution.warning
+    assert "bundle" in resolution.warning.lower()

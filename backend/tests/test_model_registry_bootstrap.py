@@ -3,7 +3,19 @@ import json
 import pytest
 
 from app.services import model_registry
-from app.services.agent_registry import AGENT_REGISTRY, resolve_model_artifact
+from app.services.agent_registry import (
+    AGENT_REGISTRY,
+    clear_wrapper_cache,
+    resolve_model_artifact,
+)
+from app.services.serving_health import validate_serving_health
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    clear_wrapper_cache()
+    yield
+    clear_wrapper_cache()
 
 
 def test_default_ppo_artifact_uses_bundle_metadata(monkeypatch):
@@ -95,3 +107,66 @@ def test_allowlisted_ppo_checkpoint_without_sidecar_is_rejected(tmp_path):
             str(checkpoint_path),
             family="ppo",
         )
+
+
+def test_serving_health_degrades_when_bundle_manifest_missing(tmp_path, monkeypatch):
+    checkpoint_name = AGENT_REGISTRY["ppo"]["model_default"]
+    (tmp_path / checkpoint_name).write_bytes(b"placeholder")
+
+    monkeypatch.setattr("app.services.agent_registry._MODELS_DIR", str(tmp_path))
+    monkeypatch.setitem(AGENT_REGISTRY["ppo"], "bundle_dir", "missing-bundle")
+    monkeypatch.delenv("PPO_BUNDLE_DIR", raising=False)
+    monkeypatch.delenv("PPO_MODEL_FILENAME", raising=False)
+
+    health = validate_serving_health()
+
+    assert health.ok is False
+    assert health.artifact_name == checkpoint_name.removesuffix(".pth")
+    assert health.source == "static_config"
+    assert health.detail == (
+        f"Bundle manifest missing: {tmp_path / 'missing-bundle' / 'manifest.json'}"
+    )
+
+
+def test_serving_health_degrades_when_bundle_checkpoint_missing(tmp_path, monkeypatch):
+    bundle_dir = tmp_path / "broken-bundle"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    (bundle_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": model_registry.MODEL_BUNDLE_SCHEMA_V2,
+                "bundle_id": "ppo-broken-bundle",
+                "family": "ppo",
+                "policy_tag": "champion",
+                "architecture": "ppo_residual",
+                "checkpoint_file": "missing-checkpoint.pth",
+                "adapter_module": "common.semantic293_adapter:Semantic293TypeMayorAdapter",
+                "adapter_version": "1.0.0",
+                "obs_dim": 293,
+                "action_dim": 200,
+                "num_players": 3,
+                "network": {"hidden_dim": 512, "num_res_blocks": 3},
+                "compatibility": {
+                    "supported_canonical_state_versions": ["castone.canonical-state.v1"],
+                    "supported_canonical_action_versions": ["castone.canonical-action.v1"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    checkpoint_name = AGENT_REGISTRY["ppo"]["model_default"]
+    (tmp_path / checkpoint_name).write_bytes(b"placeholder")
+
+    monkeypatch.setattr("app.services.agent_registry._MODELS_DIR", str(tmp_path))
+    monkeypatch.setitem(AGENT_REGISTRY["ppo"], "bundle_dir", "broken-bundle")
+    monkeypatch.delenv("PPO_BUNDLE_DIR", raising=False)
+    monkeypatch.delenv("PPO_MODEL_FILENAME", raising=False)
+
+    health = validate_serving_health()
+
+    assert health.ok is False
+    assert health.artifact_name == checkpoint_name.removesuffix(".pth")
+    assert health.source == "static_config"
+    assert health.detail == (
+        f"Bundle checkpoint not found: {tmp_path / 'broken-bundle' / 'missing-checkpoint.pth'}"
+    )

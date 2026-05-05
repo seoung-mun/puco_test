@@ -4,8 +4,8 @@
   "family": "ppo",
   "policy_tag": "champion",
   "architecture": "ppo_residual",
-  "checkpoint_file": "../PPO_PR_Server_hybrid_selfplay_curriculum_5billion_from_scratch_20260412_122638_step_481689600.pth",
-  "checkpoint_sha256": "20a0fafb9a81747d587c4e12e83b14f0b03871616949b51868d472c5759a7043",
+  "checkpoint_file": "../ppo_checkpoints/codex_smoke_selfplay_fix3/PPO_test.pth",
+  "checkpoint_sha256": "44b84bfd442250462bfcd5ed39dfaf96b7387a843607350f9cf3216763b130b2",
   "adapter_module": "common.semantic293_adapter:Semantic293TypeMayorAdapter",
   "adapter_version": "1.0.0",
   "canonical_state_version": "castone.canonical-state.v1",
@@ -25,5 +25,5 @@
       "castone.canonical-action.v1"
     ]
   },
-  "source_checkpoint": "PPO_PR_Server_hybrid_selfplay_curriculum_5billion_from_scratch_20260412_122638_step_481689600.pth"
+  "source_checkpoint": "ppo_checkpoints/codex_smoke_selfplay_fix3/PPO_test.pth"
 }

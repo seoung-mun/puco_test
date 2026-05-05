@@ -139,9 +139,10 @@
 - `REPLAY_STORAGE_BACKEND=db`
 
 - `MODEL_TYPE=ppo`
-- `PPO_MODEL_FILENAME=ppo_agent_update_100.pth`
+- `PPO_BUNDLE_DIR=ppo-pr-server-semantic293-20260419`
 
-    - 이 모델들은 계속 에이전트가 개발됨에 따라 바뀔 수도 있고, 다른 모델도 동시에 켜질수도 있는데 이걸 env에 넣어버리면 동적으로 하기가 힘들거 같은데
+    - 현재 운영 PPO는 293-dim bundle 기준이다. `PPO_MODEL_FILENAME`에 예전 210-dim 체크포인트를 직접 넣으면 `expected 210, got 293` 오류가 날 수 있다.
+    - 다른 PPO 후보를 올리고 싶다면 bare checkpoint보다 그 체크포인트에서 생성한 bundle을 `PPO_BUNDLE_DIR`로 주입하는 편이 안전하다.
 
 필요 시 추가:
 

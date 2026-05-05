@@ -9,6 +9,7 @@ AgentRegistry — bot_type 문자열을 실제 serving artifact와 wrapper로 �
 import functools
 import logging
 import os
+from dataclasses import dataclass
 from app.services.engine_gateway.agents import (
     ActionValueWrapper,
     AgentWrapper,
@@ -37,6 +38,14 @@ _MODELS_DIR = os.path.abspath(
 DEFAULT_BOT_TYPE = "random"
 BOT_PLAYER_PREFIX = "BOT_"
 
+
+@dataclass(frozen=True)
+class ModelArtifactResolution:
+    artifact: ModelArtifact | None
+    warning: str | None = None
+    failure_detail: str | None = None
+    used_legacy_override: bool = False
+
 # ──────────────────────────────────────────────────────────────────────────
 # 에이전트 등록 테이블 — 새 알고리즘은 이 dict 한 곳만 수정
 # ──────────────────────────────────────────────────────────────────────────
@@ -47,7 +56,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         "policy_tag": "champion",
         "wrapper_cls": PPOWrapper,
         "model_env_key": "PPO_MODEL_FILENAME",
-        "model_default": "PPO_PR_Server_hybrid_selfplay_curriculum_5billion_from_scratch_20260412_122638_step_481689600.pth",
+        "model_default": "PPO_test.pth",
         "bundle_dir_env_key": "PPO_BUNDLE_DIR",
         "bundle_dir": "ppo-pr-server-semantic293-20260419",
         "use_adapter": True,
@@ -119,10 +128,6 @@ def _get_env_override(key: str | None) -> str | None:
         return None
     value = value.strip()
     return value or None
-
-
-def _has_explicit_model_override(cfg: dict) -> bool:
-    return _get_env_override(cfg.get("model_env_key")) is not None
 
 
 def normalize_bot_type(bot_type: str | None) -> str:
@@ -216,50 +221,22 @@ def _resolve_bundle_dir_name(cfg: dict) -> str | None:
     env_override = _get_env_override(cfg.get("bundle_dir_env_key"))
     if env_override:
         return env_override
-
-    # Respect an explicit model override by skipping the baked-in champion bundle.
-    if _has_explicit_model_override(cfg):
-        return None
-
     return cfg.get("bundle_dir")
 
 
-@functools.lru_cache(maxsize=None)
-def _resolve_bundle_artifact(bot_type: str) -> ModelArtifact | None:
-    cfg = AGENT_REGISTRY.get(bot_type, {})
-    bundle_name = _resolve_bundle_dir_name(cfg)
-    if not bundle_name:
-        return None
+def _bundle_failure_detail(bundle_dir: str) -> str | None:
+    manifest = load_bundle_manifest(bundle_dir)
+    if manifest is None:
+        return f"Bundle manifest missing: {os.path.join(bundle_dir, 'manifest.json')}"
 
-    bundle_dir = os.path.join(_MODELS_DIR, bundle_name)
     try:
-        artifact = load_bundle_artifact(bundle_dir)
-    except FileNotFoundError:
-        logger.warning(
-            "Bundle checkpoint missing for %s at %s — ignoring bundle artifact.",
-            bot_type,
-            bundle_dir,
-        )
-        return None
-    if artifact is None:
-        return None
-
-    logger.info(
-        "Bundle artifact resolved for bot_type=%s bundle=%s checkpoint=%s",
-        bot_type,
-        artifact.artifact_name,
-        artifact.checkpoint_filename,
-    )
-    return artifact
+        resolve_bundle_checkpoint(bundle_dir, manifest)
+    except FileNotFoundError as exc:
+        return str(exc)
+    return None
 
 
-def resolve_model_artifact(bot_type: str) -> ModelArtifact | None:
-    normalized = require_valid_bot_type(bot_type)
-    cfg = AGENT_REGISTRY[normalized]
-    bundle_artifact = _resolve_bundle_artifact(normalized)
-    if bundle_artifact is not None:
-        return bundle_artifact
-
+def _resolve_static_or_sidecar_artifact(bot_type: str, cfg: dict) -> ModelArtifact | None:
     if cfg["model_env_key"] is None:
         return None
 
@@ -267,7 +244,7 @@ def resolve_model_artifact(bot_type: str) -> ModelArtifact | None:
     if model_path is None:
         return None
 
-    if normalized == "hppo":
+    if bot_type == "hppo":
         try:
             return resolve_model_artifact_from_path(
                 model_path,
@@ -309,6 +286,94 @@ def resolve_model_artifact(bot_type: str) -> ModelArtifact | None:
             architecture="ppo_residual",
             metadata_source="static_config",
         )
+
+
+def describe_model_artifact_resolution(bot_type: str) -> ModelArtifactResolution:
+    normalized = require_valid_bot_type(bot_type)
+    cfg = AGENT_REGISTRY[normalized]
+    bundle_name = _resolve_bundle_dir_name(cfg)
+    bundle_dir = os.path.join(_MODELS_DIR, bundle_name) if bundle_name else None
+    model_override = _get_env_override(cfg.get("model_env_key"))
+    warning: str | None = None
+    failure_detail: str | None = None
+
+    bundle_artifact = _load_bundle_artifact_for_bot(normalized)
+    if bundle_artifact is not None:
+        if model_override:
+            warning = (
+                f"Both {cfg['bundle_dir_env_key']} and {cfg['model_env_key']} are set; "
+                f"using bundle precedence and ignoring legacy override {model_override!r}."
+            )
+            logger.warning("%s", warning)
+        return ModelArtifactResolution(
+            artifact=bundle_artifact,
+            warning=warning,
+        )
+
+    if bundle_dir:
+        failure_detail = _bundle_failure_detail(bundle_dir)
+
+    try:
+        artifact = _resolve_static_or_sidecar_artifact(normalized, cfg)
+    except ValueError as exc:
+        return ModelArtifactResolution(
+            artifact=None,
+            failure_detail=str(exc),
+        )
+
+    used_legacy_override = model_override is not None and artifact is not None
+    if used_legacy_override:
+        warning = f"Running on legacy override via {cfg['model_env_key']}={model_override!r}."
+        logger.warning("%s", warning)
+
+    return ModelArtifactResolution(
+        artifact=artifact,
+        warning=warning,
+        failure_detail=failure_detail,
+        used_legacy_override=used_legacy_override,
+    )
+
+
+def _load_bundle_artifact_for_bot(bot_type: str) -> ModelArtifact | None:
+    cfg = AGENT_REGISTRY.get(bot_type, {})
+    bundle_name = _resolve_bundle_dir_name(cfg)
+    if not bundle_name:
+        return None
+
+    bundle_dir = os.path.join(_MODELS_DIR, bundle_name)
+    try:
+        artifact = load_bundle_artifact(bundle_dir)
+    except FileNotFoundError:
+        logger.warning(
+            "Bundle checkpoint missing for %s at %s — ignoring bundle artifact.",
+            bot_type,
+            bundle_dir,
+        )
+        return None
+    if artifact is None:
+        return None
+
+    logger.info(
+        "Bundle artifact resolved for bot_type=%s bundle=%s checkpoint=%s",
+        bot_type,
+        artifact.artifact_name,
+        artifact.checkpoint_filename,
+    )
+    return artifact
+
+
+@functools.lru_cache(maxsize=None)
+def _resolve_bundle_artifact(bot_type: str) -> ModelArtifact | None:
+    return _load_bundle_artifact_for_bot(bot_type)
+
+
+def resolve_model_artifact(bot_type: str) -> ModelArtifact | None:
+    normalized = require_valid_bot_type(bot_type)
+    cfg = AGENT_REGISTRY[normalized]
+    bundle_artifact = _resolve_bundle_artifact(normalized)
+    if bundle_artifact is not None:
+        return bundle_artifact
+    return _resolve_static_or_sidecar_artifact(normalized, cfg)
 
 
 def _validate_artifact_for_wrapper(

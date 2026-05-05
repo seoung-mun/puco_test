@@ -13,6 +13,7 @@ from app.api.channel import room, game, ws, auth, lobby_ws, replay, playback
 from app.api.legacy import router as legacy_router
 from app.dependencies import SessionLocal
 from app.core.redis import async_redis_client
+from app.services.serving_health import validate_serving_health
 from app.services.startup_cleanup import cleanup_stale_rooms
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,23 @@ async def lifespan(app: FastAPI):
             cleanup_stale_rooms(db)
     except Exception as e:
         logger.error("Startup room cleanup failed: %s", e)
+
+    serving_health = validate_serving_health()
+    if serving_health.ok:
+        logger.info(
+            "Serving health verified for %s artifact=%s source=%s",
+            serving_health.bot_type,
+            serving_health.artifact_name,
+            serving_health.source,
+        )
+    else:
+        logger.warning(
+            "Serving health degraded for %s artifact=%s source=%s detail=%s",
+            serving_health.bot_type,
+            serving_health.artifact_name,
+            serving_health.source,
+            serving_health.detail,
+        )
 
     yield
 
@@ -162,7 +180,20 @@ async def health():
         checks["redis"] = "error"
         logger.error("Redis health check failed: %s", e)
 
-    all_ok = all(v == "ok" for v in checks.values())
+    serving_health = validate_serving_health()
+    checks["serving"] = {
+        "status": "ok" if serving_health.ok else "degraded",
+        "artifact_name": serving_health.artifact_name,
+        "metadata_source": serving_health.source,
+    }
+    if serving_health.detail:
+        checks["serving"]["detail"] = serving_health.detail
+
+    all_ok = (
+        checks["postgresql"] == "ok"
+        and checks["redis"] == "ok"
+        and serving_health.ok
+    )
     # Always return 200 for Render liveness probe;
     # body contains degraded status for monitoring.
     return JSONResponse(
