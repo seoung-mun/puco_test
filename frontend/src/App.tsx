@@ -14,6 +14,7 @@ import {
   shouldAutoFocusTurn,
 } from './utils/turnFocus';
 import { backendOrigin, buildApiUrl, buildWebSocketUrl } from './config';
+import { clearActiveGameSession, writeActiveGameSession } from './lib/activeGameSession';
 import './App.css';
 
 type Screen =
@@ -285,8 +286,15 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    void bootstrapAuth().then((nextScreen) => {
+    void bootstrapAuth().then(({ screen: nextScreen, activeGameSession }) => {
       if (!cancelled) {
+        if (activeGameSession) {
+          setGameId(activeGameSession.gameId);
+          setMyName(activeGameSession.myName);
+          setMyPlayerId(activeGameSession.myPlayerId);
+          setIsSpectator(activeGameSession.isSpectator);
+          setIsMultiplayer(activeGameSession.isMultiplayer);
+        }
         setScreen(nextScreen);
       }
     });
@@ -317,6 +325,12 @@ export default function App() {
       .catch(() => {});
   }, [screen, gameId, authToken, isSpectator]);
 
+  useEffect(() => {
+    if (screen !== 'lobby' || !gameId || !authToken) return;
+    if (lobbyWsRef.current) return;
+    connectLobbyWs(gameId);
+  }, [screen, gameId, authToken]);
+
   async function handleGoogleLogin(credentialResponse: { credential?: string }) {
     if (!credentialResponse.credential) return;
     setError(null);
@@ -338,7 +352,14 @@ export default function App() {
       if (data.user.needs_nickname) {
         setNicknameInput('');
       }
-      const nextScreen = await bootstrapAuth(data.access_token);
+      const { screen: nextScreen, activeGameSession } = await bootstrapAuth(data.access_token);
+      if (activeGameSession) {
+        setGameId(activeGameSession.gameId);
+        setMyName(activeGameSession.myName);
+        setMyPlayerId(activeGameSession.myPlayerId);
+        setIsSpectator(activeGameSession.isSpectator);
+        setIsMultiplayer(activeGameSession.isMultiplayer);
+      }
       setScreen(nextScreen);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Login failed');
@@ -459,6 +480,7 @@ export default function App() {
   function resetNavigationState(nextScreen: Exclude<Screen, 'loading'>, clearAuth = false) {
     closeLobbyWs();
     resetGameUiState();
+    clearActiveGameSession();
     localStorage.removeItem('mp_key');
     localStorage.removeItem('mp_name');
     setMyName(null);
@@ -590,9 +612,19 @@ export default function App() {
       const myEntry = authUser?.nickname ?? authUser?.id ?? title;
       setGameId(gid);
       setMyName(myEntry);
+      setMyPlayerId(authUser?.id ?? null);
       setIsMultiplayer(true);
+      setIsSpectator(false);
       setLobbyHost(myEntry);
       setLobbyPlayers([{ name: myEntry, player_id: authUser?.id ?? '', connected: true }]);
+      writeActiveGameSession({
+        gameId: gid,
+        screen: 'lobby',
+        myPlayerId: authUser?.id ?? null,
+        myName: myEntry,
+        isSpectator: false,
+        isMultiplayer: true,
+      });
       setScreen('lobby');
       connectLobbyWs(gid);
       return null;
@@ -622,8 +654,18 @@ export default function App() {
       const data = await res.json();
       setState(data.state);
       setGameId(data.game_id);
+      setMyName(authUser?.nickname ?? authUser?.id ?? null);
+      setMyPlayerId(null);
       setIsSpectator(true);
       setIsMultiplayer(false);
+      writeActiveGameSession({
+        gameId: data.game_id,
+        screen: 'game',
+        myPlayerId: null,
+        myName: authUser?.nickname ?? authUser?.id ?? null,
+        isSpectator: true,
+        isMultiplayer: false,
+      });
       setScreen('game');
       return null;
     } catch (e) {
@@ -638,8 +680,18 @@ export default function App() {
     const myEntry = authUser?.nickname ?? authUser?.id ?? 'Player';
     setGameId(roomId);
     setMyName(myEntry);
+    setMyPlayerId(authUser?.id ?? null);
     setIsMultiplayer(true);
+    setIsSpectator(false);
     setLobbyPlayers([{ name: myEntry, player_id: authUser?.id ?? '', connected: true }]);
+    writeActiveGameSession({
+      gameId: roomId,
+      screen: 'lobby',
+      myPlayerId: authUser?.id ?? null,
+      myName: myEntry,
+      isSpectator: false,
+      isMultiplayer: true,
+    });
     setScreen('lobby');
     connectLobbyWs(roomId);
   }
@@ -652,7 +704,17 @@ export default function App() {
       // key is game_id in channel mode
       setGameId(key);
       setMyName(name);
+      setMyPlayerId(authUser?.id ?? null);
       setIsMultiplayer(true);
+      setIsSpectator(false);
+      writeActiveGameSession({
+        gameId: key,
+        screen: 'lobby',
+        myPlayerId: authUser?.id ?? null,
+        myName: name,
+        isSpectator: false,
+        isMultiplayer: true,
+      });
       setScreen('lobby');
       return null;
     } catch (e) {
@@ -717,6 +779,13 @@ export default function App() {
         setLobbyHost(hostPlayer?.name ?? null);
       } else if (msg.type === 'ROOM_DELETED') {
         closeLobbyWs();
+        clearActiveGameSession();
+        setGameId(null);
+        setMyPlayerId(null);
+        setIsMultiplayer(false);
+        setIsSpectator(false);
+        setLobbyPlayers([]);
+        setLobbyHost(null);
         setScreen('rooms');
         setLobbyError('방이 삭제되었습니다.');
       } else if (msg.type === 'GAME_STARTED') {
@@ -724,6 +793,14 @@ export default function App() {
         setState(gs);
         const humanEntry = Object.entries(gs.players).find(([, p]) => (p as { display_name?: string }).display_name === myName);
         if (humanEntry) setMyPlayerId(humanEntry[0]);
+        writeActiveGameSession({
+          gameId: roomId,
+          screen: 'game',
+          myPlayerId: humanEntry?.[0] ?? myPlayerId,
+          myName,
+          isSpectator,
+          isMultiplayer,
+        });
         closeLobbyWs();
         setScreen('game');
       }
@@ -763,6 +840,7 @@ export default function App() {
   function handleReturnToRooms() {
     closeLobbyWs();
     resetGameUiState();
+    clearActiveGameSession();
     setState(null);
     setGameId(null);
     setMyName(null);
@@ -790,6 +868,14 @@ export default function App() {
       setState(gs);
       const humanEntry = Object.entries(gs.players).find(([, p]) => p.display_name === myName);
       if (humanEntry) setMyPlayerId(humanEntry[0]);
+      writeActiveGameSession({
+        gameId: String(gameId),
+        screen: 'game',
+        myPlayerId: humanEntry?.[0] ?? myPlayerId,
+        myName,
+        isSpectator,
+        isMultiplayer,
+      });
       closeLobbyWs();
       setScreen('game');
     } catch (e) {

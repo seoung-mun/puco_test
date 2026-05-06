@@ -14,7 +14,7 @@ from fastapi import Header, HTTPException
 from app.services.session_manager import session
 from app.services.state_serializer import TILE_TO_STR
 from app.services.bot_service import BotService
-from app.services.agent_registry import bot_agents_list, valid_bot_types
+from app.services.agent_registry import bot_agents_list, public_valid_bot_types
 from configs.constants import Role, Good, BuildingType
 
 # ------------------------------------------------------------------ #
@@ -24,7 +24,7 @@ from configs.constants import Role, Good, BuildingType
 INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY")
 
 BOT_AGENTS = bot_agents_list()         # [{"type": "ppo", "name": "PPO Bot"}, ...]
-_VALID_BOT_TYPES: set = valid_bot_types()  # {"ppo", "hppo", "random", ...}
+_VALID_BOT_TYPES: set = public_valid_bot_types()  # {"ppo", "random", ...}
 
 
 def require_internal_key(x_api_key: str | None = Header(default=None)):

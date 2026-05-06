@@ -22,6 +22,15 @@ interface BotAgent {
   name: string;
 }
 
+const PUBLIC_BOT_TYPE_ORDER = ['random', 'action_value', 'shipping_rush', 'ppo'] as const;
+
+const FALLBACK_BOT_AGENTS: BotAgent[] = [
+  { type: 'random', name: 'Random Bot' },
+  { type: 'action_value', name: 'Action Value Bot' },
+  { type: 'shipping_rush', name: 'Shipping Rush Bot' },
+  { type: 'ppo', name: 'PPO Bot' },
+];
+
 interface Props {
   token: string;
   userNickname?: string | null;
@@ -35,7 +44,7 @@ interface Props {
 
 export default function RoomListScreen({ token, userNickname, onJoinRoom, onCreateRoom, onCreateBotGame, onOpenReplayList, onLogout, error: externalError }: Props) {
   const { t } = useTranslation();
-  const defaultBotTypes = ['random', 'random', 'random'];
+  const defaultBotTypes = ['random', 'action_value', 'shipping_rush'];
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +94,6 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
     if (!onCreateBotGame) return;
 
     let cancelled = false;
-    const fallbackAgents: BotAgent[] = [{ type: 'random', name: 'Random Bot' }];
 
     async function fetchBotAgents() {
       setLoadingBotTypes(true);
@@ -95,16 +103,23 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
         const data: BotAgent[] = await res.json();
         if (cancelled) return;
 
-        const nextAgents = data.length > 0 ? data : fallbackAgents;
-        const defaultType = nextAgents.find(agent => agent.type === 'random')?.type ?? nextAgents[0].type;
+        const nextAgents = data
+          .filter(agent => PUBLIC_BOT_TYPE_ORDER.includes(agent.type as typeof PUBLIC_BOT_TYPE_ORDER[number]))
+          .sort(
+            (left, right) =>
+              PUBLIC_BOT_TYPE_ORDER.indexOf(left.type as typeof PUBLIC_BOT_TYPE_ORDER[number])
+              - PUBLIC_BOT_TYPE_ORDER.indexOf(right.type as typeof PUBLIC_BOT_TYPE_ORDER[number]),
+          );
+        const safeAgents = nextAgents.length > 0 ? nextAgents : FALLBACK_BOT_AGENTS;
+        const defaultType = safeAgents.find(agent => agent.type === 'random')?.type ?? safeAgents[0].type;
 
-        setBotAgents(nextAgents);
+        setBotAgents(safeAgents);
         setSelectedBotTypes(prev =>
-          prev.map(type => (nextAgents.some(agent => agent.type === type) ? type : defaultType))
+          prev.map(type => (safeAgents.some(agent => agent.type === type) ? type : defaultType))
         );
       } catch {
         if (cancelled) return;
-        setBotAgents(fallbackAgents);
+        setBotAgents(FALLBACK_BOT_AGENTS);
         setSelectedBotTypes(prev => prev.map(type => type || 'random'));
       } finally {
         if (!cancelled) setLoadingBotTypes(false);

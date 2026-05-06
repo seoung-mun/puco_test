@@ -9,10 +9,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 import uvicorn
 
-from app.api.channel import room, game, ws, auth, lobby_ws, replay, playback
+from app.api.channel import room, game, ws, auth, lobby_ws, replay, playback, session
 from app.api.legacy import router as legacy_router
 from app.dependencies import SessionLocal
 from app.core.redis import async_redis_client
+from app.db.models import GameSession
 from app.services.serving_health import validate_serving_health
 from app.services.startup_cleanup import cleanup_stale_rooms
 
@@ -163,22 +164,52 @@ async def root():
 
 @app.get("/health")
 async def health():
-    checks = {}
+    checks = {"process": "ok"}
 
+    try:
+        loop = asyncio.get_running_loop()
+        checks["event_loop"] = "ok" if not loop.is_closed() else "error: closed"
+    except RuntimeError as exc:
+        checks["event_loop"] = f"error: {exc}"
+
+    # Keep /health cheap and stable for Render liveness probes.
+    return JSONResponse(content={"status": "ok", "checks": checks}, status_code=200)
+
+
+@app.get("/health/runtime")
+async def runtime_health():
+    from app.services.game_service import GameService
+
+    checks: dict[str, object] = {}
+    runtime: dict[str, object] = {
+        "progress_games_without_engine": None,
+        "running_bot_tasks": sum(1 for task in GameService._bot_tasks.values() if not task.done()),
+        "active_bot_stall_watchdogs": sum(
+            1 for task in GameService._bot_stall_watchdogs.values() if not task.done()
+        ),
+    }
+
+    progress_game_ids = None
     try:
         with SessionLocal() as db:
             db.execute(text("SELECT 1"))
+            progress_game_ids = [
+                game_id
+                for (game_id,) in db.query(GameSession.id)
+                .filter(GameSession.status == "PROGRESS")
+                .all()
+            ]
         checks["postgresql"] = "ok"
-    except Exception as e:
-        checks["postgresql"] = "error"
-        logger.error("PostgreSQL health check failed: %s", e)
+    except Exception as exc:
+        checks["postgresql"] = f"error: {exc}"
+        logger.error("PostgreSQL runtime health check failed: %s", exc)
 
     try:
         await async_redis_client.ping()
         checks["redis"] = "ok"
-    except Exception as e:
-        checks["redis"] = "error"
-        logger.error("Redis health check failed: %s", e)
+    except Exception as exc:
+        checks["redis"] = f"error: {exc}"
+        logger.error("Redis runtime health check failed: %s", exc)
 
     serving_health = validate_serving_health()
     checks["serving"] = {
@@ -189,15 +220,24 @@ async def health():
     if serving_health.detail:
         checks["serving"]["detail"] = serving_health.detail
 
+    if progress_game_ids is not None:
+        progress_games_without_engine = sum(
+            1 for game_id in progress_game_ids if game_id not in GameService.active_engines
+        )
+        runtime["progress_games_without_engine"] = progress_games_without_engine
+
     all_ok = (
         checks["postgresql"] == "ok"
         and checks["redis"] == "ok"
         and serving_health.ok
+        and runtime["progress_games_without_engine"] in (0, None)
     )
-    # Always return 200 for Render liveness probe;
-    # body contains degraded status for monitoring.
     return JSONResponse(
-        content={"status": "ok" if all_ok else "degraded", "checks": checks},
+        content={
+            "status": "ok" if all_ok else "degraded",
+            "checks": checks,
+            "runtime": runtime,
+        },
         status_code=200,
     )
 
@@ -211,6 +251,7 @@ app.include_router(game.router, prefix="/api/puco/game", tags=["game"])
 app.include_router(lobby_ws.router, prefix="/api/puco/ws/lobby", tags=["lobby-ws"])
 app.include_router(ws.router, prefix="/api/puco/ws", tags=["websocket"])
 app.include_router(auth.router, prefix="/api/puco/auth", tags=["auth"])
+app.include_router(session.router, prefix="/api/puco/session", tags=["session"])
 app.include_router(replay.router, prefix="/api/puco/replays", tags=["replays"])
 app.include_router(playback.router, prefix="/api/puco/games", tags=["playback"])
 

@@ -162,12 +162,13 @@ class TestSchedulerSkipMetadata:
 
 class TestTaskDoneGuardrails:
     @pytest.mark.asyncio
-    async def test_cancelled_task_does_not_reschedule(self):
+    async def test_cancelled_task_does_not_reschedule(self, caplog):
         game_id = uuid4()
         _reset_class_state(game_id)
 
         engine = _make_engine(idx=1)
         GameService.active_engines[game_id] = engine
+        GameService._engine_revision[game_id] = 7
 
         async def _slow():
             await asyncio.sleep(10)
@@ -184,19 +185,30 @@ class TestTaskDoneGuardrails:
         callback = service._make_bot_task_done_callback(game_id, "BOT_a")
 
         try:
-            with patch.object(asyncio.get_running_loop(), "call_soon") as mock_call_soon:
-                callback(task)
-                assert mock_call_soon.call_count == 0
+            with caplog.at_level(logging.WARNING, logger="app.services.game_service"):
+                with patch("app.services.game_service.SessionLocal", side_effect=AssertionError("SessionLocal should not be touched for cancelled tasks")):
+                    with patch.object(GameService, "_schedule_next_bot_turn_if_needed") as mock_schedule:
+                        callback(task)
+                        assert mock_schedule.call_count == 0
+
+            messages = [rec.getMessage() for rec in caplog.records]
+            assert any("scheduler_skipped_failed_task" in message for message in messages)
+            assert any("actor_id=BOT_a" in message for message in messages)
+            assert any("last_revision=7" in message for message in messages)
+            assert any("cancelled=True" in message for message in messages)
+            assert not any("task_done_reschedule_failed" in message for message in messages)
+            assert GameService._bot_tasks.get(game_id) is None
         finally:
             _reset_class_state(game_id)
 
     @pytest.mark.asyncio
-    async def test_failed_task_does_not_reschedule(self):
+    async def test_failed_task_does_not_reschedule(self, caplog):
         game_id = uuid4()
         _reset_class_state(game_id)
 
         engine = _make_engine(idx=1)
         GameService.active_engines[game_id] = engine
+        GameService._engine_revision[game_id] = 11
 
         async def _boom():
             raise RuntimeError("simulated bot turn failure")
@@ -212,16 +224,26 @@ class TestTaskDoneGuardrails:
         callback = service._make_bot_task_done_callback(game_id, "BOT_a")
 
         try:
-            with patch.object(asyncio.get_running_loop(), "call_soon") as mock_call_soon:
-                callback(task)
-                assert mock_call_soon.call_count == 0
+            with caplog.at_level(logging.WARNING, logger="app.services.game_service"):
+                with patch("app.services.game_service.SessionLocal", side_effect=AssertionError("SessionLocal should not be touched for failed tasks")):
+                    with patch.object(GameService, "_schedule_next_bot_turn_if_needed") as mock_schedule:
+                        callback(task)
+                        assert mock_schedule.call_count == 0
+
+            messages = [rec.getMessage() for rec in caplog.records]
+            assert any("scheduler_skipped_failed_task" in message for message in messages)
+            assert any("actor_id=BOT_a" in message for message in messages)
+            assert any("last_revision=11" in message for message in messages)
+            assert any("simulated bot turn failure" in message for message in messages)
+            assert not any("task_done_reschedule_failed" in message for message in messages)
+            assert GameService._bot_tasks.get(game_id) is None
         finally:
             _reset_class_state(game_id)
 
 
 class TestWatchdogRecovery:
     @pytest.mark.asyncio
-    async def test_skip_watchdog_survives_task_done(self):
+    async def test_skip_watchdog_transitions_to_replacement_task_and_preserves_skip_snapshot(self):
         game_id = uuid4()
         _reset_class_state(game_id)
 
@@ -229,6 +251,11 @@ class TestWatchdogRecovery:
         room.players = ["BOT_a", "BOT_b", "BOT_c"]
         engine = _make_engine(idx=0)
         GameService.active_engines[game_id] = engine
+
+        gate = asyncio.Event()
+
+        async def _replacement_bot_turn(*args, **kwargs):
+            await gate.wait()
 
         in_flight = MagicMock(spec=asyncio.Task)
         in_flight.done.return_value = False
@@ -239,24 +266,48 @@ class TestWatchdogRecovery:
         GameService._bot_task_started_at[game_id] = time.time()
 
         service = GameService(MagicMock())
+        fresh_room = MagicMock()
+        fresh_room.status = "PROGRESS"
+        fresh_room.players = ["BOT_a", "BOT_b", "BOT_c"]
+        fresh_db = MagicMock()
+        fresh_db.query.return_value.filter.return_value.first.return_value = fresh_room
 
         try:
-            service._schedule_next_bot_turn_if_needed(game_id, room, engine)
-            assert GameService._last_skip_reason[game_id]["reason"] == "in_flight_self"
-            in_flight.done.return_value = True
+            from app.services.bot_service import BotService
 
-            callback = service._make_bot_task_done_callback(game_id, "BOT_a")
+            with patch("app.services.game_service.SessionLocal", _session_local_factory(fresh_db)):
+                with patch.object(BotService, "run_bot_turn", side_effect=_replacement_bot_turn):
+                    service._schedule_next_bot_turn_if_needed(game_id, room, engine)
+                    skip_reason = GameService._last_skip_reason[game_id]
+                    assert skip_reason["reason"] == "in_flight_self"
+                    in_flight.done.return_value = True
 
-            with patch.object(asyncio.get_running_loop(), "call_soon") as mock_call_soon:
-                callback(in_flight)
-                assert mock_call_soon.call_count == 1
+                    callback = service._make_bot_task_done_callback(game_id, "BOT_a")
+                    callback(in_flight)
+                    await asyncio.sleep(0)
+
+            replacement_task = GameService._bot_tasks.get(game_id)
+            assert replacement_task is not None
+            assert replacement_task is not in_flight
+            assert getattr(replacement_task, "_bot_actor_id", None) == "BOT_a"
+            assert GameService._last_skip_reason.get(game_id) is None
 
             watchdog_key = GameService._bot_stall_watchdog_key(game_id)
             watchdog = GameService._bot_stall_watchdogs.get(watchdog_key)
             assert watchdog is not None
+            assert watchdog is not in_flight
             assert not watchdog.done()
-            assert GameService._bot_stall_watchdog_meta[game_id]["source"] == "schedule_skip"
+            meta = GameService._bot_stall_watchdog_meta[game_id]
+            assert meta["source"] == "task_created"
+            assert meta["actor_id"] == "BOT_a"
+            assert meta["last_skip_reason"]["reason"] == "in_flight_self"
+            assert meta["last_skip_reason"]["existing_task_actor"] == "BOT_a"
         finally:
+            gate.set()
+            replacement_task = GameService._bot_tasks.get(game_id)
+            if replacement_task is not None:
+                replacement_task.cancel()
+                await asyncio.gather(replacement_task, return_exceptions=True)
             watchdog_key = GameService._bot_stall_watchdog_key(game_id)
             watchdog = GameService._bot_stall_watchdogs.get(watchdog_key)
             if watchdog is not None:
@@ -288,6 +339,8 @@ class TestWatchdogRecovery:
                         "BOT_x",
                         source="schedule_skip",
                     )
+                    assert GameService._bot_stall_watchdog_meta[game_id]["last_skip_reason"]["reason"] == "in_flight_self"
+                    GameService._last_skip_reason.pop(game_id, None)
                     watchdog_key = GameService._bot_stall_watchdog_key(game_id)
                     watchdog = GameService._bot_stall_watchdogs[watchdog_key]
                     await watchdog
@@ -321,18 +374,18 @@ class TestBotOnlyProgression:
                     await asyncio.wait_for(chain.first_action_applied.wait(), timeout=2)
                     await first_task
                     await asyncio.sleep(0)
-                    await asyncio.sleep(0)
 
                     replacement_task = GameService._bot_tasks.get(game_id)
                     assert replacement_task is not None
                     assert replacement_task is not first_task
 
+                    await asyncio.sleep(0)
                     await asyncio.wait_for(chain.ten_actions_applied.wait(), timeout=5)
                     await asyncio.sleep(0)
                     await asyncio.sleep(0)
 
             assert chain.action_count == 10
-            assert len(set(chain.seen_task_ids)) >= 10
+            assert len(chain.seen_task_ids) == 10
             assert GameService._bot_tasks.get(game_id) is None
 
             messages = [rec.getMessage() for rec in caplog.records]
@@ -350,7 +403,7 @@ class TestBotOnlyProgression:
             ]
 
             assert skip_indexes, "expected at least one real in-flight skip during bot chaining"
-            assert len(task_created_indexes) >= 2, "expected initial and replacement bot tasks"
+            assert len(task_created_indexes) >= 10, "expected a replacement bot task for each chained action"
             assert len(task_done_indexes) >= 1, "expected completed bot tasks in the chain"
 
             first_skip = skip_indexes[0]

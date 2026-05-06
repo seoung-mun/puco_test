@@ -10,7 +10,9 @@ from app.services.agent_registry import (
     clear_wrapper_cache,
     describe_model_artifact_resolution,
     get_adapter_runtime,
+    public_valid_bot_types,
     resolve_model_artifact,
+    bot_agents_list,
 )
 from app.services.model_registry import MODEL_BUNDLE_SCHEMA_V2
 
@@ -205,3 +207,47 @@ def test_describe_model_artifact_resolution_prefers_bundle_over_model_override(t
     assert resolution.warning is not None
     assert "PPO_MODEL_FILENAME" in resolution.warning
     assert "bundle" in resolution.warning.lower()
+
+
+def test_public_bot_catalog_is_allowlisted():
+    assert [entry["type"] for entry in bot_agents_list()] == [
+        "random",
+        "action_value",
+        "shipping_rush",
+        "ppo",
+    ]
+    assert public_valid_bot_types() == {
+        "random",
+        "action_value",
+        "shipping_rush",
+        "ppo",
+    }
+
+
+def test_describe_model_artifact_resolution_logs_bundle_override_warning_once(
+    tmp_path, monkeypatch, caplog
+):
+    nested_checkpoint = tmp_path / "ppo_checkpoints" / "smoke" / "PPO_test.pth"
+    nested_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    nested_checkpoint.write_bytes(b"placeholder")
+
+    bundle_dir = tmp_path / "default-bundle"
+    _write_bundle(bundle_dir)
+
+    monkeypatch.setattr(agent_registry, "_MODELS_DIR", str(tmp_path))
+    monkeypatch.setitem(AGENT_REGISTRY["ppo"], "bundle_dir", "default-bundle")
+    monkeypatch.setitem(AGENT_REGISTRY["ppo"], "use_adapter", True)
+    monkeypatch.setenv("PPO_MODEL_FILENAME", "PPO_test.pth")
+    monkeypatch.delenv("PPO_BUNDLE_DIR", raising=False)
+    clear_wrapper_cache()
+
+    with caplog.at_level("WARNING"):
+        describe_model_artifact_resolution("ppo")
+        describe_model_artifact_resolution("ppo")
+
+    matching = [
+        record.message
+        for record in caplog.records
+        if "using bundle precedence and ignoring legacy override" in record.message
+    ]
+    assert len(matching) == 1

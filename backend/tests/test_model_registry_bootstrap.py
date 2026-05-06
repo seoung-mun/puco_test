@@ -8,6 +8,7 @@ from app.services.agent_registry import (
     clear_wrapper_cache,
     resolve_model_artifact,
 )
+from app.services import serving_health
 from app.services.serving_health import validate_serving_health
 
 
@@ -115,7 +116,8 @@ def test_serving_health_degrades_when_bundle_manifest_missing(tmp_path, monkeypa
 
     monkeypatch.setattr("app.services.agent_registry._MODELS_DIR", str(tmp_path))
     monkeypatch.setitem(AGENT_REGISTRY["ppo"], "bundle_dir", "missing-bundle")
-    monkeypatch.delenv("PPO_BUNDLE_DIR", raising=False)
+    monkeypatch.setenv("MODEL_TYPE", "ppo")
+    monkeypatch.setenv("PPO_BUNDLE_DIR", "missing-bundle")
     monkeypatch.delenv("PPO_MODEL_FILENAME", raising=False)
 
     health = validate_serving_health()
@@ -159,7 +161,8 @@ def test_serving_health_degrades_when_bundle_checkpoint_missing(tmp_path, monkey
 
     monkeypatch.setattr("app.services.agent_registry._MODELS_DIR", str(tmp_path))
     monkeypatch.setitem(AGENT_REGISTRY["ppo"], "bundle_dir", "broken-bundle")
-    monkeypatch.delenv("PPO_BUNDLE_DIR", raising=False)
+    monkeypatch.setenv("MODEL_TYPE", "ppo")
+    monkeypatch.setenv("PPO_BUNDLE_DIR", "broken-bundle")
     monkeypatch.delenv("PPO_MODEL_FILENAME", raising=False)
 
     health = validate_serving_health()
@@ -170,3 +173,18 @@ def test_serving_health_degrades_when_bundle_checkpoint_missing(tmp_path, monkey
     assert health.detail == (
         f"Bundle checkpoint not found: {tmp_path / 'broken-bundle' / 'missing-checkpoint.pth'}"
     )
+
+
+def test_serving_health_degrades_when_prod_contract_env_missing(monkeypatch):
+    monkeypatch.delenv("MODEL_TYPE", raising=False)
+    monkeypatch.delenv("PPO_BUNDLE_DIR", raising=False)
+    monkeypatch.delenv("PPO_MODEL_FILENAME", raising=False)
+    monkeypatch.setattr(serving_health, "get_adapter_runtime", lambda _bot_type: object())
+
+    health = validate_serving_health()
+
+    assert health.ok is False
+    assert health.artifact_name == AGENT_REGISTRY["ppo"]["bundle_dir"]
+    assert health.source == "bundle_v2"
+    assert "MODEL_TYPE must be 'ppo'" in (health.detail or "")
+    assert "PPO_BUNDLE_DIR must be" in (health.detail or "")

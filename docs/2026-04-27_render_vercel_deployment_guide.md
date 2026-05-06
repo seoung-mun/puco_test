@@ -30,7 +30,8 @@
 
 - 배포용 Dockerfile은 [backend/Dockerfile.prod](/Users/seoungmun/Documents/agent_dev/castest/castone/backend/Dockerfile.prod:1) 입니다.
 - 컨테이너 시작 시 [backend/entrypoint.sh](/Users/seoungmun/Documents/agent_dev/castest/castone/backend/entrypoint.sh:1) 에서 `alembic upgrade head`를 먼저 실행한 뒤 `uvicorn`을 띄웁니다.
-- 헬스체크 엔드포인트는 `/health` 입니다.
+- Render liveness 헬스체크 엔드포인트는 `/health` 입니다.
+- 더 깊은 런타임 진단은 `/health/runtime` 으로 확인합니다.
 - 서버는 기본적으로 `8000` 포트를 사용하지만, 이번에 `PORT` 환경변수를 받도록 맞춰 두었습니다. Render에서 `PORT=10000`으로 두거나, 자동 감지에 맡겨도 됩니다.
 - 리플레이는 배포용 이미지에서 `REPLAY_STORAGE_BACKEND=db` 기본값으로 동작하므로, Render에서는 디스크 대신 Postgres `replays` 테이블에 JSONB payload를 저장합니다.
 
@@ -123,6 +124,8 @@
 ### Health Check
 
 - `Health Check Path`: `/health`
+- Render에는 계속 `/health` 를 사용합니다. 이 엔드포인트는 "프로세스가 살아 있음"만 확인합니다.
+- PostgreSQL / Redis / PPO serving 상태는 `/health/runtime` 에서 따로 확인합니다.
 
 ### Environment Variables
 
@@ -210,8 +213,14 @@ VITE_BACKEND_ORIGIN=https://castone-backend.onrender.com
 ### 백엔드
 
 - `GET /health` 가 200인지 확인
+- `GET /health/runtime` 에서 `postgresql`, `redis`, `serving` 체크가 모두 `ok` 인지 확인
 - Render 로그에서 `Migration complete.` 확인
 - DB/Redis 연결 에러가 없는지 확인
+
+주의:
+
+- `/health` 는 liveness 전용입니다. 여기서 `200` 이라고 해서 게임플레이 readiness까지 보장하지는 않습니다.
+- "서버는 살아 있는데 게임이 얼어 보인다"면 `/health/runtime` 과 Render 배포 이벤트를 함께 봐야 합니다.
 
 ### 프론트
 

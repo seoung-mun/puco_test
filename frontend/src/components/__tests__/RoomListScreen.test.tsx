@@ -35,6 +35,8 @@ describe('RoomListScreen', () => {
       if (url === 'https://backend.example/api/bot-types') {
         return new Response(JSON.stringify([
           { type: 'random', name: 'Random Bot' },
+          { type: 'action_value', name: 'Action Value Bot' },
+          { type: 'shipping_rush', name: 'Shipping Rush Bot' },
           { type: 'ppo', name: 'PPO Bot' },
           { type: 'hppo', name: 'HPPO Bot' },
         ]), {
@@ -96,6 +98,7 @@ describe('RoomListScreen', () => {
 
     const botTypeSelects = await screen.findAllByRole('combobox');
     expect(botTypeSelects).toHaveLength(3);
+    expect(screen.queryByRole('option', { name: 'HPPO Bot' })).toBeNull();
 
     await user.selectOptions(botTypeSelects[0], 'ppo');
     await user.selectOptions(botTypeSelects[1], 'random');

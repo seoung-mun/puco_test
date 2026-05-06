@@ -41,8 +41,9 @@ def validate_serving_health(bot_type: str = "ppo") -> ServingHealth:
     detail = resolution.failure_detail
 
     if normalized == "ppo":
+        expected_bundle = cfg.get("bundle_dir")
         model_type = os.getenv("MODEL_TYPE")
-        if model_type and model_type.strip().lower() != "ppo":
+        if (model_type or "").strip().lower() != "ppo":
             ok = False
             detail = _join_details(
                 detail,
@@ -50,11 +51,11 @@ def validate_serving_health(bot_type: str = "ppo") -> ServingHealth:
             )
 
         bundle_override = os.getenv(cfg.get("bundle_dir_env_key", ""))
-        if bundle_override and bundle_override.strip() != cfg.get("bundle_dir"):
+        if bundle_override is None or bundle_override.strip() != expected_bundle:
             ok = False
             detail = _join_details(
                 detail,
-                f"PPO_BUNDLE_DIR must remain {cfg.get('bundle_dir')!r} in production, got {bundle_override!r}.",
+                f"PPO_BUNDLE_DIR must be {expected_bundle!r} in production, got {bundle_override!r}.",
             )
 
         model_override = os.getenv(cfg.get("model_env_key", ""))

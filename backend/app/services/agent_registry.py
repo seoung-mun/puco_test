@@ -31,12 +31,14 @@ from app.services.model_registry import (
 )
 
 logger = logging.getLogger(__name__)
+_LOGGED_RESOLUTION_WARNINGS: set[str] = set()
 
 _MODELS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../../../PuCo_RL/models")
 )
 DEFAULT_BOT_TYPE = "random"
 BOT_PLAYER_PREFIX = "BOT_"
+PUBLIC_BOT_TYPES: tuple[str, ...] = ("random", "action_value", "shipping_rush", "ppo")
 
 
 @dataclass(frozen=True)
@@ -224,6 +226,13 @@ def _resolve_bundle_dir_name(cfg: dict) -> str | None:
     return cfg.get("bundle_dir")
 
 
+def _log_resolution_warning_once(message: str) -> None:
+    if message in _LOGGED_RESOLUTION_WARNINGS:
+        return
+    _LOGGED_RESOLUTION_WARNINGS.add(message)
+    logger.warning("%s", message)
+
+
 def _bundle_failure_detail(bundle_dir: str) -> str | None:
     manifest = load_bundle_manifest(bundle_dir)
     if manifest is None:
@@ -304,7 +313,7 @@ def describe_model_artifact_resolution(bot_type: str) -> ModelArtifactResolution
                 f"Both {cfg['bundle_dir_env_key']} and {cfg['model_env_key']} are set; "
                 f"using bundle precedence and ignoring legacy override {model_override!r}."
             )
-            logger.warning("%s", warning)
+            _log_resolution_warning_once(warning)
         return ModelArtifactResolution(
             artifact=bundle_artifact,
             warning=warning,
@@ -324,7 +333,7 @@ def describe_model_artifact_resolution(bot_type: str) -> ModelArtifactResolution
     used_legacy_override = model_override is not None and artifact is not None
     if used_legacy_override:
         warning = f"Running on legacy override via {cfg['model_env_key']}={model_override!r}."
-        logger.warning("%s", warning)
+        _log_resolution_warning_once(warning)
 
     return ModelArtifactResolution(
         artifact=artifact,
@@ -435,6 +444,7 @@ def clear_wrapper_cache() -> None:
     _get_wrapper_cached.cache_clear()
     _resolve_bundle_artifact.cache_clear()
     _resolve_adapter_runtime.cache_clear()
+    _LOGGED_RESOLUTION_WARNINGS.clear()
 
 
 @functools.lru_cache(maxsize=None)
@@ -479,7 +489,16 @@ def get_adapter_runtime(bot_type: str):
 
 def bot_agents_list() -> list[dict]:
     """프론트엔드 /api/bot-types 응답용 [{type, name}, ...] 리스트."""
-    return [{"type": k, "name": v["name"]} for k, v in AGENT_REGISTRY.items()]
+    return [
+        {"type": bot_type, "name": AGENT_REGISTRY[bot_type]["name"]}
+        for bot_type in PUBLIC_BOT_TYPES
+        if bot_type in AGENT_REGISTRY
+    ]
+
+
+def public_valid_bot_types() -> set[str]:
+    """사용자에게 공개되는 bot_type 집합."""
+    return {bot_type for bot_type in PUBLIC_BOT_TYPES if bot_type in AGENT_REGISTRY}
 
 
 def valid_bot_types() -> set[str]:
