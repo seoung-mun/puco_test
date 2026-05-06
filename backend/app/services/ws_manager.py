@@ -204,7 +204,12 @@ class ConnectionManager:
                     logger.warning("[WS_TRACE] redis_listener_message_received game_id=%s", game_id)
                     logger.warning("[WS_TRACE] redis_listener_broadcast_dispatch game_id=%s", game_id)
                     await self._broadcast(game_id, data)
-                if game_id not in self.active_connections:
+                # Listener exits only when the room has truly zero active sockets:
+                # either the game_id was harvested away or the set was emptied.
+                if (
+                    game_id not in self.active_connections
+                    or len(self.active_connections.get(game_id, set())) == 0
+                ):
                     break
         except asyncio.CancelledError:
             logger.info("Redis listener cancelled during shutdown: %s", game_id)
@@ -229,6 +234,35 @@ class ConnectionManager:
             len(self.active_connections.get(game_id, set())),
         )
 
+    def _drop_connection(self, game_id: str, conn: WebSocket) -> None:
+        """Remove a dead websocket from all manager-side bookkeeping.
+
+        This is best-effort and idempotent: it is safe to call when the
+        connection has already been removed elsewhere (e.g. via ``disconnect``).
+        It does NOT touch Redis or fire ``_handle_player_disconnect`` — that is
+        ``disconnect``'s job. Here we only prune in-memory dictionaries so a
+        broken socket cannot keep being targeted by future broadcasts.
+        """
+        room = self.active_connections.get(game_id)
+        if room is not None:
+            room.discard(conn)
+            if not room:
+                # Mirror the cleanup ``disconnect`` performs so the Redis
+                # listener can exit when the room is truly empty.
+                self.active_connections.pop(game_id, None)
+        self._conn_ids.pop(id(conn), None)
+        # Best-effort: clear the player_connections reverse mapping if any
+        # player_id pointed at this exact websocket.
+        player_map = self.player_connections.get(game_id)
+        if player_map:
+            stale_player_ids = [
+                pid for pid, ws in player_map.items() if ws is conn
+            ]
+            for pid in stale_player_ids:
+                player_map.pop(pid, None)
+            if not player_map:
+                self.player_connections.pop(game_id, None)
+
     async def _broadcast(self, game_id: str, message: str):
         message_type = None
         try:
@@ -237,26 +271,73 @@ class ConnectionManager:
                 message_type = parsed.get("type")
         except Exception:
             pass
-        if game_id in self.active_connections:
+
+        # Snapshot the set BEFORE awaiting so concurrent disconnects don't
+        # mutate the iteration target underneath us.
+        room = self.active_connections.get(game_id)
+        if room is None:
             logger.warning(
-                "[WS_TRACE] ws_broadcast_start game_id=%s source=manager message_type=%s connection_count=%d",
+                "[WS_TRACE] ws_broadcast_end game_id=%s source=manager message_type=%s connection_count=0",
                 game_id,
                 message_type,
-                len(self.active_connections[game_id]),
             )
-            for connection in self.active_connections[game_id]:
-                try:
-                    await connection.send_text(message)
-                except Exception:
-                    logger.warning("[WS_TRACE] ws_broadcast_error game_id=%s message_type=%s error=send_failed", game_id, message_type, exc_info=True)
+            return
+
+        connections = list(room)
+        logger.warning(
+            "[WS_TRACE] ws_broadcast_start game_id=%s source=manager message_type=%s connection_count=%d",
+            game_id,
+            message_type,
+            len(connections),
+        )
+
+        if not connections:
+            # Empty room: nothing to send, but make sure the key is gone so
+            # the Redis listener can exit promptly.
+            self.active_connections.pop(game_id, None)
             logger.warning(
-                "[WS_TRACE] ws_broadcast_end game_id=%s source=manager message_type=%s connection_count=%d",
+                "[WS_TRACE] ws_broadcast_end game_id=%s source=manager message_type=%s connection_count=0 dropped_count=0",
                 game_id,
                 message_type,
-                len(self.active_connections[game_id]),
             )
-        else:
-            logger.warning("[WS_TRACE] ws_broadcast_end game_id=%s source=manager message_type=%s connection_count=0", game_id, message_type)
+            return
+
+        # Concurrent send — a single slow / dead socket cannot stall the rest.
+        results = await asyncio.gather(
+            *(conn.send_text(message) for conn in connections),
+            return_exceptions=True,
+        )
+
+        dropped = 0
+        for conn, result in zip(connections, results):
+            if isinstance(result, BaseException):
+                conn_id = self._conn_ids.get(id(conn), "unknown")
+                logger.warning(
+                    "[WS_TRACE] ws_broadcast_error game_id=%s message_type=%s connection_id=%s error=send_failed",
+                    game_id,
+                    message_type,
+                    conn_id,
+                    exc_info=result,
+                )
+                self._drop_connection(game_id, conn)
+                dropped += 1
+
+        if dropped:
+            logger.warning(
+                "[WS_TRACE] ws_broadcast_harvested game_id=%s message_type=%s dropped_count=%d",
+                game_id,
+                message_type,
+                dropped,
+            )
+
+        remaining = len(self.active_connections.get(game_id, set()))
+        logger.warning(
+            "[WS_TRACE] ws_broadcast_end game_id=%s source=manager message_type=%s connection_count=%d dropped_count=%d",
+            game_id,
+            message_type,
+            remaining,
+            dropped,
+        )
 
 
 manager = ConnectionManager()
