@@ -1135,6 +1135,43 @@ class GameService:
         except Exception as e:
             logger.warning("Redis meta store failed: %s", e)
 
+    @staticmethod
+    def broadcast_current_state(game_id: UUID) -> bool:
+        """Publish a fresh STATE_UPDATE for ``game_id`` without advancing the engine.
+
+        Used as the compensating flush when a bot's mayor batch ends after one or
+        more suppressed placements without ever emitting a public broadcast — the
+        engine state has moved on, but the UI never saw it. Returns True iff a
+        publish was actually attempted.
+        """
+        engine = GameService.active_engines.get(game_id)
+        if engine is None:
+            logger.warning(
+                "[STATE_TRACE] broadcast_current_state_skip game=%s reason=engine_missing",
+                game_id,
+            )
+            return False
+
+        try:
+            with SessionLocal() as db:
+                room = db.query(GameSession).filter(GameSession.id == game_id).first()
+                if room is None:
+                    rich_state = {}
+                else:
+                    rich_state = build_rich_state(db, game_id, engine, room)
+        except Exception as exc:
+            logger.warning(
+                "[STATE_TRACE] broadcast_current_state_build_failed game=%s error=%s",
+                game_id,
+                exc,
+                exc_info=True,
+            )
+            return False
+
+        service = GameService.__new__(GameService)
+        service._sync_to_redis(game_id, rich_state, finished=False)
+        return True
+
     def _sync_to_redis(self, game_id: UUID, state: Dict, finished: bool = False):
         ttl = 300 if finished else 900  # 5 min after game end, 15 min during play
         data = {"type": "STATE_UPDATE", "data": state}

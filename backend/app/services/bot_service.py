@@ -70,6 +70,20 @@ class BotInputSnapshot:
     current_player_idx: int
     step_count: int
 
+
+@dataclass
+class BotTurnDeliveryState:
+    """Owned by the bot batch path; tracks whether a public STATE_UPDATE is owed.
+
+    Why this exists: a mayor batch can apply N-1 actions with suppress_broadcast=True
+    and then exit through an abnormal path (no legal slot, engine moved to a different
+    actor/phase, no progress) before the final non-suppressed apply. Without this flag
+    we have no way — short of grepping logs — to know whether the UI is now stale.
+    """
+
+    visible_publish_emitted: bool = False
+    actions_applied: int = 0
+
 class BotService:
     _obs_space = None
     _obs_dim: Optional[int] = None
@@ -427,6 +441,36 @@ class BotService:
         return None
 
     @staticmethod
+    def _emit_compensating_state_update(
+        game_id: UUID,
+        actor_id: str,
+        state: "BotTurnDeliveryState",
+    ) -> None:
+        # Lazy import to avoid circular dependency (game_service imports bot_service).
+        from app.services.game_service import GameService
+
+        logger.warning(
+            "[BOT_TRACE] mayor_batch_compensating_publish game=%s actor=%s actions_applied=%d",
+            game_id,
+            actor_id,
+            state.actions_applied,
+        )
+        try:
+            published = GameService.broadcast_current_state(game_id)
+        except Exception as exc:
+            logger.warning(
+                "[BOT_TRACE] mayor_batch_compensating_publish_failed game=%s actor=%s error=%s",
+                game_id,
+                actor_id,
+                exc,
+                exc_info=True,
+            )
+            return
+
+        if published:
+            state.visible_publish_emitted = True
+
+    @staticmethod
     async def _run_mayor_batch_turn(
         game_id: UUID,
         engine: EngineWrapper,
@@ -436,7 +480,7 @@ class BotService:
         initial_mask: list[int],
         supports_suppress_broadcast: bool,
     ) -> None:
-        placements_applied = 0
+        delivery_state = BotTurnDeliveryState()
         current_mask = initial_mask
 
         logger.warning(
@@ -459,7 +503,7 @@ class BotService:
                     actor_id,
                     phase,
                     remaining,
-                    placements_applied,
+                    delivery_state.actions_applied,
                 )
                 break
 
@@ -470,7 +514,7 @@ class BotService:
                     actor_id,
                     current_player_idx,
                     remaining,
-                    placements_applied,
+                    delivery_state.actions_applied,
                 )
                 break
 
@@ -493,7 +537,9 @@ class BotService:
             if applied_action is None:
                 break
 
-            placements_applied += 1
+            delivery_state.actions_applied += 1
+            if not suppress_broadcast:
+                delivery_state.visible_publish_emitted = True
             next_phase = BotService._current_phase(engine)
             next_player_idx = getattr(engine.env.game, "current_player_idx", None)
             next_remaining = BotService._current_player_remaining_colonists(engine)
@@ -503,7 +549,7 @@ class BotService:
                     "[BOT_TRACE] mayor_batch_complete game=%s actor=%s placements=%d next_player_idx=%s next_phase=%s",
                     game_id,
                     actor_id,
-                    placements_applied,
+                    delivery_state.actions_applied,
                     next_player_idx,
                     next_phase,
                 )
@@ -519,7 +565,7 @@ class BotService:
                     remaining,
                     next_remaining,
                     next_phase,
-                    placements_applied,
+                    delivery_state.actions_applied,
                 )
                 break
 
@@ -531,11 +577,18 @@ class BotService:
                     current_player_idx,
                     remaining,
                     next_remaining,
-                    placements_applied,
+                    delivery_state.actions_applied,
                 )
                 break
 
             current_mask = BotService.guard_action_mask(engine)
+
+        if delivery_state.actions_applied > 0 and not delivery_state.visible_publish_emitted:
+            BotService._emit_compensating_state_update(
+                game_id=game_id,
+                actor_id=actor_id,
+                state=delivery_state,
+            )
 
     @staticmethod
     async def run_bot_turn(
