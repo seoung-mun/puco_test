@@ -81,7 +81,7 @@ def _mock_process_action_dependencies(monkeypatch, *, replay_append_entry=None):
     monkeypatch.setattr(
         GameService,
         "_sync_to_redis",
-        lambda self, _game_id, _state, finished=False: None,
+        staticmethod(lambda _game_id, _state, finished=False: None),
     )
     monkeypatch.setattr(
         GameService,

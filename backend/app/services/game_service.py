@@ -187,7 +187,7 @@ class GameService:
         rich_state = build_rich_state(self.db, game_id, engine, room)
         action_mask = rich_state.get("action_mask", engine.get_action_mask())
         self._store_game_meta(game_id, room)
-        self._sync_to_redis(game_id, rich_state)
+        GameService._sync_to_redis(game_id, rich_state)
         player_names, _ = resolve_player_names_and_bots(self.db, room)
         ReplayLogger.initialize_game(
             game_id=game_id,
@@ -472,7 +472,7 @@ class GameService:
                 )
 
         if not suppress_broadcast:
-            self._sync_to_redis(game_id, rich_state, finished=terminated)
+            GameService._sync_to_redis(game_id, rich_state, finished=terminated)
 
             # Trigger Bot if next player is bot
             if not terminated and room:
@@ -967,7 +967,7 @@ class GameService:
         GameService._engine_revision[game_id] = game.state_revision
 
         rich_state = build_rich_state(db, game_id, engine, game)
-        self._sync_to_redis(game_id, rich_state)
+        GameService._sync_to_redis(game_id, rich_state)
         self._store_game_meta(game_id, game)
 
         return EngineLoadResult(
@@ -1041,7 +1041,7 @@ class GameService:
     async def _fetch_or_build_rich_state(self, game_id: UUID) -> Dict:
         engine = GameService.active_engines.get(game_id)
         if engine is not None:
-            return await asyncio.to_thread(self._build_rich_state_sync, game_id, engine)
+            return await asyncio.to_thread(GameService._build_rich_state_sync, game_id, engine)
 
         cached = redis_client.get(f"game:{game_id}:state")
         if cached:
@@ -1051,7 +1051,8 @@ class GameService:
                 logger.warning("[RECOVERY] invalid cached rich state game=%s", game_id, exc_info=True)
         return {}
 
-    def _build_rich_state_sync(self, game_id: UUID, engine: EngineWrapper) -> Dict:
+    @staticmethod
+    def _build_rich_state_sync(game_id: UUID, engine: EngineWrapper) -> Dict:
         with SessionLocal() as db:
             room = db.query(GameSession).filter(GameSession.id == game_id).first()
             if room is None:
@@ -1153,12 +1154,7 @@ class GameService:
             return False
 
         try:
-            with SessionLocal() as db:
-                room = db.query(GameSession).filter(GameSession.id == game_id).first()
-                if room is None:
-                    rich_state = {}
-                else:
-                    rich_state = build_rich_state(db, game_id, engine, room)
+            rich_state = GameService._build_rich_state_sync(game_id, engine)
         except Exception as exc:
             logger.warning(
                 "[STATE_TRACE] broadcast_current_state_build_failed game=%s error=%s",
@@ -1168,11 +1164,11 @@ class GameService:
             )
             return False
 
-        service = GameService.__new__(GameService)
-        service._sync_to_redis(game_id, rich_state, finished=False)
+        GameService._sync_to_redis(game_id, rich_state, finished=False)
         return True
 
-    def _sync_to_redis(self, game_id: UUID, state: Dict, finished: bool = False):
+    @staticmethod
+    def _sync_to_redis(game_id: UUID, state: Dict, finished: bool = False):
         ttl = 300 if finished else 900  # 5 min after game end, 15 min during play
         data = {"type": "STATE_UPDATE", "data": state}
         redis_published = False

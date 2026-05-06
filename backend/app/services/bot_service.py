@@ -446,9 +446,6 @@ class BotService:
         actor_id: str,
         state: "BotTurnDeliveryState",
     ) -> None:
-        # Lazy import to avoid circular dependency (game_service imports bot_service).
-        from app.services.game_service import GameService
-
         logger.warning(
             "[BOT_TRACE] mayor_batch_compensating_publish game=%s actor=%s actions_applied=%d",
             game_id,
