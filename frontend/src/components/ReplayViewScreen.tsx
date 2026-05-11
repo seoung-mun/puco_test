@@ -2,13 +2,72 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { buildApiUrl } from '../config';
+import GameScreen from './GameScreen';
 import { useReplayPlayer } from '../hooks/useReplayPlayer';
+import type { GameState } from '../types/gameState';
 import type { ReplayDetailResponse } from '../types/replay';
 
 interface Props {
   token: string;
   gameId: string;
   onBack: () => void;
+}
+
+const NOOP = () => {};
+const NOOP_ASYNC = async () => {};
+
+function buildReplayGameScreenProps(
+  state: GameState,
+  onBack: () => void,
+): React.ComponentProps<typeof GameScreen> {
+  return {
+    backend: '',
+    state,
+    error: null,
+    saving: false,
+    passing: false,
+    buildConfirm: null,
+    pendingSettlement: null,
+    roundFlash: null,
+    discardProtected: [],
+    discardSingleExtra: null,
+    finalScores: state.result_summary ?? null,
+    popups: [],
+    isAdmin: false,
+    isSpectator: false,
+    isMultiplayer: false,
+    myName: null,
+    lobbyPlayers: [],
+    isMyTurn: false,
+    isBotTurn: false,
+    isBlocked: true,
+    interactionLocked: true,
+    canPass: false,
+    replayMode: true,
+    onStateLoaded: NOOP,
+    onGoToRoomsPreservingAuth: NOOP,
+    onLogoutToLogin: NOOP,
+    onExitSpectator: NOOP,
+    onDismissError: NOOP,
+    onClearPopups: NOOP,
+    onConfirmBuild: NOOP,
+    onCancelBuildConfirm: NOOP,
+    onConfirmSettlement: NOOP,
+    onSelectRole: NOOP_ASYNC,
+    onSettlePlantation: NOOP,
+    onUseHacienda: NOOP_ASYNC,
+    onPlaceMayorColonist: NOOP_ASYNC,
+    onPassAction: NOOP_ASYNC,
+    onSellGood: NOOP_ASYNC,
+    onCraftsmanPrivilege: NOOP_ASYNC,
+    onLoadShip: NOOP_ASYNC,
+    onCaptainPass: NOOP_ASYNC,
+    onToggleDiscardProtected: NOOP,
+    onSetDiscardSingleExtra: NOOP,
+    onDoDiscardGoods: NOOP_ASYNC,
+    onRequestBuild: NOOP,
+    onReturnToRooms: onBack,
+  };
 }
 
 export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
@@ -21,6 +80,7 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setDetail(null);
     setError(null);
     setNotFound(false);
     fetch(buildApiUrl(`/api/puco/replays/${gameId}`), {
@@ -50,7 +110,23 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
 
   const frames = detail?.replay_frames ?? [];
   const player = useReplayPlayer({ frames });
-  const { currentFrame, totalFrames, isPlaying, speed, frame, toggle, next, prev, seek, setSpeed } = player;
+  const {
+    currentFrame,
+    totalFrames,
+    isPlaying,
+    speed,
+    frame,
+    toggle,
+    next,
+    prev,
+    stepForward,
+    seek,
+    setSpeed,
+  } = player;
+  const currentState = frame?.rich_state ?? null;
+  const replayGameScreenProps = currentState
+    ? buildReplayGameScreenProps(currentState, onBack)
+    : null;
 
   return (
     <div style={{ minHeight: '100vh', background: '#070d18', color: '#dde', fontFamily: 'sans-serif' }}>
@@ -123,8 +199,7 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
           <>
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
+                display: 'grid',
                 gap: 12,
                 padding: '12px 16px',
                 background: '#0d1117',
@@ -133,32 +208,72 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
                 marginBottom: 16,
               }}
             >
-              <button
-                aria-label={t('replay.player.prev')}
-                onClick={prev}
-                disabled={currentFrame === 0}
-                style={controlBtn(currentFrame === 0)}
-              >
-                «
-              </button>
-              <button
-                aria-label={isPlaying ? t('replay.player.pause') : t('replay.player.play')}
-                onClick={toggle}
-                style={controlBtn(false)}
-              >
-                {isPlaying ? '❚❚' : '▶'}
-              </button>
-              <button
-                aria-label={t('replay.player.next')}
-                onClick={next}
-                disabled={currentFrame >= totalFrames - 1}
-                style={controlBtn(currentFrame >= totalFrames - 1)}
-              >
-                »
-              </button>
-              <span style={{ color: '#aab', fontSize: 13, minWidth: 90 }}>
-                {t('replay.player.frame', { current: currentFrame + 1, total: totalFrames })}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  aria-label={t('replay.player.jumpBack')}
+                  onClick={() => seek(currentFrame - 10)}
+                  disabled={currentFrame === 0}
+                  style={controlBtn(currentFrame === 0)}
+                >
+                  -10
+                </button>
+                <button
+                  aria-label={t('replay.player.prev')}
+                  onClick={prev}
+                  disabled={currentFrame === 0}
+                  style={controlBtn(currentFrame === 0)}
+                >
+                  ‹
+                </button>
+                <button
+                  aria-label={isPlaying ? t('replay.player.pause') : t('replay.player.play')}
+                  onClick={toggle}
+                  disabled={totalFrames <= 1}
+                  style={controlBtn(totalFrames <= 1)}
+                >
+                  {isPlaying ? '❚❚' : '▶'}
+                </button>
+                <button
+                  aria-label={t('replay.player.next')}
+                  onClick={next}
+                  disabled={currentFrame >= totalFrames - 1}
+                  style={controlBtn(currentFrame >= totalFrames - 1)}
+                >
+                  ›
+                </button>
+                <button
+                  aria-label={t('replay.player.jumpForward')}
+                  onClick={() => stepForward(10)}
+                  disabled={currentFrame >= totalFrames - 1}
+                  style={controlBtn(currentFrame >= totalFrames - 1)}
+                >
+                  +10
+                </button>
+                <span style={{ color: '#aab', fontSize: 13, minWidth: 90 }}>
+                  {t('replay.player.frame', { current: currentFrame + 1, total: totalFrames })}
+                </span>
+                <label style={{ color: '#aab', fontSize: 13 }}>
+                  {t('replay.player.speed')}:
+                  <select
+                    value={speed}
+                    onChange={(e) => setSpeed(parseInt(e.target.value, 10))}
+                    style={{
+                      marginLeft: 6,
+                      background: '#1a1a2e',
+                      color: '#eee',
+                      border: '1px solid #444',
+                      borderRadius: 4,
+                      padding: '2px 6px',
+                    }}
+                  >
+                    {[1, 2, 4, 8].map((s) => (
+                      <option key={s} value={s}>
+                        {s}x
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
               <input
                 type="range"
                 min={0}
@@ -166,29 +281,8 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
                 value={currentFrame}
                 onChange={(e) => seek(parseInt(e.target.value, 10))}
                 aria-label={t('replay.player.frame', { current: currentFrame + 1, total: totalFrames })}
-                style={{ flex: 1 }}
+                style={{ width: '100%' }}
               />
-              <label style={{ color: '#aab', fontSize: 13 }}>
-                {t('replay.player.speed')}:
-                <select
-                  value={speed}
-                  onChange={(e) => setSpeed(parseInt(e.target.value, 10))}
-                  style={{
-                    marginLeft: 6,
-                    background: '#1a1a2e',
-                    color: '#eee',
-                    border: '1px solid #444',
-                    borderRadius: 4,
-                    padding: '2px 6px',
-                  }}
-                >
-                  {[1, 2, 4, 8].map((s) => (
-                    <option key={s} value={s}>
-                      {s}x
-                    </option>
-                  ))}
-                </select>
-              </label>
             </div>
 
             <div
@@ -198,30 +292,35 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
                 border: '1px solid #1a1a3a',
                 borderRadius: 8,
                 padding: 16,
+                marginBottom: 16,
               }}
             >
-              <div style={{ marginBottom: 8, color: '#aab', fontSize: 13 }}>
-                <strong style={{ color: '#dde' }}>Step:</strong> {frame?.step ?? '-'} &nbsp;
-                <strong style={{ color: '#dde' }}>Action:</strong> {frame?.action ?? '-'}
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8, color: '#aab', fontSize: 13 }}>
+                <span>
+                  <strong style={{ color: '#dde' }}>{t('replay.player.step')}:</strong> {frame?.step ?? '-'}
+                </span>
+                <span>
+                  <strong style={{ color: '#dde' }}>{t('replay.player.currentAction')}:</strong> {frame?.action ?? '-'}
+                </span>
               </div>
               {frame?.commentary && (
-                <p style={{ color: '#9bf', fontSize: 13, margin: '6px 0' }}>{frame.commentary}</p>
+                <p style={{ color: '#9bf', fontSize: 13, margin: '6px 0' }}>
+                  <strong style={{ color: '#dde' }}>{t('replay.player.commentary')}:</strong> {frame.commentary}
+                </p>
               )}
-              <pre
+            </div>
+
+            {replayGameScreenProps && (
+              <div
                 style={{
-                  margin: 0,
-                  fontSize: 12,
-                  color: '#9bf',
-                  background: '#05090f',
-                  padding: 10,
-                  borderRadius: 6,
-                  overflow: 'auto',
-                  maxHeight: 400,
+                  border: '1px solid #1a1a3a',
+                  borderRadius: 10,
+                  overflow: 'hidden',
                 }}
               >
-                {JSON.stringify(frame?.rich_state ?? {}, null, 2)}
-              </pre>
-            </div>
+                <GameScreen {...replayGameScreenProps} />
+              </div>
+            )}
           </>
         )}
       </div>

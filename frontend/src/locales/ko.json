@@ -406,8 +406,13 @@
       "pause":   "일시정지",
       "prev":    "이전",
       "next":    "다음",
+      "jumpBack": "10프레임 뒤로",
+      "jumpForward": "10프레임 앞으로",
       "speed":   "배속",
       "frame":   "{{current}} / {{total}}",
+      "step":    "단계",
+      "currentAction": "현재 액션",
+      "commentary": "해설",
       "noRich":  "이 프레임은 상세 상태 정보가 없습니다."
     }
   },

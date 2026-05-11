@@ -160,6 +160,7 @@ export default function GameScreen({
     Object.entries(state.players).map(([id, p]) => [id, p.display_name]),
   );
 
+  const showLiveOnlyUi = !replayMode;
   const interactionLocked = interactionLockedRaw || replayMode;
 
   const canSelectRole = state.meta.phase === 'role_selection' && !state.meta.end_game_triggered && isMyTurn;
@@ -252,48 +253,50 @@ export default function GameScreen({
           ))}
         </div>
       )}
-      {state.meta.bot_thinking && (
+      {showLiveOnlyUi && state.meta.bot_thinking && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, background: '#1a1218', borderBottom: '2px solid #7a3a7a', padding: '8px 20px', textAlign: 'center', color: '#c080e0', zIndex: 400, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
           <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', fontSize: 18 }}>⚙</span>
           {t('game.geminiThinking')}
         </div>
       )}
-      {!isMyTurn && (
+      {showLiveOnlyUi && !isMyTurn && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#1a1030', borderTop: '2px solid #2a2a5a', padding: '10px 20px', textAlign: 'center', color: '#aab', zIndex: 200, fontSize: 14 }}>
           {t('game.waitingTurn', { name: state.players[state.decision.player]?.display_name ?? state.decision.player })}
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0 }}>Puerto Rico</h1>
-        <button className="btn-new-game" onClick={onGoToRoomsPreservingAuth}>🎮 {t('newGame.title')}</button>
-        <button
-          className="btn-new-game"
-          style={{ background: '#444', fontSize: '0.8em', padding: '4px 10px' }}
-          onClick={() => {
-            const cycle: Record<string, string> = { ko: 'en', en: 'it', it: 'ko' };
-            const next = cycle[i18n.language] || 'ko';
-            i18n.changeLanguage(next);
-            localStorage.setItem('lang', next);
-          }}
-        >
-          {t('langToggle')}
-        </button>
-        {isSpectator && (
-          <span style={{ background: '#1a3a2a', border: '1px solid #2a5a3a', borderRadius: 4, color: '#4f8', padding: '2px 8px', fontSize: 12 }}>
-            👁 {t('rooms.spectating', '관전 중')}
-          </span>
-        )}
-        {isSpectator && (
-          <button onClick={onExitSpectator} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12 }}>
-            {t('home.logout', '로그아웃')}
+      {showLiveOnlyUi && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0 }}>Puerto Rico</h1>
+          <button className="btn-new-game" onClick={onGoToRoomsPreservingAuth}>🎮 {t('newGame.title')}</button>
+          <button
+            className="btn-new-game"
+            style={{ background: '#444', fontSize: '0.8em', padding: '4px 10px' }}
+            onClick={() => {
+              const cycle: Record<string, string> = { ko: 'en', en: 'it', it: 'ko' };
+              const next = cycle[i18n.language] || 'ko';
+              i18n.changeLanguage(next);
+              localStorage.setItem('lang', next);
+            }}
+          >
+            {t('langToggle')}
           </button>
-        )}
-        {isMultiplayer && !isSpectator && (
-          <button onClick={onLogoutToLogin} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12 }}>
-            {t('home.logout', '로그아웃')}
-          </button>
-        )}
-      </div>
+          {isSpectator && (
+            <span style={{ background: '#1a3a2a', border: '1px solid #2a5a3a', borderRadius: 4, color: '#4f8', padding: '2px 8px', fontSize: 12 }}>
+              👁 {t('rooms.spectating', '관전 중')}
+            </span>
+          )}
+          {isSpectator && (
+            <button onClick={onExitSpectator} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12 }}>
+              {t('home.logout', '로그아웃')}
+            </button>
+          )}
+          {isMultiplayer && !isSpectator && (
+            <button onClick={onLogoutToLogin} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12 }}>
+              {t('home.logout', '로그아웃')}
+            </button>
+          )}
+        </div>
+      )}
 
       {isAdmin && <AdminPanel backend={backend} onStateLoaded={onStateLoaded} />}
 
@@ -368,7 +371,7 @@ export default function GameScreen({
         </div>
       )}
 
-      {pendingSettlement && !isBlocked && (
+      {showLiveOnlyUi && pendingSettlement && !isBlocked && (
         <div className="hospice-overlay">
           <div className="hospice-dialog">
             <p dangerouslySetInnerHTML={{ __html: t('hospiceDialog.message', {
@@ -387,7 +390,7 @@ export default function GameScreen({
         </div>
       )}
 
-      {isCraftsmanPrivilege && !isBlocked && (() => {
+      {showLiveOnlyUi && isCraftsmanPrivilege && !isBlocked && (() => {
         const privilegeGoods = (['corn', 'indigo', 'sugar', 'tobacco', 'coffee'] as const)
           .filter((g) => activePlayer && activePlayer.production[g].amount > 0 && state.common_board.goods_supply[g] > 0);
         return (
@@ -526,7 +529,7 @@ export default function GameScreen({
 
       {/* Mayor: 그리드 타일 직접 클릭으로 일꾼 배치 (MayorSequentialPanel 제거) */}
 
-      {!isBlocked && (isTraderPhase || isCaptainPhase || isCaptainDiscard) && (() => {
+      {showLiveOnlyUi && !isBlocked && (isTraderPhase || isCaptainPhase || isCaptainDiscard) && (() => {
         if (isTraderPhase) {
           const BASE_PRICES: Record<string, number> = { corn: 0, indigo: 1, sugar: 2, tobacco: 3, coffee: 4 };
           const traderRolePicker = state.common_board.roles.trader?.taken_by ?? null;
