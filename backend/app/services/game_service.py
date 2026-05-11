@@ -24,6 +24,7 @@ from app.services.game_service_support import (
     build_rich_state,
     resolve_actor_model_info,
     resolve_player_names_and_bots,
+    shuffle_start_player_order,
 )
 from app.schemas.game import GameRoomCreate
 from app.services.ws_manager import manager
@@ -166,22 +167,35 @@ class GameService:
             raise ValueError(f"Need at least 3 players to start, currently {actual_players}")
 
         game_seed = secrets.randbits(63)
+        start_players = shuffle_start_player_order(room.players or [], game_seed=game_seed)
+        player_control_modes = [1 if str(player_id).startswith("BOT_") else 0 for player_id in start_players]
         engine = create_game_engine(
             num_players=actual_players,
             game_seed=game_seed,
-            player_control_modes=build_player_control_modes(room),
+            player_control_modes=player_control_modes,
         )
         GameService.active_engines[game_id] = engine
         GameService._engine_revision[game_id] = 0
 
         from app.services.engine_gateway.factory import ENGINE_COMPAT_VERSION
-        room.status = "PROGRESS"
-        room.model_versions = build_model_versions_snapshot(room)
-        room.game_seed = game_seed
-        room.governor_idx = engine.initial_governor_idx
-        room.engine_compat_version = ENGINE_COMPAT_VERSION
-        room.state_revision = 0
-        self.db.commit()
+        try:
+            start_room = copy.copy(room)
+            start_room.players = list(start_players)
+            model_versions = build_model_versions_snapshot(start_room)
+
+            room.players = list(start_players)
+            room.status = "PROGRESS"
+            room.model_versions = model_versions
+            room.game_seed = game_seed
+            room.governor_idx = engine.initial_governor_idx
+            room.engine_compat_version = ENGINE_COMPAT_VERSION
+            room.state_revision = 0
+            self.db.commit()
+        except Exception:
+            GameService.active_engines.pop(game_id, None)
+            GameService._engine_revision.pop(game_id, None)
+            self.db.rollback()
+            raise
 
         # Build rich state and broadcast
         rich_state = build_rich_state(self.db, game_id, engine, room)

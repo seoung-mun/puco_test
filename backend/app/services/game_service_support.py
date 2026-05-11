@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import random
 from typing import Dict, List, Tuple
 from uuid import UUID
 
@@ -44,6 +45,17 @@ def resolve_player_names_and_bots(db: Session, room: GameSession) -> Tuple[List[
 def build_player_control_modes(room: GameSession) -> List[int]:
     players = room.players or []
     return [1 if str(player_id).startswith("BOT_") else 0 for player_id in players]
+
+
+def shuffle_start_player_order(players: List[str], game_seed: int) -> List[str]:
+    human_players = [player_id for player_id in players if not str(player_id).startswith("BOT_")]
+    bot_players = [player_id for player_id in players if str(player_id).startswith("BOT_")]
+    if len(players) != 3 or len(human_players) != 2 or len(bot_players) != 1:
+        return list(players)
+
+    shuffled_players = list(players)
+    random.Random(game_seed).shuffle(shuffled_players)
+    return shuffled_players
 
 
 def build_rich_state(db: Session, game_id: UUID, engine: EngineWrapper, room: GameSession) -> Dict:
