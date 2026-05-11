@@ -1,6 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, options?: { name?: string; player?: string; defaultValue?: string }) => {
+      if (key === 'game.waitingTurn') return `waiting:${options?.name ?? ''}`;
+      if (key.startsWith('decision.')) return options?.player ? `decision:${options.player}` : (options?.defaultValue ?? key);
+      return options?.defaultValue ?? key;
+    },
+  }),
+}));
+
 import GameScreen from '../GameScreen';
 import type { GameState, Player } from '../../types/gameState';
 
@@ -375,6 +385,48 @@ describe('GameScreen', () => {
     );
 
     expect(document.querySelector('#action-card')).not.toBeNull();
+  });
+
+  it('uses meta.active_player for multiplayer waiting-turn copy during handoff', () => {
+    const state = makeState();
+    state.meta.active_player = 'player_1';
+    state.decision.player = 'player_0';
+
+    render(
+      <GameScreen
+        {...commonProps({
+          state,
+          isMyTurn: false,
+          isMultiplayer: true,
+        })}
+      />,
+    );
+
+    const waitingBanner = document.querySelector('div[style*="bottom: 0px"]');
+    expect(waitingBanner?.textContent).toContain('waiting:Bob');
+    expect(waitingBanner?.textContent).not.toContain('Alice');
+  });
+
+  it('uses meta.active_player for multiplayer decision copy during handoff', () => {
+    const state = makeState();
+    state.meta.active_player = 'player_1';
+    state.decision.player = 'player_0';
+    state.decision.type = 'handoff';
+    state.decision.note = '';
+
+    render(
+      <GameScreen
+        {...commonProps({
+          state,
+          isMyTurn: false,
+          isMultiplayer: true,
+        })}
+      />,
+    );
+
+    const decisionLine = document.querySelector('.decision-inline');
+    expect(decisionLine?.textContent).toContain('decision:Bob');
+    expect(decisionLine?.textContent).not.toContain('Alice');
   });
 });
 

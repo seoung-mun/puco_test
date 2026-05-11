@@ -237,6 +237,9 @@ export default function GameScreen({
 
   const activeMayorPlayer = isMayorPhase ? state.players[state.meta.active_player] : null;
   const showMayorPanel = isMayorPhase && activeMayorPlayer != null && !isBotTurn && isMyTurn;
+  const resolvedTurnPlayerId = isMultiplayer
+    ? (state.meta.active_player ?? state.decision.player)
+    : state.decision.player;
 
   return (
     <div className="app">
@@ -262,7 +265,7 @@ export default function GameScreen({
       )}
       {!isMyTurn && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#1a1030', borderTop: '2px solid #2a2a5a', padding: '10px 20px', textAlign: 'center', color: '#aab', zIndex: 200, fontSize: 14 }}>
-          {t('game.waitingTurn', { name: state.players[state.decision.player]?.display_name ?? state.decision.player })}
+          {t('game.waitingTurn', { name: state.players[resolvedTurnPlayerId]?.display_name ?? resolvedTurnPlayerId })}
         </div>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
@@ -494,7 +497,7 @@ export default function GameScreen({
         <div className="sticky-bar__row2">
           <span className="decision-inline">
             {t(`decision.${state.decision.type}`, {
-              player: state.players[state.decision.player]?.display_name ?? state.decision.player,
+              player: state.players[resolvedTurnPlayerId]?.display_name ?? resolvedTurnPlayerId,
               defaultValue: state.decision.note,
             })}
           </span>
