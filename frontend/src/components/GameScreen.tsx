@@ -171,6 +171,8 @@ export default function GameScreen({
   const isTraderPhase = state.meta.phase === 'trader_action';
   const isCaptainPhase = state.meta.phase === 'captain_action';
   const isCaptainDiscard = state.meta.phase === 'captain_discard';
+  const showLiveOnlyUi = true;
+  const canViewLiveActionSurface = showLiveOnlyUi && !isBlocked && isMyTurn;
   const captainRolePicker = state.common_board.roles.captain?.taken_by ?? null;
   const currentRolePickerId = state.meta.active_role
     ? state.common_board.roles[state.meta.active_role]?.taken_by ?? null
@@ -234,7 +236,7 @@ export default function GameScreen({
   }
 
   const activeMayorPlayer = isMayorPhase ? state.players[state.meta.active_player] : null;
-  const showMayorPanel = isMayorPhase && activeMayorPlayer != null && !isBotTurn;
+  const showMayorPanel = isMayorPhase && activeMayorPlayer != null && !isBotTurn && isMyTurn;
 
   return (
     <div className="app">
@@ -387,7 +389,7 @@ export default function GameScreen({
         </div>
       )}
 
-      {isCraftsmanPrivilege && !isBlocked && (() => {
+      {canViewLiveActionSurface && isCraftsmanPrivilege && (() => {
         const privilegeGoods = (['corn', 'indigo', 'sugar', 'tobacco', 'coffee'] as const)
           .filter((g) => activePlayer && activePlayer.production[g].amount > 0 && state.common_board.goods_supply[g] > 0);
         return (
@@ -526,7 +528,7 @@ export default function GameScreen({
 
       {/* Mayor: 그리드 타일 직접 클릭으로 일꾼 배치 (MayorSequentialPanel 제거) */}
 
-      {!isBlocked && (isTraderPhase || isCaptainPhase || isCaptainDiscard) && (() => {
+      {canViewLiveActionSurface && (isTraderPhase || isCaptainPhase || isCaptainDiscard) && (() => {
         if (isTraderPhase) {
           const BASE_PRICES: Record<string, number> = { corn: 0, indigo: 1, sugar: 2, tobacco: 3, coffee: 4 };
           const traderRolePicker = state.common_board.roles.trader?.taken_by ?? null;

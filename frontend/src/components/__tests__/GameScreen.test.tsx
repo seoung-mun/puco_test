@@ -17,13 +17,19 @@ vi.mock('../PlayerPanel', () => ({
     playerId,
     player,
     isRolePicker,
+    mayorLegalIslandSlots,
+    mayorLegalCitySlots,
   }: {
     playerId: string;
     player: { display_name: string };
     isRolePicker?: boolean;
+    mayorLegalIslandSlots?: number[];
+    mayorLegalCitySlots?: number[];
   }) => (
     <div data-testid={playerId}>
       {player.display_name}:{isRolePicker ? 'picker' : 'normal'}
+      {mayorLegalIslandSlots ? `:island=${mayorLegalIslandSlots.join(',')}` : ''}
+      {mayorLegalCitySlots ? `:city=${mayorLegalCitySlots.join(',')}` : ''}
     </div>
   ),
 }));
@@ -235,6 +241,69 @@ describe('GameScreen', () => {
     render(<GameScreen {...commonProps()} />);
     const passBtn = document.querySelector('.pass-btn') as HTMLButtonElement | null;
     expect(passBtn?.disabled).toBe(false);
+  });
+
+  it('hides trader action card for non-active multiplayer viewers', () => {
+    const state = makeState();
+    state.meta.phase = 'trader_action';
+    state.meta.active_role = 'trader';
+    state.meta.active_player = 'player_0';
+    state.players.player_0.goods.corn = 1;
+    state.players.player_0.goods.d_total = 1;
+
+    render(
+      <GameScreen
+        {...commonProps({
+          state,
+          isMyTurn: false,
+          isMultiplayer: true,
+        })}
+      />,
+    );
+
+    expect(document.querySelector('#action-card')).toBeNull();
+  });
+
+  it('hides craftsman privilege overlay for non-active multiplayer viewers', () => {
+    const state = makeState();
+    state.meta.phase = 'craftsman_action';
+    state.meta.active_role = 'craftsman';
+    state.common_board.roles.craftsman.taken_by = 'player_0';
+
+    render(
+      <GameScreen
+        {...commonProps({
+          state,
+          isMyTurn: false,
+          isMultiplayer: true,
+        })}
+      />,
+    );
+
+    expect(document.querySelector('.hospice-overlay')).toBeNull();
+  });
+
+  it('does not pass mayor legal slots to non-active multiplayer viewers', () => {
+    const state = makeState();
+    state.meta.phase = 'mayor_action';
+    state.meta.active_role = 'mayor';
+    state.meta.active_player = 'player_0';
+    state.meta.mayor_legal_island_slots = [0, 1];
+    state.meta.mayor_legal_city_slots = [0];
+
+    render(
+      <GameScreen
+        {...commonProps({
+          state,
+          isMyTurn: false,
+          isMultiplayer: true,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('player_0').textContent).toContain('Alice:normal');
+    expect(screen.getByTestId('player_0').textContent).not.toContain(':island=0,1');
+    expect(screen.getByTestId('player_0').textContent).not.toContain(':city=0');
   });
 });
 
