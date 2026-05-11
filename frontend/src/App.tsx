@@ -140,12 +140,19 @@ export default function App() {
 
   const lobbyWsRef = useRef<WebSocket | null>(null);
   const recoveryBlockedActive = recoveryBlockedReason !== null;
-  const isBotTurn = !!(state?.bot_players && state?.decision?.player && state.bot_players[state.decision.player] !== undefined);
+  // Channel multiplayer uses meta.active_player as the single turn source during handoff states.
+  const currentTurnPlayerId = state?.meta.active_player ?? state?.decision?.player ?? null;
+
+  const isBotTurn = !!(
+    state?.bot_players &&
+    currentTurnPlayerId &&
+    state.bot_players[currentTurnPlayerId] !== undefined
+  );
   const isMyTurn = isSpectator
     ? false
     : !isMultiplayer
       ? !isBotTurn
-      : (myPlayerId !== null && state?.decision?.player === myPlayerId);
+      : (myPlayerId !== null && currentTurnPlayerId === myPlayerId);
   const isBlocked = !!state?.meta.bot_thinking || isBotTurn;
   const interactionLocked = isBlocked || saving || recoveryOverlay || recoveryBlockedActive;
   const canPass = (state?.action_mask?.[15] ?? 1) === 1;
@@ -884,7 +891,7 @@ export default function App() {
   }
 
   function notMyTurn(): boolean {
-    return isMultiplayer && myPlayerId !== null && myPlayerId !== state?.meta.active_player;
+    return isMultiplayer && myPlayerId !== null && myPlayerId !== currentTurnPlayerId;
   }
 
   async function selectRole(role: string) {
