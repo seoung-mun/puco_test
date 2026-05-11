@@ -1,3 +1,0 @@
-Method,Name,Error,Occurrences
-POST,/api/puco/rooms/ (create),"CatchResponseError('unexpected status=422 body={""detail"":[{""type"":""string_too_long"",""loc"":[""body"",""title""],""msg"":""String should have at most 30 characters"",""input"":""lt-loadtest2-1778053563162-5241"",""ctx"":{""max_length"":30}}]}')",1
-POST,/api/puco/rooms/ (create),"CatchResponseError('unexpected status=422 body={""detail"":[{""type"":""string_too_long"",""loc"":[""body"",""title""],""msg"":""String should have at most 30 characters"",""input"":""lt-loadtest1-1778053558393-8428"",""ctx"":{""max_length"":30}}]}')",1
