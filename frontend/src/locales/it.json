@@ -405,8 +405,13 @@
       "pause":  "Pausa",
       "prev":   "Precedente",
       "next":   "Successivo",
+      "jumpBack": "Indietro di 10 frame",
+      "jumpForward": "Avanti di 10 frame",
       "speed":  "Velocità",
       "frame":  "{{current}} / {{total}}",
+      "step":   "Passo",
+      "currentAction": "Azione",
+      "commentary": "Commento",
       "noRich": "Questo frame non ha lo stato dettagliato."
     }
   },

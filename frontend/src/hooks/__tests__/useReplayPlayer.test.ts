@@ -45,7 +45,8 @@ describe('useReplayPlayer', () => {
   });
 
   it('seek clamps to bounds', () => {
-    const { result } = renderHook(() => useReplayPlayer({ frames: makeFrames(5) }));
+    const frames = makeFrames(5);
+    const { result } = renderHook(() => useReplayPlayer({ frames }));
     act(() => result.current.seek(100));
     expect(result.current.currentFrame).toBe(4);
     act(() => result.current.seek(-10));
@@ -53,7 +54,8 @@ describe('useReplayPlayer', () => {
   });
 
   it('play advances frames on timer at 1x', () => {
-    const { result } = renderHook(() => useReplayPlayer({ frames: makeFrames(4) }));
+    const frames = makeFrames(4);
+    const { result } = renderHook(() => useReplayPlayer({ frames }));
     act(() => result.current.play());
     expect(result.current.isPlaying).toBe(true);
     act(() => {
@@ -67,7 +69,8 @@ describe('useReplayPlayer', () => {
   });
 
   it('pauses automatically at last frame', () => {
-    const { result } = renderHook(() => useReplayPlayer({ frames: makeFrames(2) }));
+    const frames = makeFrames(2);
+    const { result } = renderHook(() => useReplayPlayer({ frames }));
     act(() => result.current.play());
     act(() => {
       vi.advanceTimersByTime(1000);
@@ -78,7 +81,8 @@ describe('useReplayPlayer', () => {
   });
 
   it('setSpeed only accepts allowed values', () => {
-    const { result } = renderHook(() => useReplayPlayer({ frames: makeFrames(3) }));
+    const frames = makeFrames(3);
+    const { result } = renderHook(() => useReplayPlayer({ frames }));
     act(() => result.current.setSpeed(2));
     expect(result.current.speed).toBe(2);
     act(() => result.current.setSpeed(3)); // not allowed
@@ -88,7 +92,8 @@ describe('useReplayPlayer', () => {
   });
 
   it('toggle flips play state', () => {
-    const { result } = renderHook(() => useReplayPlayer({ frames: makeFrames(3) }));
+    const frames = makeFrames(3);
+    const { result } = renderHook(() => useReplayPlayer({ frames }));
     act(() => result.current.toggle());
     expect(result.current.isPlaying).toBe(true);
     act(() => result.current.toggle());
@@ -100,5 +105,48 @@ describe('useReplayPlayer', () => {
     act(() => result.current.play());
     expect(result.current.isPlaying).toBe(false);
     expect(result.current.frame).toBeNull();
+  });
+
+  it('resets to the first frame when a new replay is loaded', () => {
+    const initialFrames = makeFrames(3);
+    const nextFrames = makeFrames(2);
+    const { result, rerender } = renderHook(
+      ({ frames }) => useReplayPlayer({ frames }),
+      { initialProps: { frames: initialFrames } },
+    );
+
+    act(() => result.current.next());
+    act(() => result.current.play());
+    expect(result.current.currentFrame).toBe(1);
+    expect(result.current.isPlaying).toBe(true);
+
+    rerender({ frames: nextFrames });
+
+    expect(result.current.currentFrame).toBe(0);
+    expect(result.current.isPlaying).toBe(false);
+    expect(result.current.frame).toEqual(nextFrames[0]);
+  });
+
+  it('pauses and seeks to frame 0 when a replacement frame array has the same length', () => {
+    const initialFrames = makeFrames(3);
+    const nextFrames = makeFrames(3).map((frame) => ({
+      ...frame,
+      action: `replacement-${frame.frame_index}`,
+    }));
+    const { result, rerender } = renderHook(
+      ({ frames }) => useReplayPlayer({ frames }),
+      { initialProps: { frames: initialFrames } },
+    );
+
+    act(() => result.current.next());
+    act(() => result.current.play());
+    expect(result.current.currentFrame).toBe(1);
+    expect(result.current.isPlaying).toBe(true);
+
+    rerender({ frames: nextFrames });
+
+    expect(result.current.currentFrame).toBe(0);
+    expect(result.current.isPlaying).toBe(false);
+    expect(result.current.frame?.action).toBe('replacement-0');
   });
 });

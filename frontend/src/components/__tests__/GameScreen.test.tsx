@@ -247,6 +247,144 @@ describe('GameScreen', () => {
     expect(passBtn?.disabled).toBe(true);
   });
 
+  it('hides the top app header when replayMode=true', () => {
+    render(<GameScreen {...commonProps({ replayMode: true })} />);
+    expect(screen.queryByText('Puerto Rico')).toBeNull();
+  });
+
+  it('hides the waiting-turn banner when replayMode=true', () => {
+    const state = makeState();
+    state.meta.active_player = 'player_1';
+    state.decision.player = 'player_waiting';
+
+    const { rerender } = render(
+      <GameScreen
+        {...commonProps({
+          state,
+          isMyTurn: false,
+        })}
+      />,
+    );
+    expect(screen.queryByText((content) => content.includes('waiting:Bob'))).not.toBeNull();
+
+    rerender(
+      <GameScreen
+        {...commonProps({
+          state,
+          isMyTurn: false,
+          replayMode: true,
+        })}
+      />,
+    );
+    expect(screen.queryByText((content) => content.includes('waiting:Bob'))).toBeNull();
+  });
+
+  it('hides the bot thinking banner when replayMode=true', () => {
+    const state = makeState();
+    state.meta.bot_thinking = true;
+
+    const { rerender } = render(<GameScreen {...commonProps({ state })} />);
+    expect(screen.queryByText('game.geminiThinking')).not.toBeNull();
+
+    rerender(
+      <GameScreen
+        {...commonProps({
+          state,
+          replayMode: true,
+        })}
+      />,
+    );
+    expect(screen.queryByText('game.geminiThinking')).toBeNull();
+  });
+
+  it('suppresses the hospice settlement overlay when replayMode=true', () => {
+    render(
+      <GameScreen
+        {...commonProps({
+          replayMode: true,
+          pendingSettlement: 'corn',
+        })}
+      />,
+    );
+    expect(document.querySelector('.hospice-overlay')).toBeNull();
+  });
+
+  it('suppresses the craftsman privilege overlay when replayMode=true', () => {
+    const state = makeState();
+    state.meta.phase = 'craftsman_action';
+    state.meta.active_role = 'craftsman';
+    state.common_board.roles.craftsman.taken_by = 'player_0';
+    state.players.player_0.production.corn.amount = 1;
+
+    render(
+      <GameScreen
+        {...commonProps({
+          state,
+          replayMode: true,
+        })}
+      />,
+    );
+    expect(document.querySelector('.hospice-overlay')).toBeNull();
+  });
+
+  it('suppresses trader and captain action cards when replayMode=true', () => {
+    const traderState = makeState();
+    traderState.meta.phase = 'trader_action';
+    traderState.meta.active_role = 'trader';
+    traderState.players.player_0.goods.corn = 1;
+    traderState.players.player_0.goods.d_total = 1;
+
+    const { rerender } = render(
+      <GameScreen
+        {...commonProps({
+          state: traderState,
+          replayMode: true,
+        })}
+      />,
+    );
+    expect(document.querySelector('#action-card')).toBeNull();
+
+    const captainState = makeState();
+    captainState.meta.phase = 'captain_action';
+    captainState.meta.active_role = 'captain';
+    captainState.players.player_0.goods.corn = 2;
+    captainState.players.player_0.goods.d_total = 2;
+    captainState.common_board.cargo_ships = [
+      { capacity: 4, good: null, d_filled: 0, d_remaining_space: 4, d_is_empty: true, d_is_full: false },
+    ];
+
+    rerender(
+      <GameScreen
+        {...commonProps({
+          state: captainState,
+          replayMode: true,
+        })}
+      />,
+    );
+    expect(document.querySelector('#action-card')).toBeNull();
+  });
+
+  it('suppresses the captain discard action card when replayMode=true', () => {
+    const state = makeState();
+    state.meta.phase = 'captain_discard';
+    state.meta.active_role = 'captain';
+    state.players.player_0.goods.corn = 2;
+    state.players.player_0.goods.d_total = 2;
+
+    const { rerender } = render(<GameScreen {...commonProps({ state })} />);
+    expect(document.querySelector('#action-card')).not.toBeNull();
+
+    rerender(
+      <GameScreen
+        {...commonProps({
+          state,
+          replayMode: true,
+        })}
+      />,
+    );
+    expect(document.querySelector('#action-card')).toBeNull();
+  });
+
   it('enables pass button when replayMode is absent and canPass', () => {
     render(<GameScreen {...commonProps()} />);
     const passBtn = document.querySelector('.pass-btn') as HTMLButtonElement | null;

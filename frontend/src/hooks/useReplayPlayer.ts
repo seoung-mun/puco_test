@@ -42,6 +42,12 @@ export function useReplayPlayer({ frames }: UseReplayPlayerOptions): UseReplayPl
   useEffect(() => clearTimer, []);
 
   useEffect(() => {
+    clearTimer();
+    setCurrentFrame(0);
+    setIsPlaying(false);
+  }, [frames]);
+
+  useEffect(() => {
     if (!isPlaying) {
       clearTimer();
       return;

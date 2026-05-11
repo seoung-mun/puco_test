@@ -407,8 +407,13 @@
       "pause":  "Pause",
       "prev":   "Previous",
       "next":   "Next",
+      "jumpBack": "Jump back 10 frames",
+      "jumpForward": "Jump forward 10 frames",
       "speed":  "Speed",
       "frame":  "{{current}} / {{total}}",
+      "step": "Step",
+      "currentAction": "Action",
+      "commentary": "Commentary",
       "noRich": "This frame has no rich state."
     }
   },
