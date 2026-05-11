@@ -283,6 +283,56 @@ describe('GameScreen', () => {
     expect(document.querySelector('.hospice-overlay')).toBeNull();
   });
 
+  it('hides captain action card for non-active multiplayer viewers', () => {
+    const state = makeState();
+    state.meta.phase = 'captain_action';
+    state.meta.active_role = 'captain';
+    state.meta.active_player = 'player_0';
+    state.common_board.roles.captain.taken_by = 'player_0';
+    state.players.player_0.goods.corn = 2;
+    state.players.player_0.goods.d_total = 2;
+    state.common_board.cargo_ships = [
+      { capacity: 4, good: null, d_filled: 0, d_remaining_space: 4, d_is_empty: true, d_is_full: false },
+    ];
+
+    render(
+      <GameScreen
+        {...commonProps({
+          state,
+          isMyTurn: false,
+          isMultiplayer: true,
+        })}
+      />,
+    );
+
+    expect(document.querySelector('#action-card')).toBeNull();
+  });
+
+  it('hides captain discard action card for non-active multiplayer viewers', () => {
+    const state = makeState();
+    state.meta.phase = 'captain_discard';
+    state.meta.active_role = 'captain';
+    state.meta.active_player = 'player_0';
+    state.players.player_0.goods.corn = 2;
+    state.players.player_0.goods.sugar = 1;
+    state.players.player_0.goods.d_total = 3;
+    state.players.player_0.city.buildings = [
+      { name: 'small_warehouse', vp: 1, cost: 3, workers: 0, max_workers: 1, occupied: false, is_active: true },
+    ];
+
+    render(
+      <GameScreen
+        {...commonProps({
+          state,
+          isMyTurn: false,
+          isMultiplayer: true,
+        })}
+      />,
+    );
+
+    expect(document.querySelector('#action-card')).toBeNull();
+  });
+
   it('does not pass mayor legal slots to non-active multiplayer viewers', () => {
     const state = makeState();
     state.meta.phase = 'mayor_action';
@@ -304,6 +354,27 @@ describe('GameScreen', () => {
     expect(screen.getByTestId('player_0').textContent).toContain('Alice:normal');
     expect(screen.getByTestId('player_0').textContent).not.toContain(':island=0,1');
     expect(screen.getByTestId('player_0').textContent).not.toContain(':city=0');
+  });
+
+  it('shows trader action card to the active multiplayer player', () => {
+    const state = makeState();
+    state.meta.phase = 'trader_action';
+    state.meta.active_role = 'trader';
+    state.meta.active_player = 'player_0';
+    state.players.player_0.goods.corn = 1;
+    state.players.player_0.goods.d_total = 1;
+
+    render(
+      <GameScreen
+        {...commonProps({
+          state,
+          isMyTurn: true,
+          isMultiplayer: true,
+        })}
+      />,
+    );
+
+    expect(document.querySelector('#action-card')).not.toBeNull();
   });
 });
 

@@ -253,4 +253,20 @@ describe('App multiplayer turn source contract', () => {
     expect(screen.getByTestId('turn-probe').textContent).toContain('active=player_2');
     expect(screen.getByTestId('turn-probe').textContent).toContain('decision=player_0');
   });
+
+  it('still grants turn ownership when meta.active_player is the saved player and decision.player lags behind', async () => {
+    nextState = makeGameState({
+      phase: 'trader_action',
+      activePlayer: 'player_0',
+      decisionPlayer: 'player_2',
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('turn-probe').textContent).toContain('isMyTurn=true');
+    });
+    expect(screen.getByTestId('turn-probe').textContent).toContain('active=player_0');
+    expect(screen.getByTestId('turn-probe').textContent).toContain('decision=player_2');
+  });
 });
