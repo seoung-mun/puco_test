@@ -212,7 +212,14 @@ docker compose -f docker-compose.prod.yml exec backend curl -f http://127.0.0.1:
 EC2 인스턴스의 퍼블릭 IP를 확인합니다.
 
 ```bash
-curl -s http://169.254.169.254/latest/meta-data/public-ipv4
+# EC2 퍼블릭 IP 확인 (IMDSv2 방식)
+TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+curl -sH "X-aws-ec2-metadata-token: $TOKEN" \
+  http://169.254.169.254/latest/meta-data/public-ipv4
+
+# 또는 외부 서비스 사용 (더 간단)
+curl -s ifconfig.me
 ```
 
 로컬 머신 또는 별도 터미널에서:
@@ -240,7 +247,14 @@ docker compose -f docker-compose.prod.yml exec backend alembic current
 ### 6.1 EC2 퍼블릭 IP 또는 도메인 확인
 
 ```bash
-curl -s http://169.254.169.254/latest/meta-data/public-ipv4
+# EC2 퍼블릭 IP 확인 (IMDSv2 방식)
+TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+curl -sH "X-aws-ec2-metadata-token: $TOKEN" \
+  http://169.254.169.254/latest/meta-data/public-ipv4
+
+# 또는 외부 서비스 사용 (더 간단)
+curl -s ifconfig.me
 ```
 
 도메인이 있다면 해당 도메인(예: `api.puco-test.com`)을 사용합니다.
@@ -445,6 +459,18 @@ docker compose -f docker-compose.prod.yml up -d
 
 ## 9. 일상 운영
 
+### 9.0 DB 스냅샷 (배포/변경 전 권장)
+
+```bash
+# DB 스냅샷 (배포/변경 전 권장)
+docker compose -f docker-compose.prod.yml exec db \
+  pg_dump -U "${POSTGRES_USER:-puco_user}" puco_rl \
+  > /tmp/puco_rl_$(date +%Y%m%d_%H%M%S).sql
+
+# 확인
+ls -lh /tmp/puco_rl_*.sql
+```
+
 ### 9.1 로그 보기
 
 ```bash
@@ -503,13 +529,14 @@ docker compose -f docker-compose.prod.yml exec backend du -sh /data/logs
 ### 9.5 DB 접속 (필요 시)
 
 ```bash
+# POSTGRES_USER 기본값은 puco_user — .env에서 변경했다면 해당 값으로 대체
 # psql 셸 접속
 docker compose -f docker-compose.prod.yml exec db \
-  psql -U puco_user -d puco_rl
+  psql -U "${POSTGRES_USER:-puco_user}" -d puco_rl
 
 # 직접 쿼리 실행 예시
 docker compose -f docker-compose.prod.yml exec db \
-  psql -U puco_user -d puco_rl -c "SELECT count(*) FROM game_sessions;"
+  psql -U "${POSTGRES_USER:-puco_user}" -d puco_rl -c "SELECT count(*) FROM game_sessions;"
 ```
 
 ### 9.6 Alembic 마이그레이션 실행
@@ -534,8 +561,11 @@ docker compose -f docker-compose.prod.yml up -d --build backend
 
 ## 10. 분석 CLI 사용법
 
-> `analytics_cli.py`는 `backend/scripts/analytics_cli.py`에 위치하며,  
-> EC2에 SSH 접속 후 백엔드 컨테이너 내부에서 실행합니다.  
+> ⚠️ **주의**: `analytics_cli.py` 는 Task B3 구현 완료 후 사용 가능합니다.
+> 현재는 아직 구현 전이며, 이 섹션은 예상 사용법을 미리 문서화한 것입니다.
+>
+> `analytics_cli.py`는 `backend/scripts/analytics_cli.py`에 위치하며,
+> EC2에 SSH 접속 후 백엔드 컨테이너 내부에서 실행합니다.
 > 모든 명령은 **읽기 전용**입니다 (SELECT만 실행, DB 변경 없음).
 
 ### 10.1 기본 실행 패턴
