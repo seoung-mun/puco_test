@@ -5,6 +5,19 @@ Task B2 분석 쿼리 구현에 필요한 사전 정보를 수집한다.
 
 ---
 
+## ⚠️ 설계 문서 Assumption A3 검증 결과
+
+설계 문서(`2026-05-12_aws_downsizing_and_player_analytics_design.md`) Assumption A3:
+> "`GameSession.players` JSONB가 `is_bot`, `player_id=BOT_{bot_type}_{idx}` 구조를 가짐"
+
+**이 가정은 잘못됨**. 실측 결과:
+
+- `players` 는 flat 문자열 배열 (`List[str]`), JSONB 오브젝트 배열이 아님
+- `is_bot` 필드 없음 — 봇/인간 구분은 `"BOT_"` 접두사로 판별
+- 인덱스 없음 — `"BOT_ppo_0"` 아닌 `"BOT_ppo"` 형식으로 저장
+
+---
+
 ## 환경
 
 - DB 컨테이너: `puco_db` (postgres:16-alpine), `puco_rl` 데이터베이스
@@ -18,7 +31,7 @@ Task B2 분석 쿼리 구현에 필요한 사전 정보를 수집한다.
 ### `users`
 
 | 컬럼 | 타입 | 비고 |
-|---|---|---|
+| --- | --- | --- |
 | id | uuid | PK |
 | google_id | varchar | UNIQUE |
 | nickname | varchar | UNIQUE |
@@ -30,10 +43,10 @@ Task B2 분석 쿼리 구현에 필요한 사전 정보를 수집한다.
 ### `games`
 
 | 컬럼 | 타입 | 비고 |
-|---|---|---|
+| --- | --- | --- |
 | id | uuid | PK |
 | title | varchar | |
-| status | varchar | 'WAITING'/'IN_PROGRESS'/'FINISHED' |
+| status | varchar | 'WAITING'/'PROGRESS'/'RECOVERY_BLOCKED'/'FINISHED' |
 | num_players | integer | |
 | players | jsonb | 배열, default '[]' |
 | model_versions | jsonb | 객체, default '{}' |
@@ -56,7 +69,7 @@ Task B2 분석 쿼리 구현에 필요한 사전 정보를 수집한다.
 
 ### 2-1. `players` 배열 형식
 
-```
+```text
 -- 인간 포함 게임
 ["f3e7ce8a-cbb2-4fc7-99ce-cde6f73107f8", "BOT_ppo", "BOT_ppo"]
 
@@ -66,14 +79,34 @@ Task B2 분석 쿼리 구현에 필요한 사전 정보를 수집한다.
 ```
 
 **확인 사항:**
+
 - 인간 플레이어: UUID 문자열 (하이픈 포함 표준 UUID)
 - 봇 플레이어: `"BOT_ppo"`, `"BOT_action_value"` 형식 (인덱스 없음, `"BOT_ppo_0"` 형식 아님)
 - 동일 봇 타입이 여러 슬롯에 중복 등장 가능
 
+> ⚠️ **BOT ID 이중 표현 주의**:
+>
+> - DB `games.players` 컬럼에 저장되는 형식: `"BOT_ppo"` (인덱스 **없음**)
+> - 로비 payload (`lobby_manager.py` 70번째 줄) 가 프론트에 보내는 형식: `"BOT_ppo_0"` (인덱스 **있음**)
+>
+> B2 구현 시 DB 기반 분석에는 반드시 인덱스 없는 형식(`"BOT_ppo"`)을 사용해야 합니다.
+
+**경고 — BOT ID 이중 표현 (Critical):**
+`lobby_manager.py` 가 프론트엔드 WebSocket payload 에 보내는 `player_id` 는 `"BOT_ppo_0"` (인덱스 포함) 형식이나,
+`games.players` DB 컬럼에 저장되는 값은 `"BOT_ppo"` (인덱스 없음) 형식입니다.
+
+| 위치 | 형식 | 예시 |
+| --- | --- | --- |
+| 로비 WS payload (`lobby_manager.py:70`) | `BOT_{bot_type}_{idx}` | `"BOT_ppo_0"`, `"BOT_ppo_1"` |
+| DB `games.players` 컬럼 | `BOT_{bot_type}` | `"BOT_ppo"`, `"BOT_action_value"` |
+
+B2 구현 시 프론트 수신 player_id 와 DB player_id 를 직접 비교하거나 매핑하면 불일치가 발생합니다.
+DB 쿼리는 반드시 인덱스 없는 형식(`"BOT_ppo"`)을 기준으로 작성해야 합니다.
+
 ### 2-2. `winner_id` 실측 값
 
 | 케이스 | 실측 값 |
-|---|---|
+| --- | --- |
 | 봇 승리 (PPO) | `"BOT_ppo"` |
 | 봇 승리 (action_value) | `"BOT_action_value"` |
 | 게임 미완료 / NULL | `NULL` |
@@ -88,6 +121,7 @@ Task B2 분석 쿼리 구현에 필요한 사전 정보를 수집한다.
 일부 최신 게임에는 `"__engine__"` 키가 추가됨.
 
 **인간 슬롯 (`actor_type: "human"`):**
+
 ```json
 {
   "player_0": {
@@ -104,6 +138,7 @@ Task B2 분석 쿼리 구현에 필요한 사전 정보를 수집한다.
 ```
 
 **봇 슬롯 (`actor_type: "bot"`):**
+
 ```json
 {
   "player_1": {
@@ -113,7 +148,7 @@ Task B2 분석 쿼리 구현에 필요한 사전 정보를 수집한다.
     "action_dim": 200,
     "actor_type": "bot",
     "policy_tag": "champion",
-    "fingerprint": { ... },
+    "fingerprint": { },
     "num_players": 3,
     "architecture": "ppo_residual",
     "artifact_name": "PPO_PR_Server_hybrid_selfplay_curriculum_5billion_from_scratch_20260412_122638_step_481689600",
@@ -126,6 +161,7 @@ Task B2 분석 쿼리 구현에 필요한 사전 정보를 수집한다.
 ```
 
 **`__engine__` 키 (최신 게임에만 존재):**
+
 ```json
 {
   "__engine__": {
@@ -163,7 +199,8 @@ WHERE status = 'FINISHED';
 ```
 
 결과:
-```
+
+```text
  has_bot_ppo | has_bot_action_value | total
 -------------+----------------------+-------
           11 |                    3 |    11
@@ -172,6 +209,7 @@ WHERE status = 'FINISHED';
 `@>` 연산자는 배열 원소 단일 일치 검색에 정상 동작. GIN 인덱스가 없더라도 seq scan으로 동작 확인됨.
 
 > **B2 구현 시 고려**: `players` 컬럼에 GIN 인덱스 추가 권장 (사용자 수 증가 시 성능)
+>
 > ```sql
 > CREATE INDEX CONCURRENTLY ix_games_players_gin ON games USING GIN (players);
 > ```
@@ -187,7 +225,8 @@ SELECT id, nickname, total_games FROM users ORDER BY total_games DESC LIMIT 10;
 ```
 
 결과:
-```
+
+```text
                   id                  |  nickname   | total_games
 --------------------------------------+-------------+-------------
  f3e7ce8a-cbb2-4fc7-99ce-cde6f73107f8 | test        |           0
@@ -198,7 +237,14 @@ SELECT id, nickname, total_games FROM users ORDER BY total_games DESC LIMIT 10;
  ...
 ```
 
-**발견:** `total_games` 컬럼은 현재 모두 0. 게임 완료 시 업데이트되는 로직이 있는지 별도 확인 필요.
+**발견 (Critical):** `users.total_games` 와 `users.win_rate` 는 코드베이스 어디에도 업데이트 로직이 없어 항상 0인 데드 컬럼입니다.
+`game_service.py` 가 게임 종료 시 이 컬럼들을 갱신하는 코드가 전혀 없습니다.
+B2 구현에서 이 컬럼들을 사용하면 항상 0이 반환됩니다 — **사용 불가**.
+`list-users` 쿼리는 반드시 `games.players` JSONB를 COUNT로 집계해야 합니다. `users.win_rate` 도 마찬가지로 사용 불가.
+
+> ⚠️ **주의**: `users.total_games` 와 `users.win_rate` 는 게임 완료 시 업데이트되지 않습니다 (dead columns).
+> `list-users` 쿼리에서 반드시 `games.players` JSONB를 직접 COUNT 집계해야 합니다.
+> `users.total_games` 컬럼 사용 금지.
 
 ### Query 2: 특정 사용자의 게임 데이터 (JSONB 필터)
 
@@ -228,7 +274,8 @@ LIMIT 10;
 ```
 
 결과:
-```
+
+```text
                   id                  | winner_id |          created_at
 --------------------------------------+-----------+-------------------------------
  8e81749e-f66c-4af4-b7ea-6dc1daab7d1a |           | 2026-04-13 07:04:10.967406+00
@@ -264,7 +311,8 @@ ORDER BY total_games DESC;
 ```
 
 결과:
-```
+
+```text
  nickname |               user_id                | total_games | wins | losses
 ----------+--------------------------------------+-------------+------+--------
  tester   | fce6f1dd-2e2f-432d-b045-cce02a06bd1c |           2 |    0 |      0
@@ -281,7 +329,7 @@ ORDER BY total_games DESC;
 ### 5-1. winner_id 해석 규칙
 
 | winner_id 값 | 의미 |
-|---|---|
+| --- | --- |
 | `NULL` | 게임 미완료 또는 winner 미기록 |
 | `"BOT_ppo"` | PPO 봇 승리 |
 | `"BOT_action_value"` | action_value 봇 승리 |
@@ -327,6 +375,7 @@ WHERE winner_id LIKE 'BOT_%'
 
 현재 `players` 컬럼에 GIN 인덱스 없음. 데이터 규모 소량이므로 seq scan으로 동작 가능.
 사용자 수 증가 시 추가 권장:
+
 ```sql
 CREATE INDEX CONCURRENTLY ix_games_players_gin ON games USING GIN (players);
 ```
@@ -336,7 +385,7 @@ CREATE INDEX CONCURRENTLY ix_games_players_gin ON games USING GIN (players);
 ## 6. 요약
 
 | 확인 항목 | 결과 |
-|---|---|
+| --- | --- |
 | players 배열 원소 형식 | UUID 문자열 or `"BOT_ppo"` / `"BOT_action_value"` (인덱스 없음) |
 | winner_id 인간 케이스 | UUID 문자열 예상 (현재 실측 데이터 없음) |
 | winner_id 봇 케이스 | `"BOT_ppo"`, `"BOT_action_value"` 확인 |
