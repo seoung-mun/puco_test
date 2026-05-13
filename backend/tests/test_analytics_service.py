@@ -166,7 +166,7 @@ class TestWinRateByBotType:
         assert result[1]["bot_type"] == "ppo"     # 1 game
 
     def test_same_bot_type_multiple_bots_counted_once_per_game(self, db):
-        """If a game has BOT_ppo and BOT_ppo_2, ppo should only count as 1 game."""
+        """같은 게임에 같은 bot_type 이 두 번 나와도 게임 수는 1로 카운트."""
         user = make_user(db)
         uid = str(user.id)
         # Two bots of same type in one game
@@ -269,6 +269,20 @@ class TestWinRateByGameCount:
         user = make_user(db)
         db.flush()
         assert win_rate_by_game_count(db, str(user.id)) == []
+
+    def test_raises_on_zero_bucket(self, db):
+        """bucket=0 은 ValueError"""
+        user = make_user(db, "P")
+        db.flush()
+        with pytest.raises(ValueError, match="positive integer"):
+            win_rate_by_game_count(db, str(user.id), bucket=0)
+
+    def test_raises_on_negative_bucket(self, db):
+        """bucket=-1 은 ValueError"""
+        user = make_user(db, "P2")
+        db.flush()
+        with pytest.raises(ValueError, match="positive integer"):
+            win_rate_by_game_count(db, str(user.id), bucket=-1)
 
     def test_single_game_always_included(self, db):
         user = make_user(db)

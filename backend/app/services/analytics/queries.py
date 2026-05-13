@@ -7,10 +7,9 @@ supply any session (test or production).  No session is created here.
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
-from sqlalchemy import text, func, cast
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import text
 
-from app.db.models import GameSession, User
+from app.db.models import GameSession
 from app.services.agent_registry import resolve_bot_type_from_actor_id
 
 
@@ -101,6 +100,9 @@ def win_rate_by_game_count(
     Each entry: {"game_range": "1-5", "games": int, "cumulative_wins": int, "win_rate": float}
     The last game is always included even if it doesn't land on a bucket boundary.
     """
+    if bucket <= 0:
+        raise ValueError(f"bucket must be a positive integer, got {bucket!r}")
+
     games = get_user_games(db, user_id)
     if not games:
         return []
