@@ -141,6 +141,9 @@ nano /opt/castone/.env
 | `VITE_GOOGLE_CLIENT_ID` | `GOOGLE_CLIENT_ID`와 동일 값 | — |
 | `ALLOWED_ORIGINS` | Vercel 프론트엔드 도메인 (예: `https://puco-test.vercel.app`) | — |
 
+> **ALLOWED_ORIGINS** — Vercel 배포 URL (예: `https://puco-test.vercel.app`). 기본값 `localhost:5173` 은 반드시 Vercel 도메인으로 교체.  
+> **VITE_GOOGLE_CLIENT_ID** — EC2 `.env` 파일이 아닌 **Vercel 프로젝트 설정 → Environment Variables** 에도 동일 값을 설정해야 합니다 (프론트엔드 빌드에 주입됨). Section 6.2 참고.
+
 ### 3.2 프로덕션 고정 값 확인
 
 아래 항목은 그대로 두거나 주석을 참고해서 유지합니다.
@@ -275,6 +278,7 @@ curl -s ifconfig.me
    ```
 
 5. `VITE_BACKEND_ORIGIN`도 동일 값으로 업데이트
+6. `VITE_GOOGLE_CLIENT_ID` 도 Environment Variables 에 설정 (`.env` EC2 파일이 아닌 Vercel 대시보드에서 설정해야 프론트엔드 빌드에 주입됨)
 
 ### 6.3 Vercel 재배포
 
