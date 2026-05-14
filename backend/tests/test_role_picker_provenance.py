@@ -22,6 +22,9 @@ def test_serialize_common_board_uses_actual_picker_for_active_and_prior_roles():
     second_picker = game.current_player_idx
     game.select_role(second_picker, Role.SETTLER)
 
+    if hasattr(game, "role_pickers_by_role"):
+        delattr(game, "role_pickers_by_role")
+
     board = serialize_common_board(game)
 
     assert board["roles"]["prospector_1"]["taken_by"] == f"player_{first_picker}"
@@ -30,27 +33,19 @@ def test_serialize_common_board_uses_actual_picker_for_active_and_prior_roles():
     assert board["roles"]["mayor"]["action_index"] == Role.MAYOR.value
 
 
-def test_role_picker_map_clears_when_round_ends():
+def test_serialize_common_board_does_not_require_engine_provenance_attribute():
     game = PuertoRicoGame(num_players=4, seed=7)
     game.start_game()
 
-    picker = game.current_player_idx
-    game.select_role(picker, Role.PROSPECTOR_1)
+    first_picker = game.current_player_idx
+    game.select_role(first_picker, Role.PROSPECTOR_1)
+    if hasattr(game, "role_pickers_by_role"):
+        delattr(game, "role_pickers_by_role")
 
-    assert game.role_pickers_by_role == {Role.PROSPECTOR_1: picker}
+    board = serialize_common_board(game)
 
-    game._end_round()
-
-    assert game.role_pickers_by_role == {}
-
-
-def test_role_picker_map_starts_clean_on_game_init():
-    game = PuertoRicoGame(num_players=4, seed=7)
-    game.role_pickers_by_role = {Role.SETTLER: 2}
-
-    game.start_game()
-
-    assert game.role_pickers_by_role == {}
+    assert board["roles"]["prospector_1"]["taken_by"] == f"player_{first_picker}"
+    assert board["roles"]["prospector_1"].get("action_index") is None
 
 
 def test_serialize_common_board_recovers_picker_from_round_order_when_map_is_missing():
@@ -62,7 +57,8 @@ def test_serialize_common_board_recovers_picker_from_round_order_when_map_is_mis
     second_picker = game.current_player_idx
     game.select_role(second_picker, Role.SETTLER)
 
-    game.role_pickers_by_role = {}
+    if hasattr(game, "role_pickers_by_role"):
+        game.role_pickers_by_role = {}
 
     board = serialize_common_board(game)
 

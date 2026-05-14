@@ -66,7 +66,6 @@ class PuertoRicoGame:
         self.available_roles: List[Role] = self._init_roles()
         self.role_doubloons: Dict[Role, int] = {role: 0 for role in self.available_roles}
         self.roles_in_play: List[Role] = [] # Roles currently picked by players this round
-        self.role_pickers_by_role: Dict[Role, int] = {}
         
         # State Machine Tracking
         self.governor_idx = self._rng.randint(0, num_players - 1)
@@ -154,7 +153,6 @@ class PuertoRicoGame:
 
     def start_game(self):
         """Starts the game by dealing face up plantations and setting the initial phase."""
-        self.role_pickers_by_role.clear()
         self._deal_face_up_plantations()
         self.current_phase = Phase.END_ROUND # Force role selection
         self.active_role = None
@@ -192,7 +190,6 @@ class PuertoRicoGame:
         # Return used roles
         self.available_roles.extend(self.roles_in_play)
         self.roles_in_play.clear()
-        self.role_pickers_by_role.clear()
         
         # Check game end condition loosely here, but we will have a explicit check
         # Pass Governor
@@ -288,7 +285,6 @@ class PuertoRicoGame:
             
         self.available_roles.remove(role)
         self.roles_in_play.append(role)
-        self.role_pickers_by_role[role] = player_idx
         self.active_role = role
         
         self.active_role_player = player_idx # The player who picked acting first
