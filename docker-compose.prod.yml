@@ -1,14 +1,15 @@
 # ── 프로덕션 환경 (docker compose -f docker-compose.prod.yml up) ──
-# 특징: 이미지 빌드, non-root, healthcheck, 네트워크 격리, 리소스 제한
-# 사용: docker compose -f docker-compose.prod.yml up -d --build
+# 특징: prebuilt backend image, non-root, healthcheck, 네트워크 격리, 2GB EC2용 리소스 제한
+# EC2 사용: docker compose -f docker-compose.prod.yml up -d --no-build
+# 로컬/CI 이미지 생성: docker compose -f docker-compose.prod.yml build backend
 
 services:
   db:
     image: postgres:16-alpine
     container_name: puco_db
-    cpus: 1.0
-    mem_limit: 512m
-    mem_reservation: 256m
+    cpus: 0.5
+    mem_limit: 384m
+    mem_reservation: 192m
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-puco_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -26,19 +27,19 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1.0"
-          memory: 512M
+          cpus: "0.5"
+          memory: 384M
         reservations:
-          cpus: "0.25"
-          memory: 256M
+          cpus: "0.15"
+          memory: 192M
 
   redis:
     image: redis:7-alpine
     container_name: puco_redis
-    cpus: 0.5
-    mem_limit: 384m
-    mem_reservation: 128m
-    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    cpus: 0.2
+    mem_limit: 128m
+    mem_reservation: 64m
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 96mb --maxmemory-policy allkeys-lru
     volumes:
       - redisdata:/data
     networks:
@@ -52,19 +53,20 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 384M
-        reservations:
-          cpus: "0.1"
+          cpus: "0.2"
           memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 64M
 
   backend:
+    image: castone-backend:${BACKEND_IMAGE_TAG:-prod-preview}
     build:
       context: .
       dockerfile: backend/Dockerfile.prod
     container_name: puco_backend
-    cpus: 2.0
-    mem_limit: 2g
+    cpus: 1.3
+    mem_limit: 1280m
     mem_reservation: 512m
     env_file:
       - .env
@@ -74,6 +76,8 @@ services:
       - PYTHONPATH=/app:/PuCo_RL
       - APP_LOG_DIR=/tmp/castone-data/logs
       - DEBUG=false
+    expose:
+      - "8000"
     volumes:
       - backend_logs:/data/logs
     networks:
@@ -94,26 +98,27 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2.0"
-          memory: 2G
+          cpus: "1.3"
+          memory: 1280M
         reservations:
           cpus: "0.5"
           memory: 512M
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: prod
-      args:
-        VITE_API_TARGET: ""
-        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
-    container_name: puco_frontend
-    cpus: 0.5
-    mem_limit: 256m
-    mem_reservation: 64m
+  caddy:
+    image: caddy:2-alpine
+    container_name: puco_caddy
+    cpus: 0.2
+    mem_limit: 128m
+    mem_reservation: 32m
+    environment:
+      - PUBLIC_BACKEND_HOST=${PUBLIC_BACKEND_HOST:-localhost}
     ports:
-      - "0.0.0.0:80:8080"
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
     networks:
       - frontend
     depends_on:
@@ -123,11 +128,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 256M
+          cpus: "0.2"
+          memory: 128M
         reservations:
-          cpus: "0.1"
-          memory: 64M
+          cpus: "0.05"
+          memory: 32M
 
 networks:
   internal:
@@ -140,3 +145,5 @@ volumes:
   pgdata:
   redisdata:
   backend_logs:
+  caddy_data:
+  caddy_config:
