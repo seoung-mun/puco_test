@@ -20,6 +20,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.services.analytics import ppo_lineup_games
 
 
+REQUESTED_MATCHUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("human + ppo + action_value", ("action_value", "human", "ppo")),
+    ("human + ppo + ppo", ("human", "ppo", "ppo")),
+)
+
+
 def _build_session():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
@@ -56,6 +62,20 @@ def _finalize_stats(stats: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _lineup_parts(lineup_signature: str) -> list[str]:
+    return [part.strip() for part in lineup_signature.split(">") if part.strip()]
+
+
+def _add_result(stats: dict[str, Any], ppo_result: Any) -> None:
+    stats["games"] += 1
+    if ppo_result == "win":
+        stats["ppo_wins"] += 1
+    elif ppo_result == "draw":
+        stats["draws"] += 1
+    else:
+        stats["ppo_losses"] += 1
+
+
 def summarize_ppo_human_rows(
     rows: list[dict[str, Any]],
     *,
@@ -67,19 +87,13 @@ def summarize_ppo_human_rows(
 
     for row in rows:
         lineup_signature = str(row.get("lineup_signature") or "")
-        parts = [part.strip() for part in lineup_signature.split(">")]
+        parts = _lineup_parts(lineup_signature)
         if "human" not in parts:
             continue
 
         stats = grouped.setdefault(lineup_signature, _empty_stats(lineup_signature))
         for target in (overall, stats):
-            target["games"] += 1
-            if row.get("ppo_result") == "win":
-                target["ppo_wins"] += 1
-            elif row.get("ppo_result") == "draw":
-                target["draws"] += 1
-            else:
-                target["ppo_losses"] += 1
+            _add_result(target, row.get("ppo_result"))
 
     if overall["games"] == 0:
         return []
@@ -99,6 +113,30 @@ def summarize_ppo_human_rows(
     )
     result.extend(lineup_rows)
     return result
+
+
+def summarize_requested_matchups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return the two requested PPO-human matchup buckets, ignoring seat order."""
+    grouped = {
+        label: _empty_stats(label)
+        for label, _composition in REQUESTED_MATCHUPS
+    }
+    composition_to_label = {
+        composition: label
+        for label, composition in REQUESTED_MATCHUPS
+    }
+
+    for row in rows:
+        parts = tuple(sorted(_lineup_parts(str(row.get("lineup_signature") or ""))))
+        label = composition_to_label.get(parts)
+        if label is None:
+            continue
+        _add_result(grouped[label], row.get("ppo_result"))
+
+    return [
+        _finalize_stats(grouped[label])
+        for label, _composition in REQUESTED_MATCHUPS
+    ]
 
 
 def render_svg_chart(
@@ -187,8 +225,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--title",
-        default="PPO Win Rate vs Human Games",
+        default="PPO Win Rate: Target Human Matchups",
         help="SVG 차트 제목",
+    )
+    parser.add_argument(
+        "--all-lineups",
+        action="store_true",
+        help="요청된 2개 matchup 대신 사람 포함 PPO 전체와 좌석별 조합을 모두 표시",
     )
     return parser
 
@@ -198,7 +241,10 @@ def main(argv: list[str] | None = None) -> None:
     db = _build_session()
     try:
         rows = ppo_lineup_games(db, limit=0)
-        summary = summarize_ppo_human_rows(rows, min_games=max(args.min_games, 1))
+        if args.all_lineups:
+            summary = summarize_ppo_human_rows(rows, min_games=max(args.min_games, 1))
+        else:
+            summary = summarize_requested_matchups(rows)
         svg = render_svg_chart(summary, title=args.title)
         write_text(args.output, svg)
         if args.json_output:

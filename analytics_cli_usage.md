@@ -258,6 +258,11 @@ docker compose -f docker-compose.prod.yml exec -T backend python -m scripts.anal
 
 PPO가 사람이 포함된 FINISHED 3인 대국에서 기록한 승률을 SVG 막대 차트로 만듭니다. 별도 시각화 라이브러리 없이 pure Python으로 SVG를 생성합니다.
 
+기본 차트는 좌석 순서를 무시하고 아래 두 조합을 따로 집계합니다.
+
+- `human + ppo + action_value`: 모든 인간 플레이어 + PPO + action_value 조합 전체
+- `human + ppo + ppo`: 인간 1명 + PPO 2명 조합 전체
+
 기본 SVG 생성:
 
 ```bash
@@ -288,10 +293,19 @@ docker cp puco_backend:/tmp/ppo_human_winrate.svg ./ppo_human_winrate.svg
 docker cp puco_backend:/tmp/ppo_human_winrate.json ./ppo_human_winrate.json
 ```
 
+좌석 순서별 전체 상세 차트를 보고 싶을 때:
+
+```bash
+docker compose -f docker-compose.prod.yml exec -T backend python -m scripts.visualize_ppo_human_winrate \
+  --output /tmp/ppo_human_winrate_all_lineups.svg \
+  --json-output /tmp/ppo_human_winrate_all_lineups.json \
+  --all-lineups
+```
+
 차트 구성:
 
-- `overall`: 사람이 포함된 모든 PPO 대국의 전체 PPO 승률
-- `human > ppo > random` 같은 타입별 좌석 조합 행
+- 기본 모드: `human + ppo + action_value`, `human + ppo + ppo`
+- `--all-lineups` 모드: `overall`, `human > ppo > random` 같은 타입별 좌석 조합 행
 - 막대 길이: PPO 승률
 - 상세 텍스트: 게임 수, PPO 승/패/무
 
@@ -303,6 +317,43 @@ JSON 컬럼:
 - `ppo_losses`: PPO 패배 수
 - `draws`: 무승부 수
 - `win_rate`: PPO 승률
+
+## 8-1. 로컬에서 서버에 시각화 스크립트만 보내기
+
+로컬 현재 위치가 repo 루트라면 key 파일은 `./puco_capstone.pem`입니다. `./Users/...`처럼 앞에 점을 붙이면 현재 폴더 아래의 `Users`를 찾으려 해서 실패합니다.
+
+스크립트만 서버 `/tmp`로 전송:
+
+```bash
+scp -i ./puco_capstone.pem \
+  backend/scripts/visualize_ppo_human_winrate.py \
+  ubuntu@54.116.144.226:/tmp/visualize_ppo_human_winrate.py
+```
+
+서버의 실행 중인 backend 컨테이너 안으로 복사:
+
+```bash
+ssh -i ./puco_capstone.pem ubuntu@54.116.144.226 \
+  "docker cp /tmp/visualize_ppo_human_winrate.py puco_backend:/app/scripts/visualize_ppo_human_winrate.py"
+```
+
+서버에서 SVG/JSON 생성:
+
+```bash
+ssh -i ./puco_capstone.pem ubuntu@54.116.144.226 \
+  "docker exec -T puco_backend python -m scripts.visualize_ppo_human_winrate --output /tmp/ppo_human_winrate.svg --json-output /tmp/ppo_human_winrate.json"
+```
+
+결과 파일을 컨테이너에서 서버 `/tmp`로 꺼내고, 다시 로컬로 복사:
+
+```bash
+ssh -i ./puco_capstone.pem ubuntu@54.116.144.226 \
+  "docker cp puco_backend:/tmp/ppo_human_winrate.svg /tmp/ppo_human_winrate.svg && docker cp puco_backend:/tmp/ppo_human_winrate.json /tmp/ppo_human_winrate.json"
+
+scp -i ./puco_capstone.pem \
+  ubuntu@54.116.144.226:/tmp/ppo_human_winrate.* \
+  .
+```
 
 ## 9. 추천 실행 순서
 
