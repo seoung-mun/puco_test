@@ -7,6 +7,8 @@ analytics_cli.py — PuCo RL 분석 CLI
     win-rate-by-count   판수 누적별 봇 대상 승률
     recent-games        최근 게임 결과
     lineup-summary      3인전 조합 기준 승률/VP 차이 요약
+    lineup-games        게임별 조합 상세 결과
+    ppo-lineup-games    PPO 포함 게임별 조합 상세 결과
 
 사용법 (도커 내부):
     python -m scripts.analytics_cli --help
@@ -16,6 +18,8 @@ analytics_cli.py — PuCo RL 분석 CLI
     python -m scripts.analytics_cli win-rate-by-count --user-id <UUID> --bucket 10
     python -m scripts.analytics_cli recent-games --user-id <UUID> --limit 10 --json
     python -m scripts.analytics_cli lineup-summary --nickname <NICKNAME> --json
+    python -m scripts.analytics_cli lineup-games --nickname <NICKNAME> --lineup "tester,ppo,action_value"
+    python -m scripts.analytics_cli ppo-lineup-games --lineup "human,ppo,random" --json
 
 환경변수:
     DATABASE_URL  (필수) — PostgreSQL 연결 문자열
@@ -33,6 +37,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.services.analytics import (
     lineup_summary,
     list_users,
+    lineup_games,
+    ppo_lineup_games,
     resolve_user_id_or_nickname,
     win_rate_by_bot_type,
     win_rate_by_game_count,
@@ -213,6 +219,80 @@ def handle_lineup_summary(args: argparse.Namespace, db=None) -> None:
             db.close()
 
 
+def handle_lineup_games(args: argparse.Namespace, db=None) -> None:
+    """lineup-games 서브커맨드 핸들러."""
+    close_after = db is None
+    if db is None:
+        db = _build_session()
+    try:
+        limit = getattr(args, "limit", 20) or 20
+        user_id = _resolve_target_user_id(db, args)
+        lineup_filter = getattr(args, "lineup", None)
+        lineup = (
+            [part.strip() for part in lineup_filter.split(",")]
+            if lineup_filter
+            else None
+        )
+        rows = lineup_games(db, user_id, limit=limit, lineup=lineup)
+        cols = [
+            "game_id",
+            "created_at",
+            "lineup",
+            "winner_display_name",
+            "first_place_vp",
+            "second_place_vp",
+            "first_second_vp_gap",
+            "my_rank",
+            "my_vp",
+        ]
+        if getattr(args, "json", False):
+            print(json.dumps(rows, ensure_ascii=False, indent=2, default=str))
+        else:
+            _print_table(rows, cols)
+    finally:
+        if close_after:
+            db.close()
+
+
+def handle_ppo_lineup_games(args: argparse.Namespace, db=None) -> None:
+    """ppo-lineup-games 서브커맨드 핸들러."""
+    close_after = db is None
+    if db is None:
+        db = _build_session()
+    try:
+        limit = getattr(args, "limit", 20) or 20
+        lineup_filter = getattr(args, "lineup", None)
+        lineup = (
+            [part.strip().lower() for part in lineup_filter.split(",") if part.strip()]
+            if lineup_filter
+            else None
+        )
+        rows = ppo_lineup_games(db, limit=limit, lineup=lineup)
+        cols = [
+            "game_id",
+            "created_at",
+            "lineup",
+            "lineup_signature",
+            "ordered_players",
+            "ppo_seats",
+            "ppo_count",
+            "ppo_result",
+            "winner_display_name",
+            "best_ppo_rank",
+            "best_ppo_vp",
+            "best_non_ppo_vp",
+            "best_ppo_vp_gap",
+            "score_data_available",
+        ]
+        if getattr(args, "json", False):
+            print(json.dumps(rows, ensure_ascii=False, indent=2, default=str))
+        else:
+            _print_table(rows, cols)
+    finally:
+        if close_after:
+            db.close()
+
+
 # ---------------------------------------------------------------------------
 # argparse 설정
 # ---------------------------------------------------------------------------
@@ -261,6 +341,21 @@ def build_parser() -> argparse.ArgumentParser:
     add_user_lookup_args(p_ls)
     p_ls.add_argument("--json", action="store_true", help="JSON 형식으로 출력")
     p_ls.set_defaults(handler=handle_lineup_summary)
+
+    # -- lineup-games --
+    p_lg = sub.add_parser("lineup-games", help="게임별 조합 상세 결과")
+    add_user_lookup_args(p_lg)
+    p_lg.add_argument("--limit", type=int, default=20, metavar="N", help="출력할 최대 게임 수 (기본 20)")
+    p_lg.add_argument("--lineup", metavar="A,B,C", help="순서 포함 exact 조합 필터")
+    p_lg.add_argument("--json", action="store_true", help="JSON 형식으로 출력")
+    p_lg.set_defaults(handler=handle_lineup_games)
+
+    # -- ppo-lineup-games --
+    p_plg = sub.add_parser("ppo-lineup-games", help="PPO 포함 게임별 조합 상세 결과")
+    p_plg.add_argument("--limit", type=int, default=20, metavar="N", help="출력할 최대 게임 수 (기본 20)")
+    p_plg.add_argument("--lineup", metavar="A,B,C", help="타입 순서 exact 조합 필터 (예: human,ppo,random)")
+    p_plg.add_argument("--json", action="store_true", help="JSON 형식으로 출력")
+    p_plg.set_defaults(handler=handle_ppo_lineup_games)
 
     return parser
 

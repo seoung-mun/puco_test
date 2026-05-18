@@ -9,6 +9,7 @@ from datetime import datetime, timezone, timedelta
 
 import pytest
 
+import app.services.analytics as analytics_service
 from app.db.models import GameSession, Replay, User
 from app.services.analytics import (
     get_user_games,
@@ -77,6 +78,12 @@ def make_replay(
 def _base_ts(offset_seconds: int = 0) -> datetime:
     """Return a deterministic UTC timestamp offset from a fixed point."""
     base = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    return base + timedelta(seconds=offset_seconds)
+
+
+def _future_ts(offset_seconds: int = 0) -> datetime:
+    """Return a deterministic future timestamp for global analytics reports."""
+    base = datetime(2035, 1, 1, tzinfo=timezone.utc)
     return base + timedelta(seconds=offset_seconds)
 
 
@@ -756,6 +763,273 @@ class TestLineupSummary:
         assert len(result) == 1
         assert result[0]["games"] == 2
         assert result[0]["ordered_players"] == [user.nickname, other.nickname, "ppo"]
+
+
+class TestLineupGames:
+    def test_returns_game_level_lineup_rows_with_winner_and_vp_gap(self, db):
+        user = make_user(db, "Alice")
+        other = make_user(db, "Bob")
+        uid = str(user.id)
+        other_id = str(other.id)
+        game = make_game(
+            db,
+            [uid, "BOT_ppo", other_id],
+            winner_id=uid,
+            created_at=_base_ts(400),
+        )
+        make_replay(
+            db,
+            game.id,
+            final_scores=[
+                {"actor_id": uid, "display_name": user.nickname, "vp": 38, "tiebreaker": 4, "winner": True},
+                {"actor_id": other_id, "display_name": other.nickname, "vp": 33, "tiebreaker": 2, "winner": False},
+                {"actor_id": "BOT_ppo", "display_name": "ppo", "vp": 30, "tiebreaker": 1, "winner": False},
+            ],
+        )
+        db.flush()
+
+        result = analytics_service.lineup_games(db, uid)
+
+        assert len(result) == 1
+        assert result[0]["lineup"] == f"{user.nickname} > ppo > {other.nickname}"
+        assert result[0]["ordered_players"] == [user.nickname, "ppo", other.nickname]
+        assert result[0]["winner_display_name"] == user.nickname
+        assert result[0]["first_place_vp"] == 38
+        assert result[0]["second_place_vp"] == 33
+        assert result[0]["first_second_vp_gap"] == 5
+        assert result[0]["my_rank"] == 1
+        assert result[0]["my_vp"] == 38
+
+    def test_uses_zero_gap_when_winner_is_decided_by_tiebreaker(self, db):
+        user = make_user(db, "Alice")
+        other = make_user(db, "Bob")
+        uid = str(user.id)
+        other_id = str(other.id)
+        game = make_game(
+            db,
+            [uid, other_id, "BOT_ppo"],
+            winner_id=other_id,
+            created_at=_base_ts(410),
+        )
+        make_replay(
+            db,
+            game.id,
+            final_scores=[
+                {"actor_id": other_id, "display_name": other.nickname, "vp": 34, "tiebreaker": 4, "winner": True},
+                {"actor_id": uid, "display_name": user.nickname, "vp": 34, "tiebreaker": 3, "winner": False},
+                {"actor_id": "BOT_ppo", "display_name": "ppo", "vp": 28, "tiebreaker": 1, "winner": False},
+            ],
+        )
+        db.flush()
+
+        result = analytics_service.lineup_games(db, uid)
+
+        assert result[0]["winner_display_name"] == other.nickname
+        assert result[0]["first_place_vp"] == 34
+        assert result[0]["second_place_vp"] == 34
+        assert result[0]["first_second_vp_gap"] == 0
+        assert result[0]["my_rank"] == 2
+        assert result[0]["my_vp"] == 34
+
+    def test_keeps_score_fields_none_when_replay_scores_are_missing(self, db):
+        user = make_user(db, "Alice")
+        other = make_user(db, "Bob")
+        uid = str(user.id)
+        game = make_game(
+            db,
+            [uid, str(other.id), "BOT_action_value"],
+            winner_id=str(other.id),
+            created_at=_base_ts(420),
+        )
+        db.flush()
+
+        result = analytics_service.lineup_games(db, uid)
+
+        assert result[0]["lineup"] == f"{user.nickname} > {other.nickname} > action_value"
+        assert result[0]["winner_display_name"] == other.nickname
+        assert result[0]["first_place_vp"] is None
+        assert result[0]["second_place_vp"] is None
+        assert result[0]["first_second_vp_gap"] is None
+        assert result[0]["my_rank"] is None
+        assert result[0]["my_vp"] is None
+
+    def test_filters_by_exact_ordered_lineup(self, db):
+        user = make_user(db, "Alice")
+        other = make_user(db, "Bob")
+        uid = str(user.id)
+        first = make_game(
+            db,
+            [uid, "BOT_ppo", str(other.id)],
+            winner_id=uid,
+            created_at=_base_ts(430),
+        )
+        second = make_game(
+            db,
+            [uid, str(other.id), "BOT_ppo"],
+            winner_id=uid,
+            created_at=_base_ts(431),
+        )
+        for game in (first, second):
+            make_replay(
+                db,
+                game.id,
+                final_scores=[
+                    {"actor_id": uid, "display_name": user.nickname, "vp": 35, "tiebreaker": 3, "winner": True},
+                    {"actor_id": str(other.id), "display_name": other.nickname, "vp": 31, "tiebreaker": 2, "winner": False},
+                    {"actor_id": "BOT_ppo", "display_name": "ppo", "vp": 28, "tiebreaker": 1, "winner": False},
+                ],
+            )
+        db.flush()
+
+        result = analytics_service.lineup_games(db, uid, lineup=[user.nickname, "ppo", other.nickname])
+
+        assert len(result) == 1
+        assert result[0]["game_id"] == str(first.id)
+
+
+class TestPpoLineupGames:
+    def test_filters_finished_three_player_games_that_include_ppo(self, db):
+        user = make_user(db, "Alice")
+        uid = str(user.id)
+        included = make_game(
+            db,
+            [uid, "BOT_ppo", "BOT_random"],
+            winner_id="BOT_ppo",
+            created_at=_future_ts(500),
+        )
+        make_game(
+            db,
+            [uid, "BOT_random", "BOT_action_value"],
+            winner_id=uid,
+            created_at=_future_ts(501),
+        )
+        make_game(
+            db,
+            [uid, "BOT_ppo", "BOT_random"],
+            status="PROGRESS",
+            winner_id="BOT_ppo",
+            created_at=_future_ts(502),
+        )
+        make_game(
+            db,
+            [uid, "BOT_ppo", "BOT_random", "BOT_action_value"],
+            winner_id="BOT_ppo",
+            created_at=_future_ts(503),
+        )
+        db.flush()
+
+        result = analytics_service.ppo_lineup_games(db, limit=1)
+
+        assert [row["game_id"] for row in result] == [str(included.id)]
+        assert result[0]["lineup_signature"] == "human > ppo > random"
+        assert result[0]["ppo_seats"] == [2]
+        assert result[0]["ppo_count"] == 1
+
+    def test_preserves_display_order_and_type_signature(self, db):
+        user = make_user(db, "Alice")
+        uid = str(user.id)
+        game = make_game(
+            db,
+            [uid, "BOT_ppo", "BOT_action_value"],
+            winner_id=uid,
+            created_at=_future_ts(510),
+        )
+        make_replay(
+            db,
+            game.id,
+            final_scores=[
+                {"player": 0, "actor_id": uid, "display_name": user.nickname, "vp": 39, "tiebreaker": 3, "winner": True},
+                {"player": 1, "actor_id": "BOT_ppo", "display_name": "PPO Bot", "vp": 34, "tiebreaker": 2, "winner": False},
+                {"player": 2, "actor_id": "BOT_action_value", "display_name": "Action Value", "vp": 30, "tiebreaker": 1, "winner": False},
+            ],
+        )
+        db.flush()
+
+        result = analytics_service.ppo_lineup_games(db, limit=1)
+
+        assert result[0]["ordered_players"] == [user.nickname, "PPO Bot", "Action Value"]
+        assert result[0]["lineup"] == f"{user.nickname} > PPO Bot > Action Value"
+        assert result[0]["lineup_signature"] == "human > ppo > action_value"
+        assert result[0]["ppo_result"] == "loss"
+        assert result[0]["winner_display_name"] == user.nickname
+        assert result[0]["best_ppo_rank"] == 2
+        assert result[0]["best_ppo_vp"] == 34
+        assert result[0]["best_non_ppo_vp"] == 39
+        assert result[0]["best_ppo_vp_gap"] == -5
+        assert result[0]["score_data_available"] is True
+
+    def test_keeps_score_fields_none_when_replay_scores_are_missing(self, db):
+        user = make_user(db, "Alice")
+        uid = str(user.id)
+        make_game(
+            db,
+            [uid, "BOT_random", "BOT_ppo"],
+            winner_id="BOT_ppo",
+            created_at=_future_ts(520),
+        )
+        db.flush()
+
+        result = analytics_service.ppo_lineup_games(db, limit=1)
+
+        assert result[0]["lineup_signature"] == "human > random > ppo"
+        assert result[0]["ppo_result"] == "win"
+        assert result[0]["winner_display_name"] == "ppo"
+        assert result[0]["score_data_available"] is False
+        assert result[0]["best_ppo_rank"] is None
+        assert result[0]["best_ppo_vp"] is None
+        assert result[0]["best_non_ppo_vp"] is None
+        assert result[0]["best_ppo_vp_gap"] is None
+
+    def test_summarizes_duplicate_ppo_seats_as_one_game_row(self, db):
+        game = make_game(
+            db,
+            ["BOT_ppo", "BOT_ppo", "BOT_random"],
+            winner_id="BOT_ppo",
+            created_at=_future_ts(530),
+        )
+        make_replay(
+            db,
+            game.id,
+            final_scores=[
+                {"player": 1, "actor_id": "BOT_ppo", "display_name": "PPO Bot B", "vp": 37, "tiebreaker": 5, "winner": True},
+                {"player": 2, "actor_id": "BOT_random", "display_name": "Random Bot", "vp": 35, "tiebreaker": 4, "winner": False},
+                {"player": 0, "actor_id": "BOT_ppo", "display_name": "PPO Bot A", "vp": 31, "tiebreaker": 3, "winner": False},
+            ],
+        )
+        db.flush()
+
+        result = analytics_service.ppo_lineup_games(db, lineup=["ppo", "ppo", "random"])
+
+        assert len(result) == 1
+        assert result[0]["lineup_signature"] == "ppo > ppo > random"
+        assert result[0]["ppo_seats"] == [1, 2]
+        assert result[0]["ppo_count"] == 2
+        assert result[0]["ppo_result"] == "win"
+        assert result[0]["best_ppo_rank"] == 1
+        assert result[0]["best_ppo_vp"] == 37
+        assert result[0]["best_non_ppo_vp"] == 35
+        assert result[0]["best_ppo_vp_gap"] == 2
+
+    def test_filters_by_exact_type_lineup_signature(self, db):
+        user = make_user(db, "Alice")
+        uid = str(user.id)
+        first = make_game(
+            db,
+            [uid, "BOT_ppo", "BOT_random"],
+            winner_id="BOT_ppo",
+            created_at=_future_ts(540),
+        )
+        make_game(
+            db,
+            [uid, "BOT_random", "BOT_ppo"],
+            winner_id="BOT_ppo",
+            created_at=_future_ts(541),
+        )
+        db.flush()
+
+        result = analytics_service.ppo_lineup_games(db, lineup=["human", "ppo", "random"])
+
+        assert [row["game_id"] for row in result] == [str(first.id)]
 
 
 class TestResolveUserIdOrNickname:

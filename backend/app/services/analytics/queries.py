@@ -75,6 +75,17 @@ def _canonical_ordered_players(
     ]
 
 
+def _lineup_signature_for_actor_ids(actor_ids: list[str]) -> list[str]:
+    return [
+        resolve_bot_type_from_actor_id(actor_id) if _is_bot(actor_id) else "human"
+        for actor_id in actor_ids
+    ]
+
+
+def _is_ppo_actor(actor_id: str | None) -> bool:
+    return _is_bot(str(actor_id or "")) and resolve_bot_type_from_actor_id(str(actor_id)) == "ppo"
+
+
 def _load_replay_payloads(db: Session, games: list[GameSession]) -> dict[str, dict[str, Any]]:
     if not games:
         return {}
@@ -99,17 +110,24 @@ def _normalize_final_scores(
 
     for index, row in enumerate(final_scores or []):
         actor_id = row.get("actor_id")
+        player_index = row.get("player")
         if actor_id is None:
-            player_index = row.get("player")
             if isinstance(player_index, int) and 0 <= player_index < len(game.players or []):
                 actor_id = str((game.players or [])[player_index])
         if actor_id is None:
             continue
 
+        normalized_player_index = (
+            player_index
+            if isinstance(player_index, int) and 0 <= player_index < len(game.players or [])
+            else None
+        )
         actor_id = str(actor_id)
         normalized.append(
             {
                 "actor_id": actor_id,
+                "player": normalized_player_index,
+                "seat": normalized_player_index + 1 if normalized_player_index is not None else None,
                 "display_name": row.get("display_name") or _display_name_for_actor(actor_id, human_names),
                 "vp": int(row.get("vp", 0) or 0),
                 "tiebreaker": int(row.get("tiebreaker", 0) or 0),
@@ -261,6 +279,149 @@ def _is_ordered_lineup_game(game: GameSession, user_id: str) -> bool:
         and len(players) == 3
         and user_id in players
     )
+
+
+def _build_lineup_game_row(
+    game: GameSession,
+    user_id: str,
+    human_names: dict[str, str],
+    replay_payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    players = [str(player) for player in (game.players or [])]
+    score_details = _score_details_for_user(
+        game=game,
+        user_id=user_id,
+        human_names=human_names,
+        replay_payload=replay_payload,
+    )
+    score_rows = score_details.pop("score_rows", [])
+    score_name_map = {
+        row["actor_id"]: row["display_name"]
+        for row in score_rows
+    }
+    ordered_players = [
+        _display_name_for_actor(actor_id, human_names, score_name_map)
+        for actor_id in players
+    ]
+    first_row = score_rows[0] if len(score_rows) > 0 else None
+    second_row = score_rows[1] if len(score_rows) > 1 else None
+
+    return {
+        "game_id": str(game.id),
+        "created_at": game.created_at,
+        "lineup": " > ".join(ordered_players),
+        "ordered_players": ordered_players,
+        "winner_display_name": score_details["winner_display_name"],
+        "first_place_vp": first_row["vp"] if first_row else None,
+        "second_place_vp": second_row["vp"] if second_row else None,
+        "first_second_vp_gap": (
+            first_row["vp"] - second_row["vp"]
+            if first_row and second_row
+            else None
+        ),
+        "my_rank": score_details["my_rank"],
+        "my_vp": score_details["my_vp"],
+    }
+
+
+def _is_ppo_lineup_game(game: GameSession) -> bool:
+    players = [str(player) for player in (game.players or [])]
+    return (
+        game.status == "FINISHED"
+        and game.num_players == 3
+        and len(players) == 3
+        and any(_is_ppo_actor(player) for player in players)
+    )
+
+
+def _build_ppo_lineup_game_row(
+    game: GameSession,
+    human_names: dict[str, str],
+    replay_payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    players = [str(player) for player in (game.players or [])]
+    ppo_seats = [
+        index + 1
+        for index, actor_id in enumerate(players)
+        if _is_ppo_actor(actor_id)
+    ]
+    signature_parts = _lineup_signature_for_actor_ids(players)
+    score_rows = _normalize_final_scores(
+        game=game,
+        final_scores=(replay_payload or {}).get("final_scores"),
+        human_names=human_names,
+    )
+    seat_name_map = {
+        row["seat"]: row["display_name"]
+        for row in score_rows
+        if row.get("seat") is not None
+    }
+    score_name_map = {
+        row["actor_id"]: row["display_name"]
+        for row in score_rows
+    }
+    ordered_players = [
+        seat_name_map.get(index + 1)
+        or _display_name_for_actor(actor_id, human_names, score_name_map)
+        for index, actor_id in enumerate(players)
+    ]
+
+    ranked_rows = [
+        {**row, "rank": rank}
+        for rank, row in enumerate(score_rows, start=1)
+    ]
+    ppo_score_rows = [
+        row
+        for row in ranked_rows
+        if (
+            row.get("seat") in ppo_seats
+            if row.get("seat") is not None
+            else _is_ppo_actor(row.get("actor_id"))
+        )
+    ]
+    non_ppo_score_rows = [
+        row
+        for row in ranked_rows
+        if not (
+            row.get("seat") in ppo_seats
+            if row.get("seat") is not None
+            else _is_ppo_actor(row.get("actor_id"))
+        )
+    ]
+    best_ppo_row = ppo_score_rows[0] if ppo_score_rows else None
+    best_non_ppo_row = non_ppo_score_rows[0] if non_ppo_score_rows else None
+    best_ppo_vp = best_ppo_row["vp"] if best_ppo_row else None
+    best_non_ppo_vp = best_non_ppo_row["vp"] if best_non_ppo_row else None
+    winner_id = str(game.winner_id) if game.winner_id is not None else None
+
+    return {
+        "game_id": str(game.id),
+        "created_at": game.created_at,
+        "lineup": " > ".join(ordered_players),
+        "lineup_signature": " > ".join(signature_parts),
+        "ordered_players": ordered_players,
+        "ppo_seats": ppo_seats,
+        "ppo_count": len(ppo_seats),
+        "ppo_result": (
+            "draw"
+            if winner_id is None
+            else "win" if _is_ppo_actor(winner_id) else "loss"
+        ),
+        "winner_display_name": (
+            _display_name_for_actor(winner_id, human_names, score_name_map)
+            if winner_id is not None
+            else None
+        ),
+        "best_ppo_rank": best_ppo_row["rank"] if best_ppo_row else None,
+        "best_ppo_vp": best_ppo_vp,
+        "best_non_ppo_vp": best_non_ppo_vp,
+        "best_ppo_vp_gap": (
+            best_ppo_vp - best_non_ppo_vp
+            if best_ppo_vp is not None and best_non_ppo_vp is not None
+            else None
+        ),
+        "score_data_available": bool(score_rows),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -513,6 +674,97 @@ def lineup_summary(db: Session, user_id: str) -> list[dict]:
         )
     )
     return result
+
+
+def lineup_games(
+    db: Session,
+    user_id: str,
+    limit: int = 20,
+    lineup: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    games = (
+        db.query(GameSession)
+        .filter(
+            GameSession.status == "FINISHED",
+            GameSession.players.contains([user_id]),
+        )
+        .order_by(GameSession.created_at.desc())
+        .all()
+    )
+    if not games:
+        return []
+
+    actor_ids = {
+        str(actor_id)
+        for game in games
+        for actor_id in (game.players or [])
+    }
+    human_names = _load_human_names(db, actor_ids)
+    replay_payloads = _load_replay_payloads(db, games)
+    normalized_lineup = [part.strip() for part in (lineup or [])]
+
+    rows: list[dict[str, Any]] = []
+    for game in games:
+        row = _build_lineup_game_row(
+            game=game,
+            user_id=user_id,
+            human_names=human_names,
+            replay_payload=replay_payloads.get(str(game.id)),
+        )
+        if normalized_lineup and row["ordered_players"] != normalized_lineup:
+            continue
+        rows.append(row)
+
+    if limit <= 0:
+        return rows
+    return rows[:limit]
+
+
+def ppo_lineup_games(
+    db: Session,
+    limit: int = 20,
+    lineup: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    games = (
+        db.query(GameSession)
+        .filter(
+            GameSession.status == "FINISHED",
+            GameSession.num_players == 3,
+        )
+        .order_by(GameSession.created_at.desc())
+        .all()
+    )
+    games = [game for game in games if _is_ppo_lineup_game(game)]
+    if not games:
+        return []
+
+    actor_ids = {
+        str(actor_id)
+        for game in games
+        for actor_id in (game.players or [])
+    }
+    human_names = _load_human_names(db, actor_ids)
+    replay_payloads = _load_replay_payloads(db, games)
+    normalized_lineup = [
+        part.strip().lower()
+        for part in (lineup or [])
+        if part.strip()
+    ]
+
+    rows: list[dict[str, Any]] = []
+    for game in games:
+        row = _build_ppo_lineup_game_row(
+            game=game,
+            human_names=human_names,
+            replay_payload=replay_payloads.get(str(game.id)),
+        )
+        if normalized_lineup and row["lineup_signature"].split(" > ") != normalized_lineup:
+            continue
+        rows.append(row)
+
+    if limit <= 0:
+        return rows
+    return rows[:limit]
 
 
 def recent_games(db: Session, user_id: str, limit: int = 20) -> list[dict]:
