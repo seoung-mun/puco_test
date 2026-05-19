@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1380" height="410" viewBox="0 0 1380 410">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="40" y="42" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#1f2937">사람 포함 대국에서의 PPO 성적</text>
+<text x="40" y="70" font-family="Arial, sans-serif" font-size="14" fill="#6b7280">사람이 포함된 FINISHED 3인 대국에서 PPO 기준 성적을 누적 막대로 시각화한 결과입니다.</text>
+<text x="40" y="92" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">순위 분포는 1등/2등/3등/미집계를 모두 포함하며, 승패 분포는 전체 경기 기준입니다.</text>
+<rect x="40" y="118" width="1300" height="44" rx="6" fill="#f3f4f6"/>
+<text x="48" y="146" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#374151">대국 조합</text>
+<text x="320" y="146" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#374151">순위 분포</text>
+<text x="760" y="146" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#374151">승/패/무승부 분포</text>
+<text x="1088" y="146" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#374151">요약</text>
+<rect x="40" y="162" width="1300" height="112" fill="#ffffff"/>
+<line x1="40" y1="274" x2="1340" y2="274" stroke="#e5e7eb"/>
+<text x="48" y="196" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">사람 + PPO + action_value</text>
+<text x="48" y="222" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">전적: 총 6판, 0승 2패 4무승부</text>
+<text x="48" y="246" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">순위 집계 2판, 미집계 4판</text>
+<text x="1088" y="196" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#2563eb">총 6판</text>
+<text x="1088" y="220" font-family="Arial, sans-serif" font-size="12" fill="#374151">전적: 총 6판, 0승 2패 4무승부</text>
+<text x="1088" y="244" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">순위 집계 2판, 미집계 4판</text>
+<rect x="320" y="182" width="360" height="16" rx="5" fill="#e5e7eb"/>
+<rect x="320" y="182" width="120" height="16" rx="5" fill="#2563eb"/>
+<rect x="440" y="182" width="240" height="16" rx="5" fill="#9ca3af"/>
+<rect x="760" y="182" width="280" height="16" rx="5" fill="#e5e7eb"/>
+<rect x="760" y="182" width="93" height="16" rx="5" fill="#dc2626"/>
+<rect x="853" y="182" width="187" height="16" rx="5" fill="#6b7280"/>
+<text x="320" y="214" font-family="Arial, sans-serif" font-size="12" fill="#374151">1등 0판 | 2등 2판 | 3등 0판 | 미집계 4판</text>
+<text x="760" y="214" font-family="Arial, sans-serif" font-size="12" fill="#374151">승 0판 | 패 2판 | 무 4판</text>
+<rect x="40" y="274" width="1300" height="112" fill="#f9fafb"/>
+<line x1="40" y1="386" x2="1340" y2="386" stroke="#e5e7eb"/>
+<text x="48" y="308" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#111827">사람 + PPO + PPO</text>
+<text x="48" y="334" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">전적: 총 5판, 1승 3패 1무승부</text>
+<text x="48" y="358" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">순위 집계 4판, 미집계 1판</text>
+<text x="1088" y="308" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#2563eb">총 5판</text>
+<text x="1088" y="332" font-family="Arial, sans-serif" font-size="12" fill="#374151">전적: 총 5판, 1승 3패 1무승부</text>
+<text x="1088" y="356" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">순위 집계 4판, 미집계 1판</text>
+<rect x="320" y="294" width="360" height="16" rx="5" fill="#e5e7eb"/>
+<rect x="320" y="294" width="72" height="16" rx="5" fill="#16a34a"/>
+<rect x="392" y="294" width="216" height="16" rx="5" fill="#2563eb"/>
+<rect x="608" y="294" width="72" height="16" rx="5" fill="#9ca3af"/>
+<rect x="760" y="294" width="280" height="16" rx="5" fill="#e5e7eb"/>
+<rect x="760" y="294" width="56" height="16" rx="5" fill="#16a34a"/>
+<rect x="816" y="294" width="168" height="16" rx="5" fill="#dc2626"/>
+<rect x="984" y="294" width="56" height="16" rx="5" fill="#6b7280"/>
+<text x="320" y="326" font-family="Arial, sans-serif" font-size="12" fill="#374151">1등 1판 | 2등 3판 | 3등 0판 | 미집계 1판</text>
+<text x="760" y="326" font-family="Arial, sans-serif" font-size="12" fill="#374151">승 1판 | 패 3판 | 무 1판</text>
+</svg>
