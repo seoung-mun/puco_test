@@ -1,24 +1,15 @@
 """
-Generate SVG bar charts for PPO rank distribution in human-included matchups.
+Rendering library for PPO rank-distribution SVG charts (human-included matchups).
 
-Usage:
-    python -m scripts.visualize_ppo_human_winrate \
-        --output-action-value ppo_human_winrate_action_value.svg \
-        --output-ppo ppo_human_winrate_ppo.svg
+This module exposes pure rendering / aggregation helpers. The CLI entry point
+lives in `scripts.analytics_cli` (subcommand `ppo-human-winrate`).
 """
 from __future__ import annotations
 
-import argparse
 import math
-import os
-import sys
 from html import escape
 from pathlib import Path
 from typing import Any
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-from app.services.analytics import ppo_lineup_games
 
 
 REQUESTED_MATCHUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -36,22 +27,6 @@ RANK_BARS: tuple[tuple[str, str, str], ...] = (
     ("2등", "second_place_rate", "#3F8E7C"),
     ("3등", "third_place_rate", "#7FB28F"),
 )
-
-
-def _build_session():
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        print("오류: DATABASE_URL 환경변수가 설정되지 않았습니다.", file=sys.stderr)
-        raise SystemExit(1)
-
-    from sqlalchemy import create_engine, text
-    from sqlalchemy.orm import sessionmaker
-
-    engine = create_engine(database_url)
-    Session = sessionmaker(bind=engine)
-    db = Session()
-    db.execute(text("SET TRANSACTION READ ONLY"))
-    return db
 
 
 def _empty_stats(lineup_signature: str) -> dict[str, Any]:
@@ -117,7 +92,7 @@ def _translate_part(part: str) -> str:
     return normalized.replace("human", "사람").replace("ppo", "PPO")
 
 
-def _display_label(lineup_signature: str) -> str:
+def display_label(lineup_signature: str) -> str:
     direct = DISPLAY_LABELS.get(lineup_signature)
     if direct is not None:
         return str(direct)
@@ -194,7 +169,7 @@ def render_rank_bar_chart(stats: dict[str, Any], *, title: str | None = None) ->
     plot_width = plot_x_end - plot_x_start
     plot_height = plot_y_bottom - plot_y_top
 
-    matchup_label = _display_label(str(stats.get("lineup_signature") or ""))
+    matchup_label = display_label(str(stats.get("lineup_signature") or ""))
     chart_title = title if title is not None else matchup_label
     subtitle = "PPO 순위 분포"
 
@@ -271,58 +246,3 @@ def write_text(path: str | Path, content: str) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="visualize_ppo_human_winrate",
-        description="사람 포함 PPO 대국의 PPO 순위 분포(1등/2등/3등)를 매치업별 SVG 막대 그래프로 시각화합니다.",
-    )
-    parser.add_argument(
-        "--output-action-value",
-        default="ppo_human_winrate_action_value.svg",
-        help="사람 + PPO + action_value 조합 SVG 출력 경로",
-    )
-    parser.add_argument(
-        "--output-ppo",
-        default="ppo_human_winrate_ppo.svg",
-        help="사람 + PPO + PPO 조합 SVG 출력 경로",
-    )
-    parser.add_argument(
-        "--title",
-        default=None,
-        help="공통 차트 제목 (지정 시 매치업 라벨 대신 사용)",
-    )
-    return parser
-
-
-def _output_path_for(label: str, args: argparse.Namespace) -> str:
-    if label == "human + ppo + action_value":
-        return str(args.output_action_value)
-    if label == "human + ppo + ppo":
-        return str(args.output_ppo)
-    raise ValueError(f"unknown matchup label: {label}")
-
-
-def main(argv: list[str] | None = None) -> None:
-    args = build_parser().parse_args(argv)
-    db = _build_session()
-    try:
-        rows = ppo_lineup_games(db, limit=0)
-        summary = summarize_requested_matchups(rows)
-        for stats in summary:
-            label = str(stats["lineup_signature"])
-            output_path = _output_path_for(label, args)
-            chart_title = args.title if args.title else _display_label(label)
-            svg = render_rank_bar_chart(stats, title=chart_title)
-            write_text(output_path, svg)
-            print(
-                f"wrote SVG: {output_path} "
-                f"(rank_games={stats['rank_games']}, games={stats['games']})"
-            )
-    finally:
-        db.close()
-
-
-if __name__ == "__main__":
-    main()

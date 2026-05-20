@@ -9,6 +9,7 @@ analytics_cli.py — PuCo RL 분석 CLI
     lineup-summary      3인전 조합 기준 승률/VP 차이 요약
     lineup-games        게임별 조합 상세 결과
     ppo-lineup-games    PPO 포함 게임별 조합 상세 결과
+    ppo-human-winrate   사람 포함 PPO 매치업 순위 분포 SVG 차트 생성
 
 사용법 (도커 내부):
     python -m scripts.analytics_cli --help
@@ -20,6 +21,7 @@ analytics_cli.py — PuCo RL 분석 CLI
     python -m scripts.analytics_cli lineup-summary --nickname <NICKNAME> --json
     python -m scripts.analytics_cli lineup-games --nickname <NICKNAME> --lineup "tester,ppo,action_value"
     python -m scripts.analytics_cli ppo-lineup-games --lineup "human,ppo,random" --json
+    python -m scripts.analytics_cli ppo-human-winrate --output-action-value av.svg --output-ppo ppo.svg
 
 환경변수:
     DATABASE_URL  (필수) — PostgreSQL 연결 문자열
@@ -293,6 +295,42 @@ def handle_ppo_lineup_games(args: argparse.Namespace, db=None) -> None:
             db.close()
 
 
+def handle_ppo_human_winrate(args: argparse.Namespace, db=None) -> None:
+    """ppo-human-winrate 서브커맨드 핸들러 — 매치업별 SVG 차트를 파일로 저장."""
+    from scripts.visualize_ppo_human_winrate import (
+        display_label,
+        render_rank_bar_chart,
+        summarize_requested_matchups,
+        write_text,
+    )
+
+    close_after = db is None
+    if db is None:
+        db = _build_session()
+    try:
+        rows = ppo_lineup_games(db, limit=0)
+        summary = summarize_requested_matchups(rows)
+        output_paths = {
+            "human + ppo + action_value": args.output_action_value,
+            "human + ppo + ppo": args.output_ppo,
+        }
+        for stats in summary:
+            label = str(stats["lineup_signature"])
+            output_path = output_paths.get(label)
+            if not output_path:
+                continue
+            chart_title = args.title if args.title else display_label(label)
+            svg = render_rank_bar_chart(stats, title=chart_title)
+            write_text(output_path, svg)
+            print(
+                f"wrote SVG: {output_path} "
+                f"(rank_games={stats['rank_games']}, games={stats['games']})"
+            )
+    finally:
+        if close_after:
+            db.close()
+
+
 # ---------------------------------------------------------------------------
 # argparse 설정
 # ---------------------------------------------------------------------------
@@ -356,6 +394,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_plg.add_argument("--lineup", metavar="A,B,C", help="타입 순서 exact 조합 필터 (예: human,ppo,random)")
     p_plg.add_argument("--json", action="store_true", help="JSON 형식으로 출력")
     p_plg.set_defaults(handler=handle_ppo_lineup_games)
+
+    # -- ppo-human-winrate --
+    p_phw = sub.add_parser(
+        "ppo-human-winrate",
+        help="사람 포함 PPO 매치업 순위 분포 SVG 차트 생성",
+    )
+    p_phw.add_argument(
+        "--output-action-value",
+        default="ppo_human_winrate_action_value.svg",
+        metavar="PATH",
+        help="사람 + PPO + action_value 조합 SVG 출력 경로",
+    )
+    p_phw.add_argument(
+        "--output-ppo",
+        default="ppo_human_winrate_ppo.svg",
+        metavar="PATH",
+        help="사람 + PPO + PPO 조합 SVG 출력 경로",
+    )
+    p_phw.add_argument(
+        "--title",
+        default=None,
+        metavar="TITLE",
+        help="공통 차트 제목 (지정 시 매치업 라벨 대신 사용)",
+    )
+    p_phw.set_defaults(handler=handle_ppo_human_winrate)
 
     return parser
 
