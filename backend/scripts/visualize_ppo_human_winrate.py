@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import sys
 from html import escape
@@ -133,6 +134,31 @@ def _format_percent(rate: float | None) -> str:
     return f"{rate * 100:.1f}%"
 
 
+def _count_field_for(rate_field: str) -> str:
+    return rate_field.replace("_rate", "_games")
+
+
+def _count_axis_ticks(max_value: int) -> list[int]:
+    """Return integer y-axis ticks (starting at 0) for an absolute-count axis."""
+    if max_value <= 0:
+        return [0, 1]
+    target_steps = 5
+    raw_step = max_value / target_steps
+    magnitude = 10 ** math.floor(math.log10(raw_step)) if raw_step >= 1 else 1
+    normalized = raw_step / magnitude
+    if normalized <= 1:
+        nice_step = 1 * magnitude
+    elif normalized <= 2:
+        nice_step = 2 * magnitude
+    elif normalized <= 5:
+        nice_step = 5 * magnitude
+    else:
+        nice_step = 10 * magnitude
+    nice_step = max(1, int(nice_step))
+    y_max = math.ceil(max_value / nice_step) * nice_step
+    return list(range(0, y_max + 1, nice_step))
+
+
 def summarize_requested_matchups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return the two requested PPO-human matchup buckets, ignoring seat order."""
     grouped = {label: _empty_stats(label) for label, _composition in REQUESTED_MATCHUPS}
@@ -179,13 +205,22 @@ def render_rank_bar_chart(stats: dict[str, Any], *, title: str | None = None) ->
         f'<text x="{width // 2}" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#6b7280">{escape(subtitle)}</text>',
     ]
 
-    for tick in (0, 20, 40, 60, 80, 100):
-        y = plot_y_bottom - (tick / 100.0) * plot_height
+    rank_games = int(stats.get("rank_games") or 0)
+    rank_counts = [
+        int(stats.get(_count_field_for(field)) or 0)
+        for _label, field, _color in RANK_BARS
+    ]
+    max_bar_value = max(rank_counts) if rank_counts else 0
+    ticks = _count_axis_ticks(max_bar_value)
+    y_max = ticks[-1] if ticks else 1
+
+    for tick in ticks:
+        y = plot_y_bottom - (tick / y_max) * plot_height if y_max > 0 else plot_y_bottom
         lines.append(
             f'<line x1="{plot_x_start}" y1="{y:.1f}" x2="{plot_x_end}" y2="{y:.1f}" stroke="#e5e7eb" stroke-width="1"/>'
         )
         lines.append(
-            f'<text x="{plot_x_start - 10}" y="{y + 4:.1f}" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#6b7280">{tick}%</text>'
+            f'<text x="{plot_x_start - 10}" y="{y + 4:.1f}" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#6b7280">{tick}판</text>'
         )
 
     lines.append(
@@ -195,7 +230,6 @@ def render_rank_bar_chart(stats: dict[str, Any], *, title: str | None = None) ->
         f'<line x1="{plot_x_start}" y1="{plot_y_bottom}" x2="{plot_x_end}" y2="{plot_y_bottom}" stroke="#9ca3af" stroke-width="1"/>'
     )
 
-    rank_games = int(stats.get("rank_games") or 0)
     if rank_games <= 0:
         lines.append(
             f'<text x="{width // 2}" y="{(plot_y_top + plot_y_bottom) / 2:.1f}" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#6b7280">순위 집계 데이터 없음</text>'
@@ -209,8 +243,9 @@ def render_rank_bar_chart(stats: dict[str, Any], *, title: str | None = None) ->
 
     for index, (label, field, color) in enumerate(RANK_BARS):
         rate = float(stats.get(field) or 0.0)
+        count = int(stats.get(_count_field_for(field)) or 0)
         bar_left = plot_x_start + gap + index * (bar_width + gap)
-        bar_top = plot_y_bottom - rate * plot_height
+        bar_top = plot_y_bottom - (count / y_max) * plot_height if y_max > 0 else plot_y_bottom
         bar_height = plot_y_bottom - bar_top
         center_x = bar_left + bar_width / 2
 
@@ -218,9 +253,9 @@ def render_rank_bar_chart(stats: dict[str, Any], *, title: str | None = None) ->
             lines.append(
                 f'<rect x="{bar_left:.1f}" y="{bar_top:.1f}" width="{bar_width:.1f}" height="{bar_height:.1f}" fill="{color}"/>'
             )
-        label_above = bar_top - 8 > plot_y_top + 12
-        value_y = bar_top - 8 if label_above else bar_top + 18
-        value_fill = "#1f2937" if label_above else "#ffffff"
+        label_inside = bar_height >= 22
+        value_y = bar_top + bar_height / 2 + 5 if label_inside else bar_top - 8
+        value_fill = "#ffffff" if label_inside else "#1f2937"
         lines.append(
             f'<text x="{center_x:.1f}" y="{value_y:.1f}" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="{value_fill}">{escape(_format_percent(rate))}</text>'
         )

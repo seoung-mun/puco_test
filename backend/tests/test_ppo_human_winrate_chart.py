@@ -105,7 +105,7 @@ def test_render_rank_bar_chart_contains_axis_and_percentages():
     assert "사람 + PPO + action_value" in svg
     assert "PPO 순위 분포" in svg
     assert "1등" in svg and "2등" in svg and "3등" in svg
-    assert "0%" in svg and "100%" in svg
+    assert ">0판<" in svg and ">5판<" in svg
     assert "30.0%" in svg
     assert "50.0%" in svg
     assert "20.0%" in svg
