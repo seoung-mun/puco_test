@@ -67,4 +67,20 @@ describe('CommonBoardPanel', () => {
       screen.getByText(/하시엔다로 추가 농지 1개를 받았습니다/i)
     ).toBeTruthy();
   });
+
+  it('renders the player nickname for taken roles when taken_by is a player ref', () => {
+    const board = makeBoard();
+    board.roles.builder = { doubloons_on_role: 0, taken_by: 'player_1' };
+
+    render(
+      <CommonBoardPanel
+        board={board}
+        playerNames={{ player_1: 'Beatrice' }}
+        numPlayers={3}
+        phase="role_selection"
+      />
+    );
+
+    expect(screen.getByText('Beatrice')).toBeTruthy();
+  });
 });

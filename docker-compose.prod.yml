@@ -74,6 +74,8 @@ services:
       - PYTHONPATH=/app:/PuCo_RL
       - APP_LOG_DIR=/tmp/castone-data/logs
       - DEBUG=false
+    ports:
+      - "0.0.0.0:80:8000"
     volumes:
       - backend_logs:/data/logs
     networks:
@@ -99,35 +101,6 @@ services:
         reservations:
           cpus: "0.5"
           memory: 512M
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: prod
-      args:
-        VITE_API_TARGET: ""
-        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
-    container_name: puco_frontend
-    cpus: 0.5
-    mem_limit: 256m
-    mem_reservation: 64m
-    ports:
-      - "0.0.0.0:80:8080"
-    networks:
-      - frontend
-    depends_on:
-      backend:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256M
-        reservations:
-          cpus: "0.1"
-          memory: 64M
 
 networks:
   internal:

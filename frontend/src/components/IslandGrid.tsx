@@ -9,12 +9,12 @@ interface Props {
 }
 
 const TILE_CONFIG: Record<string, { bg: string; icon: string }> = {
-  corn:    { bg: '#d4a017', icon: '🌽' },
-  indigo:  { bg: '#3a4fa0', icon: '🫐' },
-  sugar:   { bg: '#c8c8a0', icon: '🎋' },
-  tobacco: { bg: '#8b5e3c', icon: '🍂' },
-  coffee:  { bg: '#3d1f00', icon: '☕' },
-  quarry:  { bg: '#607060', icon: '⛏️' },
+  corn:    { bg: '#f4c85f', icon: '🌽' },
+  indigo:  { bg: '#36a8c7', icon: '🫐' },
+  sugar:   { bg: '#b7d978', icon: '🎋' },
+  tobacco: { bg: '#d7925b', icon: '🍂' },
+  coffee:  { bg: '#8b6b4d', icon: '☕' },
+  quarry:  { bg: '#93a696', icon: '⛏️' },
 };
 
 const COLS = 3;
@@ -42,13 +42,13 @@ export default function IslandGrid({ island, highlightLastTile, mayorLegalSlots,
         <ellipse
           cx={svgW / 2} cy={svgH / 2 + 8}
           rx={svgW / 2 - 4} ry={svgH / 2 - 2}
-          fill="#2d6a2d"
+          fill="#dff7ee"
         />
         {/* Sand border */}
         <ellipse
           cx={svgW / 2} cy={svgH / 2 + 8}
           rx={svgW / 2 - 2} ry={svgH / 2}
-          fill="none" stroke="#c8a832" strokeWidth={4}
+          fill="none" stroke="#ead9b9" strokeWidth={4}
         />
 
         {/* Plantation tiles */}
@@ -57,7 +57,7 @@ export default function IslandGrid({ island, highlightLastTile, mayorLegalSlots,
           const row = Math.floor(i / COLS);
           const x = PAD + col * (TILE_W + GAP);
           const y = PAD + row * (TILE_H + GAP);
-          const cfg = slot ? (TILE_CONFIG[slot.type] ?? { bg: '#555', icon: '?' }) : null;
+          const cfg = slot ? (TILE_CONFIG[slot.type] ?? { bg: '#9fb7ad', icon: '?' }) : null;
           const label = slot ? t(`plantations.${slot.type}`, { defaultValue: slot.type }) : '';
           const colonized = slot?.colonized ?? false;
 
@@ -65,14 +65,14 @@ export default function IslandGrid({ island, highlightLastTile, mayorLegalSlots,
             return (
               <g key={i}>
                 <rect x={x} y={y} width={TILE_W} height={TILE_H} rx={6}
-                  fill="#1a3d1a" stroke="#2a5a2a" strokeWidth={1} strokeDasharray="4 3" />
+                  fill="rgba(255,255,255,0.44)" stroke="rgba(0,137,139,0.26)" strokeWidth={1} strokeDasharray="4 3" />
               </g>
             );
           }
 
           const legalSet = mayorLegalSlots ? new Set(mayorLegalSlots) : null;
           const isMayorLegal = legalSet != null && legalSet.has(i);
-          const tileStroke = isMayorLegal ? '#66ff99' : colonized ? '#fff' : '#00000055';
+          const tileStroke = isMayorLegal ? '#4f9f4a' : colonized ? '#fffdf7' : 'rgba(23,59,58,0.26)';
           const tileStrokeW = isMayorLegal ? 3 : colonized ? 2 : 1;
 
           return (
@@ -93,14 +93,14 @@ export default function IslandGrid({ island, highlightLastTile, mayorLegalSlots,
               </text>
               {/* Label */}
               <text x={x + TILE_W / 2} y={y + TILE_H - 14}
-                textAnchor="middle" fontSize={9} fill="#ffffffcc" fontWeight="bold"
+                textAnchor="middle" fontSize={9} fill="#173b3a" fontWeight="bold"
                 style={{ userSelect: 'none' }}>
                 {label.toUpperCase()}
               </text>
               {/* Hacienda highlight overlay on last tile */}
               {highlightLastTile && i === island.plantations.length - 1 && (
                 <rect x={x} y={y} width={TILE_W} height={TILE_H} rx={6}
-                  fill="none" stroke="#ffe066" strokeWidth={3}
+                  fill="none" stroke="#f4b63f" strokeWidth={3}
                   className="svg-tile-glow"
                   style={{ pointerEvents: 'none' }}
                 />
@@ -110,8 +110,8 @@ export default function IslandGrid({ island, highlightLastTile, mayorLegalSlots,
                   cx={x + TILE_W - 12}
                   cy={y + 12}
                   r={8}
-                  fill={colonized ? '#f5deb3' : '#00000033'}
-                  stroke={colonized ? '#8b4513' : '#ffffff22'}
+                  fill={colonized ? '#fff2cc' : 'rgba(255,255,255,0.42)'}
+                  stroke={colonized ? '#d49b34' : 'rgba(0,137,139,0.24)'}
                   strokeWidth={1.5}
                 />
                 {colonized && (
@@ -131,7 +131,7 @@ export default function IslandGrid({ island, highlightLastTile, mayorLegalSlots,
           );
         })}
       </svg>
-      <p style={{ margin: '2px 0 0', fontSize: 12, color: '#888' }}>
+      <p className="resort-muted" style={{ margin: '2px 0 0', fontSize: 12 }}>
         {island.d_used_spaces}/{island.total_spaces} · {t('island.activeQuarries', { n: island.d_active_quarries, suffix: island.d_active_quarries === 1 ? 'y' : 'ies' })}
       </p>
     </div>

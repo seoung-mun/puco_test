@@ -9,7 +9,7 @@ interface Props {
   onJoin: (key: string, name: string, role: 'player' | 'spectator') => Promise<string | null>;
 }
 
-export default function JoinScreen({ backendUrl: _backendUrl, onJoin }: Props) {
+export default function JoinScreen({ onJoin }: Props) {
   const { t } = useTranslation();
   const [key, setKey] = useState('');
   const [name, setName] = useState('');
@@ -37,87 +37,56 @@ export default function JoinScreen({ backendUrl: _backendUrl, onJoin }: Props) {
     if (err) setError(err);
   }
 
-  const cardStyle: React.CSSProperties = {
-    background: '#0d1117',
-    border: '1px solid #2a2a5a',
-    borderRadius: 12,
-    padding: '32px 40px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 16,
-    minWidth: 320,
-  };
-
-  const btnPrimary: React.CSSProperties = {
-    background: '#2a5ab0',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    padding: '12px 32px',
-    fontSize: 16,
-    cursor: 'pointer',
-    width: '100%',
-  };
-
-  const btnLink: React.CSSProperties = {
-    background: 'none',
-    border: 'none',
-    color: '#667',
-    cursor: 'pointer',
-    fontSize: 13,
-  };
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 24 }}>
-      <h1 style={{ color: '#f0c040', margin: 0, fontSize: 36 }}>Puerto Rico</h1>
-      <div style={cardStyle}>
+    <div className="resort-app-shell resort-app-shell--centered">
+      <h1 className="resort-brand-title">Puerto Rico</h1>
+      <div className="resort-card resort-card--compact">
         {step === 'key' && (
           <>
-            <p style={{ color: '#aab', margin: 0 }}>{t('join.enterKey', 'Enter Game ID')}</p>
+            <p className="resort-helper-text">{t('join.enterKey', 'Enter Game ID')}</p>
             <input
               value={key}
               onChange={e => setKey(e.target.value.trim())}
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
               autoFocus
-              style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #444', background: '#1a1a2e', color: '#f0c040', fontSize: 13, textAlign: 'center', width: '100%', fontFamily: 'monospace', boxSizing: 'border-box' }}
+              className="resort-input resort-input--code"
               onKeyDown={e => e.key === 'Enter' && keyValid && handleKeyNext()}
             />
-            <button style={{ ...btnPrimary, opacity: keyValid && !loading ? 1 : 0.5 }}
+            <button className="resort-btn-primary" style={{ opacity: keyValid && !loading ? 1 : 0.5 }}
               onClick={handleKeyNext}
               disabled={!keyValid || loading}>
               {loading ? '...' : t('join.next')}
             </button>
-            {error && <p style={{ color: '#f66', margin: 0, fontSize: 13 }}>{error}</p>}
+            {error && <p className="resort-error" style={{ margin: 0 }}>{error}</p>}
           </>
         )}
 
         {step === 'name' && (
           <>
-            <p style={{ color: '#aab', margin: 0 }}>{t('join.enterName')}</p>
+            <p className="resort-helper-text">{t('join.enterName')}</p>
             <input
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder={t('join.namePlaceholder')}
               autoFocus
-              style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #444', background: '#1a1a2e', color: '#eee', fontSize: 16, width: '100%', boxSizing: 'border-box' }}
+              className="resort-input"
               onKeyDown={e => e.key === 'Enter' && name.trim() && handleJoin()}
             />
             <div style={{ display: 'flex', gap: 20 }}>
               {(['player', 'spectator'] as const).map(r => (
-                <label key={r} style={{ color: role === r ? '#f0c040' : '#aab', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label key={r} className={`resort-radio-row${role === r ? ' resort-radio-row--active' : ''}`}>
                   <input type="radio" checked={role === r} onChange={() => setRole(r)} />
                   {t(`join.as_${r}`)}
                 </label>
               ))}
             </div>
-            {error && <p style={{ color: '#f66', margin: 0, fontSize: 13 }}>{error}</p>}
-            <button style={{ ...btnPrimary, opacity: name.trim() && !loading ? 1 : 0.5 }}
+            {error && <p className="resort-error" style={{ margin: 0 }}>{error}</p>}
+            <button className="resort-btn-primary" style={{ opacity: name.trim() && !loading ? 1 : 0.5 }}
               onClick={handleJoin}
               disabled={!name.trim() || loading}>
               {loading ? '...' : t('join.enter')}
             </button>
-            <button style={btnLink} onClick={() => { setStep('key'); setError(null); }}>{t('join.back')}</button>
+            <button className="resort-btn-link" onClick={() => { setStep('key'); setError(null); }}>{t('join.back')}</button>
           </>
         )}
       </div>

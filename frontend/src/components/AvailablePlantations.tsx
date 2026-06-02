@@ -13,12 +13,12 @@ interface Props {
 }
 
 const TILE_CONFIG: Record<string, { bg: string; icon: string }> = {
-  corn:    { bg: '#d4a017', icon: '🌽' },
-  indigo:  { bg: '#3a4fa0', icon: '🫐' },
-  sugar:   { bg: '#a0a060', icon: '🎋' },
-  tobacco: { bg: '#8b5e3c', icon: '🍂' },
-  coffee:  { bg: '#3d1f00', icon: '☕' },
-  quarry:  { bg: '#607060', icon: '⛏️' },
+  corn:    { bg: '#f4c85f', icon: '🌽' },
+  indigo:  { bg: '#36a8c7', icon: '🫐' },
+  sugar:   { bg: '#b7d978', icon: '🎋' },
+  tobacco: { bg: '#d7925b', icon: '🍂' },
+  coffee:  { bg: '#8b6b4d', icon: '☕' },
+  quarry:  { bg: '#93a696', icon: '⛏️' },
 };
 
 const TILE_W = 64;
@@ -53,7 +53,7 @@ export default function AvailablePlantations({
         {/* Face-up plantation tiles */}
         {tiles.map((tile, i) => {
           const tileType = typeof tile === 'string' ? tile : tile.type;
-          const cfg = TILE_CONFIG[tileType] ?? { bg: '#555', icon: '?' };
+          const cfg = TILE_CONFIG[tileType] ?? { bg: '#9fb7ad', icon: '?' };
           const x = i * (TILE_W + GAP);
           const actionIndex = typeof tile === 'string'
             ? undefined
@@ -66,9 +66,9 @@ export default function AvailablePlantations({
           return (
             <g key={i} onClick={clickable ? () => onPick!(tileType) : undefined}
               style={{ cursor: clickable ? 'pointer' : 'default', opacity: clickable ? 1 : 0.45 }}>
-              <rect x={x} y={0} width={TILE_W} height={TILE_H} rx={6}
+                <rect x={x} y={0} width={TILE_W} height={TILE_H} rx={6}
                 fill={cfg.bg}
-                stroke={clickable ? '#ffe066' : '#ffffff33'}
+                stroke={clickable ? '#f4b63f' : 'rgba(255,255,255,0.66)'}
                 strokeWidth={clickable ? 2 : 1} />
               <text x={x + TILE_W / 2} y={32}
                 textAnchor="middle" dominantBaseline="middle"
@@ -76,7 +76,7 @@ export default function AvailablePlantations({
                 {cfg.icon}
               </text>
               <text x={x + TILE_W / 2} y={TILE_H - 12}
-                textAnchor="middle" fontSize={9} fill="#ffffffcc" fontWeight="bold"
+                textAnchor="middle" fontSize={9} fill="#173b3a" fontWeight="bold"
                 style={{ userSelect: 'none' }}>
                 {label.toUpperCase()}
               </text>
@@ -88,7 +88,7 @@ export default function AvailablePlantations({
           <line
             x1={tiles.length * (TILE_W + GAP) + SPECIAL_SEP / 2}
             y1={10} x2={tiles.length * (TILE_W + GAP) + SPECIAL_SEP / 2} y2={TILE_H - 10}
-            stroke="#ffffff33" strokeWidth={1}
+            stroke="rgba(0,137,139,0.22)" strokeWidth={1}
           />
         )}
 
@@ -97,29 +97,29 @@ export default function AvailablePlantations({
           onClick={canUseHacienda ? onUseHacienda : undefined}
           style={{ cursor: canUseHacienda ? 'pointer' : 'default', opacity: canUseHacienda ? 1 : 0.4 }}
         >
-          <rect x={faceDownX - 4} y={4} width={TILE_W} height={TILE_H} rx={6} fill="#2a1a08" />
-          <rect x={faceDownX - 2} y={2} width={TILE_W} height={TILE_H} rx={6} fill="#3a2510" />
+          <rect x={faceDownX - 4} y={4} width={TILE_W} height={TILE_H} rx={6} fill="#d9c392" />
+          <rect x={faceDownX - 2} y={2} width={TILE_W} height={TILE_H} rx={6} fill="#ead9b9" />
           <rect x={faceDownX} y={0} width={TILE_W} height={TILE_H} rx={6}
-            fill="#5a3a18"
-            stroke={canUseHacienda ? '#ffe066' : '#ffffff22'}
+            fill="#fff2cc"
+            stroke={canUseHacienda ? '#f4b63f' : 'rgba(0,137,139,0.18)'}
             strokeWidth={canUseHacienda ? 2 : 1}
           />
           {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120].map(offset => (
             <line key={offset}
               x1={faceDownX + Math.max(0, offset - TILE_H)} y1={Math.min(TILE_H, offset)}
               x2={faceDownX + Math.min(TILE_W, offset)} y2={Math.max(0, offset - TILE_W)}
-              stroke="#7a5028" strokeWidth={1.2}
+              stroke="rgba(0,137,139,0.2)" strokeWidth={1.2}
               clipPath={`inset(0 0 0 ${faceDownX})`}
             />
           ))}
           <text x={faceDownX + TILE_W / 2} y={30}
             textAnchor="middle" dominantBaseline="middle"
-            fontSize={24} fill={canUseHacienda ? '#ffe066' : '#ffffff55'}
+            fontSize={24} fill={canUseHacienda ? '#f4b63f' : 'rgba(23,59,58,0.35)'}
             fontWeight="bold" style={{ userSelect: 'none' }}>
             ?
           </text>
           <text x={faceDownX + TILE_W / 2} y={TILE_H - 12}
-            textAnchor="middle" fontSize={9} fill="#ffffffcc" fontWeight="bold"
+            textAnchor="middle" fontSize={9} fill="#173b3a" fontWeight="bold"
             style={{ userSelect: 'none' }}>
             {t('buildings.hacienda').toUpperCase()}
           </text>
@@ -135,7 +135,7 @@ export default function AvailablePlantations({
         >
           <rect x={quarryX} y={0} width={TILE_W} height={TILE_H} rx={6}
             fill={quarryCfg.bg}
-            stroke={quarryClickable ? '#a0ffa0' : '#ffffff22'}
+            stroke={quarryClickable ? '#4f9f4a' : 'rgba(0,137,139,0.18)'}
             strokeWidth={quarryClickable ? 2 : 1}
             strokeDasharray={quarryClickable ? '4 3' : undefined}
           />
@@ -145,19 +145,19 @@ export default function AvailablePlantations({
             {quarryCfg.icon}
           </text>
           <text x={quarryX + TILE_W / 2} y={TILE_H - (quarryClickable ? 20 : 12)}
-            textAnchor="middle" fontSize={9} fill="#ffffffcc" fontWeight="bold"
+            textAnchor="middle" fontSize={9} fill="#173b3a" fontWeight="bold"
             style={{ userSelect: 'none' }}>
             {t('plantations.quarry').toUpperCase()}
           </text>
           {quarryClickable && (
             <text x={quarryX + TILE_W / 2} y={TILE_H - 8}
-              textAnchor="middle" fontSize={8} fill="#a0ffa0"
+              textAnchor="middle" fontSize={8} fill="#2f7b45"
               style={{ userSelect: 'none' }}>
               ({t('rolePrivileges.settler.label').toLowerCase()})
             </text>
           )}
           <circle cx={quarryX + TILE_W - 10} cy={10} r={9}
-            fill={quarrySupplyRemaining > 0 ? '#2a5a2a' : '#5a2a2a'} />
+            fill={quarrySupplyRemaining > 0 ? '#4f9f4a' : '#ff745f'} />
           <text x={quarryX + TILE_W - 10} y={10}
             textAnchor="middle" dominantBaseline="middle"
             fontSize={9} fill="#fff" fontWeight="bold"
@@ -167,7 +167,7 @@ export default function AvailablePlantations({
         </g>
       </svg>
 
-      <p style={{ margin: '4px 0 0', fontSize: 11, color: '#888' }}>
+      <p className="resort-muted" style={{ margin: '4px 0 0', fontSize: 11 }}>
         {(() => {
           const dp = plantations.draw_pile;
           const total = dp.corn + dp.indigo + dp.sugar + dp.tobacco + dp.coffee;

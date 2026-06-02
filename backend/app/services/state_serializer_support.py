@@ -103,6 +103,31 @@ def apply_backend_action_mask_guards(
     return guarded_mask
 
 
+def _infer_role_picker_idx(game: PuertoRicoGame, role: Role) -> int | None:
+    role_pickers_by_role = getattr(game, "role_pickers_by_role", {})
+    picker_idx = role_pickers_by_role.get(role)
+    if picker_idx is not None:
+        return picker_idx
+
+    if role == getattr(game, "active_role", None) and hasattr(game, "active_role_player"):
+        active_role_player = safe_int(getattr(game, "active_role_player", None), default=-1)
+        if active_role_player >= 0:
+            return active_role_player
+
+    roles_in_play = list(getattr(game, "roles_in_play", []) or [])
+    if role not in roles_in_play:
+        return None
+
+    governor_idx = safe_int(getattr(game, "governor_idx", None), default=-1)
+    num_players = safe_int(getattr(game, "num_players", None), default=0)
+    if governor_idx < 0 or num_players <= 0:
+        return None
+
+    # Recovered states may be missing provenance; infer pickers from round order.
+    picked_offset = roles_in_play.index(role)
+    return (governor_idx + picked_offset) % num_players
+
+
 def serialize_cargo_ship(ship) -> Dict[str, Any]:
     capacity = safe_int(safe_get(ship, "capacity", default=0))
     current_load = safe_int(safe_get(ship, "current_load", "filled", default=0))
@@ -126,15 +151,14 @@ def serialize_common_board(game: PuertoRicoGame) -> Dict[str, Any]:
         doubloons = game.role_doubloons.get(role, 0)
         taken_by = None
         if role in game.roles_in_play:
-            if role == game.active_role and hasattr(game, "active_role_player"):
-                taken_by = f"player_{game.active_role_player}"
-            else:
-                taken_by = "taken"
+            picker_idx = _infer_role_picker_idx(game, role)
+            if picker_idx is not None and picker_idx >= 0:
+                taken_by = f"player_{picker_idx}"
         role_entry: Dict[str, Any] = {
             "doubloons_on_role": doubloons,
             "taken_by": taken_by,
         }
-        if taken_by is None:
+        if role not in game.roles_in_play:
             try:
                 role_entry["action_index"] = _tr.select_role(ROLE_TO_STR[role])
             except (ValueError, KeyError):
@@ -414,4 +438,3 @@ def compute_score_breakdown(game: PuertoRicoGame, player_names: List[str]) -> Di
         "player_order": player_order,
         "display_names": display_names,
     }
-

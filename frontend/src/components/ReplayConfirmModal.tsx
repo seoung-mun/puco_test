@@ -35,71 +35,39 @@ export default function ReplayConfirmModal({
     <div
       data-testid="replay-confirm-backdrop"
       onClick={onCancel}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.6)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-      }}
+      className="resort-modal-backdrop"
     >
       <div
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        style={{
-          background: '#0d1117',
-          border: '1px solid #2a2a5a',
-          borderRadius: 8,
-          padding: '24px 28px',
-          maxWidth: 400,
-          width: '90%',
-          color: '#dde',
-        }}
+        className="resort-modal resort-modal--wide"
       >
-        <h2 style={{ color: '#f0c040', marginTop: 0, marginBottom: 16, fontSize: 18 }}>
+        <h2 className="resort-modal-title" style={{ marginBottom: 16 }}>
           {t('replay.confirm.title')}
         </h2>
-        <div style={{ fontSize: 14, marginBottom: 8, color: '#aab' }}>
-          <strong style={{ color: '#dde' }}>{displayLabel}</strong>
+        <div className="resort-modal-copy" style={{ fontSize: 14, marginBottom: 8 }}>
+          <strong>{displayLabel}</strong>
         </div>
         {playerNames.length > 0 && (
-          <div style={{ fontSize: 13, marginBottom: 6, color: '#aab' }}>
+          <div className="resort-modal-copy" style={{ fontSize: 13, marginBottom: 6 }}>
             {t('replay.column.players')}: {playerNames.join(', ')}
           </div>
         )}
-        <div style={{ fontSize: 13, marginBottom: 20, color: '#aab' }}>
+        <div className="resort-modal-copy" style={{ fontSize: 13, marginBottom: 20 }}>
           {t('replay.column.date')}: {playedDate}
         </div>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <div className="resort-actions">
           <button
             onClick={onCancel}
-            style={{
-              background: 'none',
-              border: '1px solid #334',
-              borderRadius: 6,
-              color: '#aab',
-              cursor: 'pointer',
-              padding: '8px 16px',
-              fontSize: 13,
-            }}
+            className="resort-btn-secondary"
           >
             {t('replay.confirm.cancel')}
           </button>
           <button
             onClick={onConfirm}
-            style={{
-              background: '#2a5ab0',
-              border: 'none',
-              borderRadius: 6,
-              color: '#fff',
-              cursor: 'pointer',
-              padding: '8px 16px',
-              fontSize: 13,
-              fontWeight: 'bold',
-            }}
+            className="resort-btn-primary"
+            style={{ width: 'auto', padding: '8px 16px', fontSize: 13 }}
           >
             {t('replay.confirm.watch')}
           </button>

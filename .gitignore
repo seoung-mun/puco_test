@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.ec2.example
 frontend/.env
 *.pem
 *.key

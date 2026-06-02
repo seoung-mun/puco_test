@@ -22,14 +22,14 @@ interface Props {
 const ROLE_DISPLAY_ORDER: RoleName[] = ['settler', 'mayor', 'builder', 'craftsman', 'trader', 'captain', 'prospector', 'prospector_2'];
 
 const ROLE_COLORS: Record<RoleName, string> = {
-  settler:      '#80e0a0',
-  mayor:        '#e05858',
-  builder:      '#c07840',
-  craftsman:    '#c080e0',
-  trader:       '#e0c840',
-  captain:      '#60d0e0',
-  prospector:   '#aaaaaa',
-  prospector_2: '#888888',
+  settler:      '#43a85f',
+  mayor:        '#ff745f',
+  builder:      '#d49b34',
+  craftsman:    '#7bbf91',
+  trader:       '#00a9b7',
+  captain:      '#087b82',
+  prospector:   '#93a696',
+  prospector_2: '#7f9489',
 };
 
 const GOODS_CONFIG = [
@@ -64,7 +64,7 @@ export default function CommonBoardPanel({
       <div className={`board-section${isActive('role_selection') ? ' board-active' : ''}`}>
         <h3 id="section-roles">
           {t('board.roles')}
-          {onSelectRole && <span style={{ fontWeight: 'normal', fontSize: '0.85em', color: '#888' }}> {t('board.clickToSelect')}</span>}
+          {onSelectRole && <span className="resort-muted" style={{ fontWeight: 'normal', fontSize: '0.85em' }}> {t('board.clickToSelect')}</span>}
         </h3>
         <table>
           <thead>
@@ -110,11 +110,11 @@ export default function CommonBoardPanel({
           {GOODS_CONFIG.map(({ key, icon, max }) => {
             const qty = board.goods_supply[key];
             const ratio = qty / max;
-            const color = qty === 0 ? '#c03030' : ratio < 0.3 ? '#c87820' : '#aaa';
+            const color = qty === 0 ? '#ff745f' : ratio < 0.3 ? '#f4b63f' : '#00a9b7';
             return (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                 <span style={{ fontSize: 14 }}>{icon}</span>
-                <div style={{ width: 48, height: 5, background: '#333', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: 48, height: 5, background: 'rgba(0,137,139,0.14)', borderRadius: 3, overflow: 'hidden' }}>
                   <div style={{ width: `${(qty / max) * 100}%`, height: '100%', background: color, borderRadius: 3, transition: 'width 0.3s' }} />
                 </div>
                 <span style={{ fontSize: '0.85em', color, fontWeight: qty === 0 ? 'bold' : 'normal', minWidth: 18 }}>
@@ -134,10 +134,10 @@ export default function CommonBoardPanel({
       <div id="section-plantations" className={`common-centered${isActive('settler_action') ? ' board-active' : ''}`}>
         <h3>
           {t('board.plantations')}
-          {onSettlePlantation && <span style={{ fontWeight: 'normal', fontSize: '0.85em', color: '#ffe066' }}> {t('board.clickToPick')}</span>}
+          {onSettlePlantation && <span style={{ fontWeight: 'normal', fontSize: '0.85em', color: 'var(--resort-gold)' }}> {t('board.clickToPick')}</span>}
         </h3>
         {showHaciendaFollowup && (
-          <p style={{ margin: '0 0 8px', fontSize: 12, color: '#ffe066' }}>
+          <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--resort-gold)' }}>
             {t('board.haciendaFollowup')}
           </p>
         )}

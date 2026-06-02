@@ -60,76 +60,79 @@ export default function LobbyScreen({ players, host, myName, onStart, onLogout, 
   }
 
   return (
-    <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+    <div className="resort-page-shell">
+    <div className="lobby-shell">
+      <div className="lobby-topbar">
         <div>
           {onBack && (
             <button
               onClick={onBack}
-              style={{ background: 'none', border: 'none', color: '#aab', cursor: 'pointer', fontSize: 14, padding: 0 }}
+              className="resort-btn-link"
+              style={{ fontSize: 14 }}
             >
               ← {t('lobby.back')}
             </button>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="resort-header-actions">
           {myName && (
-            <span style={{ color: '#f0c040', fontSize: 13, fontWeight: 'bold' }}>
+            <span className="resort-user-pill">
               {myName}
             </span>
           )}
           <button
             onClick={onLogout}
-            style={{ background: 'none', border: '1px solid #334', borderRadius: 6, color: '#aab', cursor: 'pointer', fontSize: 13, padding: '6px 10px' }}
+            className="resort-btn-ghost"
           >
             {t('home.logout', '로그아웃')}
           </button>
         </div>
       </div>
-      <h1 style={{ color: '#f0c040', textAlign: 'center', marginBottom: 24 }}>
+      <h1 className="lobby-title">
         Puerto Rico — {t('lobby.title')}
       </h1>
 
       {!isHost && !hostConnected && (
-        <div style={{ background: '#2a1010', border: '1px solid #f44', borderRadius: 8, padding: 12, marginBottom: 16, color: '#f99', textAlign: 'center' }}>
+        <div className="resort-alert" style={{ marginBottom: 16, textAlign: 'center' }}>
           {t('lobby.hostDisconnected')}
         </div>
       )}
 
-      <div style={{ background: '#0d1117', border: '1px solid #2a2a5a', borderRadius: 8, padding: '16px 20px', marginBottom: 16 }}>
-        <div style={{ color: '#aab', fontSize: 12, marginBottom: 10 }}>
+      <div className="lobby-panel">
+        <div className="lobby-panel__label">
           {t('lobby.players')} ({activePlayers.length}/3)
         </div>
         {players.map((p, idx) => (
-          <div key={p.player_id ?? `player-${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #1a1a3a' }}>
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: (p.is_bot || p.connected) ? '#3d3' : '#c33', flexShrink: 0, display: 'inline-block' }} />
-            <span style={{ color: p.name === myName ? '#f0c040' : '#dde', fontWeight: p.name === myName ? 'bold' : 'normal', flex: 1 }}>
+          <div key={p.player_id ?? `player-${idx}`} className="lobby-row">
+            <span className={`status-dot ${(p.is_bot || p.connected) ? 'status-dot--online' : 'status-dot--offline'}`} />
+            <span className={`lobby-row__name${p.name === myName ? ' lobby-row__name--me' : ''}`}>
               {p.is_bot && <span style={{ marginRight: 4 }}>🤖</span>}
               {p.name}
             </span>
-            {p.is_host && <span style={{ color: '#f0c040', fontSize: 12 }}>👑 host</span>}
-            {p.is_spectator && <span style={{ color: '#667', fontSize: 12 }}>{t('lobby.spectator')}</span>}
+            {p.is_host && <span className="lobby-row__meta">👑 host</span>}
+            {p.is_spectator && <span className="lobby-row__spectator">{t('lobby.spectator')}</span>}
             {isHost && p.is_bot && onRemoveBot && (
               <button
                 onClick={() => onRemoveBot(idx)}
-                style={{ background: 'none', border: '1px solid #444', borderRadius: 4, color: '#888', cursor: 'pointer', fontSize: 13, padding: '1px 7px', lineHeight: 1.4 }}
+                className="resort-btn-danger"
               >×</button>
             )}
           </div>
         ))}
         {players.length === 0 && (
-          <div style={{ color: '#445', fontStyle: 'italic', fontSize: 13 }}>{t('lobby.noPlayers')}</div>
+          <div className="room-card__empty">{t('lobby.noPlayers')}</div>
         )}
 
         {/* Add bot form */}
         {canAddBot && (
           <div style={{ marginTop: 12 }}>
             {addingBot ? (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div className="lobby-bot-form">
                 <select
                   value={newBotType}
                   onChange={e => setNewBotType(e.target.value)}
-                  style={{ flex: 1, background: '#0a0f1e', border: '1px solid #2a2a5a', borderRadius: 4, color: '#dde', padding: '4px 6px', fontSize: 13 }}
+                  className="resort-select"
+                  style={{ flex: 1, padding: '4px 6px', fontSize: 13 }}
                   autoFocus
                 >
                   {botAgents.map(a => (
@@ -139,17 +142,18 @@ export default function LobbyScreen({ players, host, myName, onStart, onLogout, 
                 <button
                   onClick={handleConfirmAddBot}
                   disabled={!newBotType}
-                  style={{ background: '#1a4a20', border: '1px solid #3a7a40', borderRadius: 4, color: '#7f7', cursor: 'pointer', padding: '4px 10px', fontSize: 13 }}
+                  className="resort-btn-icon"
                 >✓</button>
                 <button
                   onClick={() => setAddingBot(false)}
-                  style={{ background: 'none', border: '1px solid #444', borderRadius: 4, color: '#888', cursor: 'pointer', padding: '4px 10px', fontSize: 13 }}
+                  className="resort-btn-icon"
                 >✗</button>
               </div>
             ) : (
               <button
                 onClick={() => setAddingBot(true)}
-                style={{ background: 'none', border: '1px dashed #2a4a6a', borderRadius: 6, color: '#6af', cursor: 'pointer', fontSize: 13, padding: '6px 12px', width: '100%' }}
+                className="resort-btn-secondary"
+                style={{ borderStyle: 'dashed', width: '100%' }}
               >
                 {t('lobby.addBot')}
               </button>
@@ -158,20 +162,22 @@ export default function LobbyScreen({ players, host, myName, onStart, onLogout, 
         )}
       </div>
 
-      {error && <p style={{ color: '#f66', textAlign: 'center', marginBottom: 12 }}>{error}</p>}
+      {error && <p className="resort-error" style={{ textAlign: 'center', marginBottom: 12 }}>{error}</p>}
 
       {isHost ? (
         <button
-          style={{ width: '100%', padding: '13px 0', fontSize: 16, borderRadius: 8, border: 'none', cursor: canStart ? 'pointer' : 'not-allowed', background: canStart ? '#2a5ab0' : '#1a2a40', color: canStart ? '#fff' : '#556' }}
+          className="resort-btn-primary"
+          style={{ width: '100%', padding: '13px 0', fontSize: 16, cursor: canStart ? 'pointer' : 'not-allowed', opacity: canStart ? 1 : 0.55 }}
           onClick={onStart}
           disabled={!canStart}
         >
           {canStart ? t('lobby.start') : t('lobby.needMorePlayers', { n: 3 - connectedActive.length })}
         </button>
       ) : (
-        <p style={{ textAlign: 'center', color: '#aab' }}>{t('lobby.waitingHost')}</p>
+        <p className="lobby-waiting">{t('lobby.waitingHost')}</p>
       )}
 
+    </div>
     </div>
   );
 }

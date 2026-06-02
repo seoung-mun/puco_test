@@ -19,7 +19,7 @@ ENV PYTHONPATH=/app:/PuCo_RL \
 
 # 의존성 레이어 캐시
 COPY backend/requirements.txt .
-RUN uv pip install --system --no-cache -r requirements.txt
+RUN uv pip install --system --no-cache --torch-backend cpu -r requirements.txt
 
 # PuCo_RL 게임 엔진 + 모델
 COPY PuCo_RL /PuCo_RL

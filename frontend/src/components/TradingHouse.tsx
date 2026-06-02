@@ -5,11 +5,11 @@ interface Props {
 }
 
 const GOOD_CONFIG: Record<string, { fill: string; icon: string }> = {
-  corn:    { fill: '#d4a017', icon: '🌽' },
-  indigo:  { fill: '#3a4fa0', icon: '🫐' },
-  sugar:   { fill: '#c8c8a0', icon: '🎋' },
-  tobacco: { fill: '#8b5e3c', icon: '🍂' },
-  coffee:  { fill: '#3d1f00', icon: '☕' },
+  corn:    { fill: '#f4b63f', icon: '🌽' },
+  indigo:  { fill: '#00a9b7', icon: '🫐' },
+  sugar:   { fill: '#7bbf91', icon: '🎋' },
+  tobacco: { fill: '#ff745f', icon: '🍂' },
+  coffee:  { fill: '#8c641d', icon: '☕' },
 };
 
 const SLOT_W = 36;
@@ -39,22 +39,22 @@ export default function TradingHouse({ tradingHouse }: Props) {
     <svg width={bldgW} height={bldgH + 16} viewBox={`0 0 ${bldgW} ${bldgH + 16}`}>
       {/* Building body */}
       <rect x={0} y={PAD_TOP - 4} width={bldgW} height={bldgH - PAD_TOP + 4}
-        fill={isFull ? '#5a1a1a' : '#2a1e0e'}
-        stroke={isFull ? '#cc4444' : '#8b6914'}
+        fill={isFull ? 'rgba(255,116,95,0.16)' : '#fff8e6'}
+        stroke={isFull ? '#ff745f' : '#d49b34'}
         strokeWidth={2}
       />
 
       {/* Roof */}
       <path d={roofPath}
-        fill={isFull ? '#7a2020' : '#3d2a08'}
-        stroke={isFull ? '#cc4444' : '#8b6914'}
+        fill={isFull ? 'rgba(255,116,95,0.28)' : '#f4b63f'}
+        stroke={isFull ? '#ff745f' : '#d49b34'}
         strokeWidth={2}
       />
 
       {/* Chimney */}
       <rect x={bldgW * 0.72} y={roofPeak + 4} width={8} height={14}
-        fill={isFull ? '#7a2020' : '#3d2a08'}
-        stroke={isFull ? '#cc4444' : '#8b6914'}
+        fill={isFull ? '#ff745f' : '#f4b63f'}
+        stroke={isFull ? '#b84d3d' : '#d49b34'}
         strokeWidth={1.5}
       />
 
@@ -67,8 +67,8 @@ export default function TradingHouse({ tradingHouse }: Props) {
         return (
           <g key={i}>
             <rect x={x} y={y} width={SLOT_W} height={SLOT_H} rx={4}
-              fill={cfg ? cfg.fill : '#1a1208'}
-              stroke={cfg ? '#ffffff55' : '#ffffff18'}
+              fill={cfg ? cfg.fill : 'rgba(255,255,255,0.58)'}
+              stroke={cfg ? 'rgba(255,255,255,0.8)' : 'rgba(0,137,139,0.22)'}
               strokeWidth={1}
             />
             {cfg && (
@@ -84,7 +84,7 @@ export default function TradingHouse({ tradingHouse }: Props) {
 
       {/* Label */}
       <text x={bldgW / 2} y={bldgH + 12}
-        textAnchor="middle" fontSize={11} fill={isFull ? '#cc6666' : '#aaa'}
+        textAnchor="middle" fontSize={11} fill={isFull ? '#b84d3d' : '#5e766f'}
         style={{ userSelect: 'none' }}>
         {isFull ? 'FULL' : `${tradingHouse.d_spaces_used}/4`}
       </text>
