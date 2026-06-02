@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-i18next', () => ({
@@ -23,7 +23,20 @@ vi.mock('../hooks/useGameSSE', () => ({
 }));
 
 vi.mock('../components/LoginScreen', () => ({
-  default: () => <div>LOGIN_SCREEN</div>,
+  default: ({
+    onGoogleLogin,
+    error,
+  }: {
+    onGoogleLogin: (credentialResponse: { credential?: string }) => void;
+    error: string | null;
+  }) => (
+    <div>
+      <button type="button" onClick={() => onGoogleLogin({ credential: 'google-token' })}>
+        LOGIN_SCREEN
+      </button>
+      {error && <div>{error}</div>}
+    </div>
+  ),
 }));
 
 vi.mock('../components/HomeScreen', () => ({
@@ -130,5 +143,16 @@ describe('App auth flow', () => {
 
     expect(await screen.findByText('LOGIN_SCREEN')).toBeTruthy();
     expect(localStorage.getItem('access_token')).toBeNull();
+  });
+
+  it('shows a stable login error when google auth returns an empty response body', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response('', { status: 502 }));
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByText('LOGIN_SCREEN'));
+
+    expect(await screen.findByText('Login failed')).toBeTruthy();
+    expect(screen.queryByText('Unexpected end of JSON input')).toBeNull();
   });
 });

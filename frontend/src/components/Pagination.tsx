@@ -33,15 +33,7 @@ export default function Pagination({ page, totalPages, onPageChange }: Props) {
       aria-label={key}
       onClick={() => !disabled && onPageChange(target)}
       disabled={disabled}
-      style={{
-        background: 'none',
-        border: '1px solid #2a2a5a',
-        color: disabled ? '#445' : '#aab',
-        padding: '4px 10px',
-        borderRadius: 4,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        fontSize: 13,
-      }}
+      className="pagination__btn"
     >
       {label}
     </button>
@@ -50,13 +42,13 @@ export default function Pagination({ page, totalPages, onPageChange }: Props) {
   return (
     <div
       data-testid="pagination"
-      style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center' }}
+      className="pagination"
     >
       {!atFirst && btn('<<', 1, false, 'first-page')}
       {!atFirst && btn('<', page - 1, false, 'prev-page')}
       {items.map((item, i) =>
         item === 'ellipsis' ? (
-          <span key={`ellipsis-${i}`} style={{ color: '#556', padding: '4px 6px' }}>...</span>
+          <span key={`ellipsis-${i}`} className="pagination__ellipsis">...</span>
         ) : (
           <button
             key={`page-${item}`}
@@ -64,16 +56,7 @@ export default function Pagination({ page, totalPages, onPageChange }: Props) {
             aria-label={`page-${item}`}
             aria-current={item === page ? 'page' : undefined}
             onClick={() => onPageChange(item)}
-            style={{
-              background: item === page ? '#2a5ab0' : 'none',
-              border: '1px solid #2a2a5a',
-              color: item === page ? '#fff' : '#aab',
-              padding: '4px 10px',
-              borderRadius: 4,
-              cursor: 'pointer',
-              fontSize: 13,
-              fontWeight: item === page ? 'bold' : 'normal',
-            }}
+            className={`pagination__btn${item === page ? ' pagination__btn--active' : ''}`}
           >
             {item}
           </button>

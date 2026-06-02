@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 import uvicorn
 
-from app.api.channel import room, game, ws, auth, lobby_ws, replay, playback, session
+from app.api.channel import room, game, ws, auth, lobby_ws, replay, playback, session, analytics
 from app.api.legacy import router as legacy_router
 from app.dependencies import SessionLocal
 from app.core.redis import async_redis_client
@@ -252,6 +252,7 @@ app.include_router(lobby_ws.router, prefix="/api/puco/ws/lobby", tags=["lobby-ws
 app.include_router(ws.router, prefix="/api/puco/ws", tags=["websocket"])
 app.include_router(auth.router, prefix="/api/puco/auth", tags=["auth"])
 app.include_router(session.router, prefix="/api/puco/session", tags=["session"])
+app.include_router(analytics.router, prefix="/api/puco/analytics", tags=["analytics"])
 app.include_router(replay.router, prefix="/api/puco/replays", tags=["replays"])
 app.include_router(playback.router, prefix="/api/puco/games", tags=["playback"])
 

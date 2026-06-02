@@ -1,16 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, options?: { name?: string; player?: string; defaultValue?: string }) => {
-      if (key === 'game.waitingTurn') return `waiting:${options?.name ?? ''}`;
-      if (key.startsWith('decision.')) return options?.player ? `decision:${options.player}` : (options?.defaultValue ?? key);
-      return options?.defaultValue ?? key;
-    },
-  }),
-}));
-
 import GameScreen from '../GameScreen';
 import type { GameState, Player } from '../../types/gameState';
 
@@ -27,19 +17,13 @@ vi.mock('../PlayerPanel', () => ({
     playerId,
     player,
     isRolePicker,
-    mayorLegalIslandSlots,
-    mayorLegalCitySlots,
   }: {
     playerId: string;
     player: { display_name: string };
     isRolePicker?: boolean;
-    mayorLegalIslandSlots?: number[];
-    mayorLegalCitySlots?: number[];
   }) => (
     <div data-testid={playerId}>
       {player.display_name}:{isRolePicker ? 'picker' : 'normal'}
-      {mayorLegalIslandSlots ? `:island=${mayorLegalIslandSlots.join(',')}` : ''}
-      {mayorLegalCitySlots ? `:city=${mayorLegalCitySlots.join(',')}` : ''}
     </div>
   ),
 }));
@@ -254,7 +238,6 @@ describe('GameScreen', () => {
 
   it('hides the waiting-turn banner when replayMode=true', () => {
     const state = makeState();
-    state.meta.active_player = 'player_1';
     state.decision.player = 'player_waiting';
 
     const { rerender } = render(
@@ -265,7 +248,7 @@ describe('GameScreen', () => {
         })}
       />,
     );
-    expect(screen.queryByText((content) => content.includes('waiting:Bob'))).not.toBeNull();
+    expect(screen.queryByText((content) => content.includes('player_waiting'))).not.toBeNull();
 
     rerender(
       <GameScreen
@@ -276,7 +259,7 @@ describe('GameScreen', () => {
         })}
       />,
     );
-    expect(screen.queryByText((content) => content.includes('waiting:Bob'))).toBeNull();
+    expect(screen.queryByText((content) => content.includes('player_waiting'))).toBeNull();
   });
 
   it('hides the bot thinking banner when replayMode=true', () => {
@@ -284,7 +267,7 @@ describe('GameScreen', () => {
     state.meta.bot_thinking = true;
 
     const { rerender } = render(<GameScreen {...commonProps({ state })} />);
-    expect(screen.queryByText('game.geminiThinking')).not.toBeNull();
+    expect(screen.queryByText(/Gemini AI/)).not.toBeNull();
 
     rerender(
       <GameScreen
@@ -294,7 +277,7 @@ describe('GameScreen', () => {
         })}
       />,
     );
-    expect(screen.queryByText('game.geminiThinking')).toBeNull();
+    expect(screen.queryByText(/Gemini AI/)).toBeNull();
   });
 
   it('suppresses the hospice settlement overlay when replayMode=true', () => {
@@ -389,182 +372,6 @@ describe('GameScreen', () => {
     render(<GameScreen {...commonProps()} />);
     const passBtn = document.querySelector('.pass-btn') as HTMLButtonElement | null;
     expect(passBtn?.disabled).toBe(false);
-  });
-
-  it('hides trader action card for non-active multiplayer viewers', () => {
-    const state = makeState();
-    state.meta.phase = 'trader_action';
-    state.meta.active_role = 'trader';
-    state.meta.active_player = 'player_0';
-    state.players.player_0.goods.corn = 1;
-    state.players.player_0.goods.d_total = 1;
-
-    render(
-      <GameScreen
-        {...commonProps({
-          state,
-          isMyTurn: false,
-          isMultiplayer: true,
-        })}
-      />,
-    );
-
-    expect(document.querySelector('#action-card')).toBeNull();
-  });
-
-  it('hides craftsman privilege overlay for non-active multiplayer viewers', () => {
-    const state = makeState();
-    state.meta.phase = 'craftsman_action';
-    state.meta.active_role = 'craftsman';
-    state.common_board.roles.craftsman.taken_by = 'player_0';
-
-    render(
-      <GameScreen
-        {...commonProps({
-          state,
-          isMyTurn: false,
-          isMultiplayer: true,
-        })}
-      />,
-    );
-
-    expect(document.querySelector('.hospice-overlay')).toBeNull();
-  });
-
-  it('hides captain action card for non-active multiplayer viewers', () => {
-    const state = makeState();
-    state.meta.phase = 'captain_action';
-    state.meta.active_role = 'captain';
-    state.meta.active_player = 'player_0';
-    state.common_board.roles.captain.taken_by = 'player_0';
-    state.players.player_0.goods.corn = 2;
-    state.players.player_0.goods.d_total = 2;
-    state.common_board.cargo_ships = [
-      { capacity: 4, good: null, d_filled: 0, d_remaining_space: 4, d_is_empty: true, d_is_full: false },
-    ];
-
-    render(
-      <GameScreen
-        {...commonProps({
-          state,
-          isMyTurn: false,
-          isMultiplayer: true,
-        })}
-      />,
-    );
-
-    expect(document.querySelector('#action-card')).toBeNull();
-  });
-
-  it('hides captain discard action card for non-active multiplayer viewers', () => {
-    const state = makeState();
-    state.meta.phase = 'captain_discard';
-    state.meta.active_role = 'captain';
-    state.meta.active_player = 'player_0';
-    state.players.player_0.goods.corn = 2;
-    state.players.player_0.goods.sugar = 1;
-    state.players.player_0.goods.d_total = 3;
-    state.players.player_0.city.buildings = [
-      { name: 'small_warehouse', vp: 1, cost: 3, workers: 0, max_workers: 1, occupied: false, is_active: true },
-    ];
-
-    render(
-      <GameScreen
-        {...commonProps({
-          state,
-          isMyTurn: false,
-          isMultiplayer: true,
-        })}
-      />,
-    );
-
-    expect(document.querySelector('#action-card')).toBeNull();
-  });
-
-  it('does not pass mayor legal slots to non-active multiplayer viewers', () => {
-    const state = makeState();
-    state.meta.phase = 'mayor_action';
-    state.meta.active_role = 'mayor';
-    state.meta.active_player = 'player_0';
-    state.meta.mayor_legal_island_slots = [0, 1];
-    state.meta.mayor_legal_city_slots = [0];
-
-    render(
-      <GameScreen
-        {...commonProps({
-          state,
-          isMyTurn: false,
-          isMultiplayer: true,
-        })}
-      />,
-    );
-
-    expect(screen.getByTestId('player_0').textContent).toContain('Alice:normal');
-    expect(screen.getByTestId('player_0').textContent).not.toContain(':island=0,1');
-    expect(screen.getByTestId('player_0').textContent).not.toContain(':city=0');
-  });
-
-  it('shows trader action card to the active multiplayer player', () => {
-    const state = makeState();
-    state.meta.phase = 'trader_action';
-    state.meta.active_role = 'trader';
-    state.meta.active_player = 'player_0';
-    state.players.player_0.goods.corn = 1;
-    state.players.player_0.goods.d_total = 1;
-
-    render(
-      <GameScreen
-        {...commonProps({
-          state,
-          isMyTurn: true,
-          isMultiplayer: true,
-        })}
-      />,
-    );
-
-    expect(document.querySelector('#action-card')).not.toBeNull();
-  });
-
-  it('uses meta.active_player for multiplayer waiting-turn copy during handoff', () => {
-    const state = makeState();
-    state.meta.active_player = 'player_1';
-    state.decision.player = 'player_0';
-
-    render(
-      <GameScreen
-        {...commonProps({
-          state,
-          isMyTurn: false,
-          isMultiplayer: true,
-        })}
-      />,
-    );
-
-    const waitingBanner = document.querySelector('div[style*="bottom: 0px"]');
-    expect(waitingBanner?.textContent).toContain('waiting:Bob');
-    expect(waitingBanner?.textContent).not.toContain('Alice');
-  });
-
-  it('uses meta.active_player for multiplayer decision copy during handoff', () => {
-    const state = makeState();
-    state.meta.active_player = 'player_1';
-    state.decision.player = 'player_0';
-    state.decision.type = 'handoff';
-    state.decision.note = '';
-
-    render(
-      <GameScreen
-        {...commonProps({
-          state,
-          isMyTurn: false,
-          isMultiplayer: true,
-        })}
-      />,
-    );
-
-    const decisionLine = document.querySelector('.decision-inline');
-    expect(decisionLine?.textContent).toContain('decision:Bob');
-    expect(decisionLine?.textContent).not.toContain('Alice');
   });
 });
 

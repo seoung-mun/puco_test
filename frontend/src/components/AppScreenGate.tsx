@@ -89,7 +89,7 @@ export default function AppScreenGate({
   onCloseReplayList,
 }: Props) {
   if (screen === 'loading') {
-    return <div style={{ color: '#eee', padding: 40, textAlign: 'center' }}>Loading...</div>;
+    return <div className="resort-page-shell resort-page-content" style={{ textAlign: 'center' }}>Loading...</div>;
   }
   if (screen === 'login') {
     return <LoginScreen

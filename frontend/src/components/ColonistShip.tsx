@@ -36,14 +36,14 @@ export default function ColonistShip({ colonists, numPlayers }: Props) {
       {/* Colonist ship */}
       <svg width={shipW} height={shipH + 20} viewBox={`0 0 ${shipW} ${shipH + 20}`}>
         {/* Mast */}
-        <line x1={mastX} y1={4} x2={mastX} y2={SHIP_PAD_TOP - 8} stroke="#8b6914" strokeWidth={2.5} />
+        <line x1={mastX} y1={4} x2={mastX} y2={SHIP_PAD_TOP - 8} stroke="#d49b34" strokeWidth={2.5} />
         {/* Sail */}
         <polygon
           points={`${mastX},6 ${mastX + 18},${SHIP_PAD_TOP - 12} ${mastX},${SHIP_PAD_TOP - 12}`}
-          fill="#f5e6c8" stroke="#c8a832" strokeWidth={1}
+          fill="#fff8e6" stroke="#f4b63f" strokeWidth={1}
         />
-        {/* Hull — purple/navy to distinguish from cargo ships */}
-        <path d={hullPath} fill="#3a2860" stroke="#7050b0" strokeWidth={2} />
+        {/* Hull */}
+        <path d={hullPath} fill="#00a9b7" stroke="#087b82" strokeWidth={2} />
 
         {/* Colonist slots */}
         {Array.from({ length: capacity }).map((_, i) => {
@@ -53,8 +53,8 @@ export default function ColonistShip({ colonists, numPlayers }: Props) {
           return (
             <g key={i}>
               <circle cx={cx} cy={cy} r={SLOT_R}
-                fill={filled ? '#f5deb3' : '#1e1030'}
-                stroke={filled ? '#8b4513' : '#7050b055'}
+                fill={filled ? '#fff2cc' : 'rgba(255,255,255,0.48)'}
+                stroke={filled ? '#d49b34' : 'rgba(8,123,130,0.28)'}
                 strokeWidth={1.5}
               />
               {filled && (
@@ -70,7 +70,7 @@ export default function ColonistShip({ colonists, numPlayers }: Props) {
 
         {/* Label */}
         <text x={shipW / 2} y={shipH + 14}
-          textAnchor="middle" fontSize={11} fill="#aaa" style={{ userSelect: 'none' }}>
+          textAnchor="middle" fontSize={11} fill="#5e766f" style={{ userSelect: 'none' }}>
           ship: {colonists.ship}/{capacity}
         </text>
       </svg>
@@ -84,7 +84,7 @@ export default function ColonistShip({ colonists, numPlayers }: Props) {
           return (
             <g key={i}>
               <circle cx={cx} cy={cy} r={10}
-                fill="#f5deb3" stroke="#8b4513" strokeWidth={1.5}
+                fill="#fff2cc" stroke="#d49b34" strokeWidth={1.5}
                 opacity={0.4 + (i / Math.max(stackCount - 1, 1)) * 0.6}
               />
               {i === stackCount - 1 && (
@@ -99,7 +99,7 @@ export default function ColonistShip({ colonists, numPlayers }: Props) {
         })}
         {/* Count badge */}
         <rect x={supplyW / 2 - 13} y={supplyH - 18} width={26} height={15} rx={4}
-          fill="#2a2a2a" stroke="#555" strokeWidth={1}
+          fill="#087b82" stroke="#00a9b7" strokeWidth={1}
         />
         <text x={supplyW / 2} y={supplyH - 10}
           textAnchor="middle" dominantBaseline="middle"
@@ -107,7 +107,7 @@ export default function ColonistShip({ colonists, numPlayers }: Props) {
           ×{colonists.supply}
         </text>
         <text x={supplyW / 2} y={supplyH + 8}
-          textAnchor="middle" fontSize={10} fill="#888" style={{ userSelect: 'none' }}>
+          textAnchor="middle" fontSize={10} fill="#5e766f" style={{ userSelect: 'none' }}>
           supply
         </text>
       </svg>

@@ -5,11 +5,11 @@ interface Props {
 }
 
 const GOOD_CONFIG: Record<string, { fill: string; icon: string }> = {
-  corn:    { fill: '#d4a017', icon: '🌽' },
-  indigo:  { fill: '#3a4fa0', icon: '🫐' },
-  sugar:   { fill: '#c8c8a0', icon: '🎋' },
-  tobacco: { fill: '#8b5e3c', icon: '🍂' },
-  coffee:  { fill: '#3d1f00', icon: '☕' },
+  corn:    { fill: '#f4b63f', icon: '🌽' },
+  indigo:  { fill: '#00a9b7', icon: '🫐' },
+  sugar:   { fill: '#7bbf91', icon: '🎋' },
+  tobacco: { fill: '#ff745f', icon: '🍂' },
+  coffee:  { fill: '#8c641d', icon: '☕' },
 };
 
 const SLOT_W = 28;
@@ -40,15 +40,15 @@ function Ship({ ship }: { ship: CargoShip }) {
   return (
     <svg width={shipW} height={shipH + 20} viewBox={`0 0 ${shipW} ${shipH + 20}`}>
       {/* Mast */}
-      <line x1={mastX} y1={4} x2={mastX} y2={SHIP_PAD_TOP - 6} stroke="#8b6914" strokeWidth={2.5} />
+      <line x1={mastX} y1={4} x2={mastX} y2={SHIP_PAD_TOP - 6} stroke="#d49b34" strokeWidth={2.5} />
       {/* Sail */}
       <polygon
         points={`${mastX},6 ${mastX + 18},${SHIP_PAD_TOP - 10} ${mastX},${SHIP_PAD_TOP - 10}`}
-        fill="#f5e6c8" stroke="#c8a832" strokeWidth={1}
+        fill="#fff8e6" stroke="#f4b63f" strokeWidth={1}
       />
 
       {/* Hull */}
-      <path d={hullPath} fill="#5c3d1e" stroke="#8b6914" strokeWidth={2} />
+      <path d={hullPath} fill="#087b82" stroke="#006f75" strokeWidth={2} />
 
       {/* Cargo slots */}
       {Array.from({ length: slots }).map((_, i) => {
@@ -58,8 +58,8 @@ function Ship({ ship }: { ship: CargoShip }) {
         return (
           <g key={i}>
             <rect x={x} y={y} width={SLOT_W} height={SLOT_H} rx={4}
-              fill={filled && cfg ? cfg.fill : '#3a2510'}
-              stroke={filled ? '#ffffff55' : '#ffffff22'}
+              fill={filled && cfg ? cfg.fill : 'rgba(255,255,255,0.45)'}
+              stroke={filled ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.36)'}
               strokeWidth={1}
             />
             {filled && cfg && (
@@ -75,7 +75,7 @@ function Ship({ ship }: { ship: CargoShip }) {
 
       {/* Ship label */}
       <text x={shipW / 2} y={shipH + 14}
-        textAnchor="middle" fontSize={11} fill="#aaa"
+        textAnchor="middle" fontSize={11} fill="#5e766f"
         style={{ userSelect: 'none' }}>
         {ship.d_filled}/{ship.capacity}{ship.d_is_full ? ' FULL' : ''}
       </text>
