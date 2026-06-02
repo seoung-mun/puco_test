@@ -33,12 +33,12 @@ function canBuild(name: string, b: CommonBoard['available_buildings'][string], i
 }
 
 const BUILDING_CONFIG: Record<string, { icon: string; color?: string }> = {
-  small_indigo_plant: { icon: '🫐', color: '#3a4fa0' },
-  indigo_plant:       { icon: '🫐', color: '#2a3f90' },
-  small_sugar_mill:   { icon: '🎋', color: '#a0a060' },
-  sugar_mill:         { icon: '🎋', color: '#808040' },
-  tobacco_storage:    { icon: '🍂', color: '#8b5e3c' },
-  coffee_roaster:     { icon: '☕', color: '#3d1f00' },
+  small_indigo_plant: { icon: '🫐', color: '#36a8c7' },
+  indigo_plant:       { icon: '🫐', color: '#208db0' },
+  small_sugar_mill:   { icon: '🎋', color: '#b7d978' },
+  sugar_mill:         { icon: '🎋', color: '#8fbd62' },
+  tobacco_storage:    { icon: '🍂', color: '#d7925b' },
+  coffee_roaster:     { icon: '☕', color: '#8b6b4d' },
   small_market:       { icon: '🏪' },
   large_market:       { icon: '🏪' },
   hacienda:           { icon: '🏡' },
@@ -74,11 +74,10 @@ function wrapLabel(label: string): [string, string] {
 function buildingColor(name: string, cost: number): string {
   const cfg = BUILDING_CONFIG[name];
   if (cfg?.color) return cfg.color;
-  // Blue gradient: cost 1 (mid-light) → cost 10 (mid-dark), reduced contrast
   const t = Math.min(1, Math.max(0, (cost - 1) / 9));
-  const r = Math.round(90 - t * 55);
-  const g = Math.round(145 - t * 80);
-  const b = Math.round(195 - t * 85);
+  const r = Math.round(98 - t * 18);
+  const g = Math.round(189 - t * 50);
+  const b = Math.round(184 - t * 54);
   return `rgb(${r},${g},${b})`;
 }
 
@@ -131,8 +130,8 @@ function BuildingTile({ name, x, y, tileH, b, builderOverlay, onBuild, onHover, 
 
   // Cost badge: gold when sold out or outside builder phase, green=buildable, red=can't afford
   const costBadgeFill = soldOut || !builderOverlay
-    ? '#c8a832'
-    : builderOverlay.buildable ? '#4caf50' : '#b03030';
+    ? '#f4b63f'
+    : builderOverlay.buildable ? '#4f9f4a' : '#ff745f';
 
   return (
     <g opacity={opacity}
@@ -142,10 +141,10 @@ function BuildingTile({ name, x, y, tileH, b, builderOverlay, onBuild, onHover, 
       onMouseLeave={onLeave}>
       <rect x={x} y={y} width={TILE_W} height={tileH} rx={6}
         fill={color}
-        stroke={clickable ? '#ffe066' : '#ffffff22'}
+        stroke={clickable ? '#f4b63f' : 'rgba(255,255,255,0.58)'}
         strokeWidth={clickable ? 2 : 1} />
       {soldOut && (
-        <rect x={x} y={y} width={TILE_W} height={tileH} rx={6} fill="#00000066" />
+        <rect x={x} y={y} width={TILE_W} height={tileH} rx={6} fill="rgba(255,255,255,0.58)" />
       )}
       <text x={x + TILE_W / 2} y={midY - 19}
         textAnchor="middle" dominantBaseline="middle"
@@ -153,13 +152,13 @@ function BuildingTile({ name, x, y, tileH, b, builderOverlay, onBuild, onHover, 
         {cfg.icon}
       </text>
       <text x={x + TILE_W / 2} y={midY + 2}
-        textAnchor="middle" fontSize={11} fill="#ffffff" fontWeight="bold" stroke="#00000066" strokeWidth={0.4} paintOrder="stroke"
+        textAnchor="middle" fontSize={11} fill="#173b3a" fontWeight="bold"
         style={{ userSelect: 'none' }}>
         {line1}
       </text>
       {line2 && (
         <text x={x + TILE_W / 2} y={midY + 15}
-          textAnchor="middle" fontSize={11} fill="#ffffff" fontWeight="bold" stroke="#00000066" strokeWidth={0.4} paintOrder="stroke"
+          textAnchor="middle" fontSize={11} fill="#173b3a" fontWeight="bold"
           style={{ userSelect: 'none' }}>
           {line2}
         </text>
@@ -174,15 +173,15 @@ function BuildingTile({ name, x, y, tileH, b, builderOverlay, onBuild, onHover, 
             fontSize={11} fill="#fff" fontWeight="bold" style={{ userSelect: 'none' }}>
             💰{builderOverlay ? builderOverlay.cost : b.cost}
           </text>
-          <rect x={x + TILE_W - 38} y={y + tileH - 23} width={34} height={20} rx={4} fill="#ffe066" />
+          <rect x={x + TILE_W - 38} y={y + tileH - 23} width={34} height={20} rx={4} fill="#fff2cc" />
           <text x={x + TILE_W - 21} y={y + tileH - 13}
             textAnchor="middle" dominantBaseline="middle"
-            fontSize={11} fill="#333" fontWeight="bold" style={{ userSelect: 'none' }}>
+            fontSize={11} fill="#173b3a" fontWeight="bold" style={{ userSelect: 'none' }}>
             ⭐{b.vp}
           </text>
           {b.copies_remaining > 1 && (
             <>
-              <circle cx={x + TILE_W - 13} cy={y + 13} r={11} fill="#ffffff33" stroke="#ffffff55" strokeWidth={1} />
+              <circle cx={x + TILE_W - 13} cy={y + 13} r={11} fill="rgba(255,255,255,0.46)" stroke="rgba(255,255,255,0.68)" strokeWidth={1} />
               <text x={x + TILE_W - 13} y={y + 13}
                 textAnchor="middle" dominantBaseline="middle"
                 fontSize={10} fill="#fff" fontWeight="bold" style={{ userSelect: 'none' }}>
@@ -192,7 +191,7 @@ function BuildingTile({ name, x, y, tileH, b, builderOverlay, onBuild, onHover, 
           )}
           {Array.from({ length: b.max_colonists }).map((_, si) => (
             <circle key={si} cx={x + 12 + si * 15} cy={y + 13} r={6}
-              fill="#00000055" stroke="#ffffff44" strokeWidth={1} />
+              fill="rgba(255,255,255,0.46)" stroke="rgba(255,255,255,0.68)" strokeWidth={1} />
           ))}
         </>
       )}
@@ -226,7 +225,7 @@ export default function SanJuan({ buildings, builderInfo, onBuild }: Props) {
               textAlign: 'center',
               fontSize: 11,
               fontWeight: 'bold',
-              color: '#c8a832',
+              color: '#8c641d',
             }}>
               {t('sanJuan.quarryMax', { n: maxVp })}
             </div>
@@ -236,7 +235,7 @@ export default function SanJuan({ buildings, builderInfo, onBuild }: Props) {
 
       <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
         <rect x={4} y={4} width={svgW - 8} height={svgH - 8} rx={10}
-          fill="#1e1e2e" stroke="#4a4a6a" strokeWidth={2} />
+          fill="#dff7ee" stroke="rgba(0,137,139,0.24)" strokeWidth={2} />
 
         {/* Normal buildings: cols 0-2 */}
         {NORMAL_GRID.map((row, rowIdx) =>
@@ -267,11 +266,10 @@ export default function SanJuan({ buildings, builderInfo, onBuild }: Props) {
         )}
       </svg>
       {tooltip && (
-        <div style={{
+        <div className="san-juan-tooltip" style={{
           position: 'fixed', left: tooltip.x + 14, top: tooltip.y + 10, zIndex: 999,
-          background: '#12192e', border: '1px solid #3a4a7a', borderRadius: 8,
-          padding: '7px 12px', color: '#ccd8f0', fontSize: 13, maxWidth: 300,
-          boxShadow: '0 4px 18px rgba(0,0,0,0.8)', pointerEvents: 'none', lineHeight: 1.5,
+          padding: '7px 12px', fontSize: 13, maxWidth: 300,
+          pointerEvents: 'none', lineHeight: 1.5,
         }}>
           {tooltip.text}
         </div>

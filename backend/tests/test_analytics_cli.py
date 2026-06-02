@@ -23,9 +23,6 @@ import pytest
 from scripts.analytics_cli import (
     _print_table,
     handle_list_users,
-    handle_lineup_games,
-    handle_lineup_summary,
-    handle_ppo_lineup_games,
     handle_win_rate_by_bot,
     handle_win_rate_by_count,
     handle_recent_games,
@@ -70,7 +67,7 @@ def make_game(
 
 def _ns(**kwargs) -> argparse.Namespace:
     """Convenience: build an argparse.Namespace with sane defaults."""
-    defaults = {"json": False, "limit": 20, "bucket": 5, "user_id": None, "nickname": None}
+    defaults = {"json": False, "limit": 20, "bucket": 5, "user_id": None}
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
 
@@ -320,17 +317,6 @@ class TestHandleRecentGames:
             mock_fn.assert_called_once_with(db, uid, limit=5)
         capsys.readouterr()
 
-    def test_nickname_resolved_before_recent_games_service_call(self, db, capsys):
-        with patch("scripts.analytics_cli.resolve_user_id_or_nickname") as mock_resolve:
-            with patch("scripts.analytics_cli.recent_games") as mock_recent:
-                mock_resolve.return_value = "resolved-user-id"
-                mock_recent.return_value = []
-                handle_recent_games(_ns(nickname="RecentNick", limit=5), db=db)
-
-        mock_resolve.assert_called_once_with(db, user_id=None, nickname="RecentNick")
-        mock_recent.assert_called_once_with(db, "resolved-user-id", limit=5)
-        capsys.readouterr()
-
     def test_win_loss_draw_in_output(self, db, capsys):
         u = make_user(db, "WLD")
         uid = str(u.id)
@@ -345,211 +331,13 @@ class TestHandleRecentGames:
         assert "loss" in out
         assert "draw" in out
 
-    def test_recent_games_table_keeps_opponent_context_columns(self, db, capsys):
-        u = make_user(db, "OppCtx")
-        uid = str(u.id)
-        make_game(db, [uid, "BOT_ppo"], winner_id=uid)
-        db.flush()
-
-        handle_recent_games(_ns(user_id=uid, limit=20), db=db)
-        out = capsys.readouterr().out
-        assert "opponent_bots" in out
-        assert "winner_id" in out
-        assert "ppo" in out
-
-    def test_invalid_lookup_exits_with_cli_friendly_error(self, db, capsys):
-        with pytest.raises(SystemExit) as excinfo:
-            handle_recent_games(_ns(nickname="missing-user"), db=db)
-
-        assert excinfo.value.code == 2
-        err = capsys.readouterr().err
-        assert "User not found" in err
-
-
-class TestHandleLineupSummary:
-    def test_table_output(self, db, capsys):
-        with patch("scripts.analytics_cli.resolve_user_id_or_nickname") as mock_resolve:
-            with patch("scripts.analytics_cli.lineup_summary") as mock_summary:
-                mock_resolve.return_value = "user-1"
-                mock_summary.return_value = [
-                    {
-                        "lineup": "Alice > ppo > action_value",
-                        "ordered_players": ["Alice", "ppo", "action_value"],
-                        "my_seat": 1,
-                        "games": 3,
-                        "wins": 2,
-                        "losses": 1,
-                        "draws": 0,
-                        "win_rate": 0.6667,
-                        "avg_vp_gap": 4.5,
-                        "vp_gap_games": 2,
-                        "last_played_at": None,
-                    }
-                ]
-                handle_lineup_summary(_ns(nickname="Alice"), db=db)
-
-        out = capsys.readouterr().out
-        assert "lineup" in out
-        assert "avg_vp_gap" in out
-        assert "Alice > ppo > action_value" in out
-
-    def test_json_output(self, db, capsys):
-        with patch("scripts.analytics_cli.resolve_user_id_or_nickname") as mock_resolve:
-            with patch("scripts.analytics_cli.lineup_summary") as mock_summary:
-                mock_resolve.return_value = "user-1"
-                mock_summary.return_value = [
-                    {
-                        "lineup": "Alice > Bob > ppo",
-                        "ordered_players": ["Alice", "Bob", "ppo"],
-                        "my_seat": 1,
-                        "games": 2,
-                        "wins": 1,
-                        "losses": 1,
-                        "draws": 0,
-                        "win_rate": 0.5,
-                        "avg_vp_gap": 5.0,
-                        "vp_gap_games": 2,
-                        "last_played_at": None,
-                    }
-                ]
-                handle_lineup_summary(_ns(user_id="user-1", json=True), db=db)
-
-        out = capsys.readouterr().out
-        data = json.loads(out)
-        assert data[0]["lineup"] == "Alice > Bob > ppo"
-
-
-class TestHandleLineupGames:
-    def test_table_output(self, db, capsys):
-        with patch("scripts.analytics_cli.resolve_user_id_or_nickname") as mock_resolve:
-            with patch("scripts.analytics_cli.lineup_games") as mock_lineup_games:
-                mock_resolve.return_value = "user-1"
-                mock_lineup_games.return_value = [
-                    {
-                        "game_id": "game-1",
-                        "created_at": None,
-                        "lineup": "Alice > ppo > Bob",
-                        "ordered_players": ["Alice", "ppo", "Bob"],
-                        "winner_display_name": "Alice",
-                        "first_place_vp": 38,
-                        "second_place_vp": 33,
-                        "first_second_vp_gap": 5,
-                        "my_rank": 1,
-                        "my_vp": 38,
-                    }
-                ]
-                handle_lineup_games(_ns(nickname="Alice"), db=db)
-
-        out = capsys.readouterr().out
-        assert "lineup" in out
-        assert "winner_display_name" in out
-        assert "first_second_vp_gap" in out
-        assert "Alice > ppo > Bob" in out
-
-    def test_json_output_passes_limit_and_lineup_filter(self, db, capsys):
-        with patch("scripts.analytics_cli.resolve_user_id_or_nickname") as mock_resolve:
-            with patch("scripts.analytics_cli.lineup_games") as mock_lineup_games:
-                mock_resolve.return_value = "user-1"
-                mock_lineup_games.return_value = [
-                    {
-                        "game_id": "game-1",
-                        "created_at": None,
-                        "lineup": "Alice > ppo > Bob",
-                        "ordered_players": ["Alice", "ppo", "Bob"],
-                        "winner_display_name": "Alice",
-                        "first_place_vp": 38,
-                        "second_place_vp": 33,
-                        "first_second_vp_gap": 5,
-                        "my_rank": 1,
-                        "my_vp": 38,
-                    }
-                ]
-                handle_lineup_games(
-                    _ns(user_id="user-1", json=True, limit=7, lineup="Alice,ppo,Bob"),
-                    db=db,
-                )
-
-        out = capsys.readouterr().out
-        data = json.loads(out)
-        assert data[0]["lineup"] == "Alice > ppo > Bob"
-        mock_lineup_games.assert_called_once_with(
-            db,
-            "user-1",
-            limit=7,
-            lineup=["Alice", "ppo", "Bob"],
-        )
-
-
-class TestHandlePpoLineupGames:
-    def test_table_output(self, db, capsys):
-        with patch("scripts.analytics_cli.ppo_lineup_games") as mock_ppo_lineup_games:
-            mock_ppo_lineup_games.return_value = [
-                {
-                    "game_id": "game-1",
-                    "created_at": None,
-                    "lineup": "Alice > PPO Bot > Random Bot",
-                    "lineup_signature": "human > ppo > random",
-                    "ordered_players": ["Alice", "PPO Bot", "Random Bot"],
-                    "ppo_seats": [2],
-                    "ppo_count": 1,
-                    "ppo_result": "loss",
-                    "winner_display_name": "Alice",
-                    "best_ppo_rank": 2,
-                    "best_ppo_vp": 34,
-                    "best_non_ppo_vp": 39,
-                    "best_ppo_vp_gap": -5,
-                    "score_data_available": True,
-                }
-            ]
-            handle_ppo_lineup_games(_ns(), db=db)
-
-        out = capsys.readouterr().out
-        assert "lineup_signature" in out
-        assert "ppo_seats" in out
-        assert "best_ppo_vp_gap" in out
-        assert "human > ppo > random" in out
-
-    def test_json_output_passes_limit_and_type_lineup_filter(self, db, capsys):
-        with patch("scripts.analytics_cli.ppo_lineup_games") as mock_ppo_lineup_games:
-            mock_ppo_lineup_games.return_value = [
-                {
-                    "game_id": "game-1",
-                    "created_at": None,
-                    "lineup": "Alice > PPO Bot > Random Bot",
-                    "lineup_signature": "human > ppo > random",
-                    "ordered_players": ["Alice", "PPO Bot", "Random Bot"],
-                    "ppo_seats": [2],
-                    "ppo_count": 1,
-                    "ppo_result": "loss",
-                    "winner_display_name": "Alice",
-                    "best_ppo_rank": 2,
-                    "best_ppo_vp": 34,
-                    "best_non_ppo_vp": 39,
-                    "best_ppo_vp_gap": -5,
-                    "score_data_available": True,
-                }
-            ]
-            handle_ppo_lineup_games(
-                _ns(json=True, limit=7, lineup="human,ppo,random"),
-                db=db,
-            )
-
-        out = capsys.readouterr().out
-        data = json.loads(out)
-        assert data[0]["lineup_signature"] == "human > ppo > random"
-        mock_ppo_lineup_games.assert_called_once_with(
-            db,
-            limit=7,
-            lineup=["human", "ppo", "random"],
-        )
-
 
 # ---------------------------------------------------------------------------
 # build_parser — argparse 구조 검증
 # ---------------------------------------------------------------------------
 
 class TestBuildParser:
-    def test_seven_subcommands_present(self):
+    def test_four_subcommands_present(self):
         parser = build_parser()
         # argparse 내부에서 subparser choices 를 확인
         subparser_action = next(
@@ -557,15 +345,7 @@ class TestBuildParser:
             if hasattr(a, "_name_parser_map")
         )
         choices = set(subparser_action._name_parser_map.keys())
-        assert choices == {
-            "list-users",
-            "win-rate-by-bot",
-            "win-rate-by-count",
-            "recent-games",
-            "lineup-summary",
-            "lineup-games",
-            "ppo-lineup-games",
-        }
+        assert choices == {"list-users", "win-rate-by-bot", "win-rate-by-count", "recent-games"}
 
     def test_list_users_defaults(self):
         args = build_parser().parse_args(["list-users"])
@@ -573,7 +353,7 @@ class TestBuildParser:
         assert args.limit == 20
         assert args.json is False
 
-    def test_win_rate_by_bot_requires_user_id_or_nickname(self):
+    def test_win_rate_by_bot_requires_user_id(self):
         with pytest.raises(SystemExit):
             build_parser().parse_args(["win-rate-by-bot"])
 
@@ -582,18 +362,9 @@ class TestBuildParser:
         assert args.bucket == 5
         assert args.user_id == "abc"
 
-    def test_win_rate_by_bot_accepts_nickname(self):
-        args = build_parser().parse_args(["win-rate-by-bot", "--nickname", "alice"])
-        assert args.nickname == "alice"
-        assert args.user_id is None
-
     def test_recent_games_limit_default(self):
         args = build_parser().parse_args(["recent-games", "--user-id", "xyz"])
         assert args.limit == 20
-
-    def test_recent_games_rejects_user_id_and_nickname_together(self):
-        with pytest.raises(SystemExit):
-            build_parser().parse_args(["recent-games", "--user-id", "xyz", "--nickname", "alice"])
 
     def test_json_flag_list_users(self):
         args = build_parser().parse_args(["list-users", "--json"])
@@ -602,25 +373,3 @@ class TestBuildParser:
     def test_json_flag_win_rate_by_bot(self):
         args = build_parser().parse_args(["win-rate-by-bot", "--user-id", "u1", "--json"])
         assert args.json is True
-
-    def test_lineup_summary_accepts_nickname(self):
-        args = build_parser().parse_args(["lineup-summary", "--nickname", "alice"])
-        assert args.command == "lineup-summary"
-        assert args.nickname == "alice"
-
-    def test_lineup_games_accepts_limit_and_lineup_filter(self):
-        args = build_parser().parse_args(
-            ["lineup-games", "--nickname", "alice", "--limit", "7", "--lineup", "alice,ppo,bob"]
-        )
-        assert args.command == "lineup-games"
-        assert args.nickname == "alice"
-        assert args.limit == 7
-        assert args.lineup == "alice,ppo,bob"
-
-    def test_ppo_lineup_games_accepts_limit_and_lineup_filter(self):
-        args = build_parser().parse_args(
-            ["ppo-lineup-games", "--limit", "7", "--lineup", "human,ppo,random"]
-        )
-        assert args.command == "ppo-lineup-games"
-        assert args.limit == 7
-        assert args.lineup == "human,ppo,random"

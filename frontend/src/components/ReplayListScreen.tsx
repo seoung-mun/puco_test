@@ -31,54 +31,30 @@ export default function ReplayListScreen({ token, userNickname, onBack, onOpenRe
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#070d18', color: '#dde', fontFamily: 'sans-serif' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '20px 32px',
-          borderBottom: '1px solid #1a1a3a',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <div className="resort-page-shell">
+      <div className="resort-app-header">
+        <div className="resort-header-left">
           <button
             onClick={onBack}
-            style={{
-              background: 'none',
-              border: '1px solid #2a2a5a',
-              borderRadius: 6,
-              color: '#88a',
-              cursor: 'pointer',
-              padding: '7px 14px',
-              fontSize: 13,
-            }}
+            className="resort-btn-ghost"
           >
             ← {t('replay.back')}
           </button>
-          <h1 style={{ color: '#f0c040', margin: 0, fontSize: 22 }}>{t('replay.title')}</h1>
+          <h1 className="resort-page-title" style={{ fontSize: 22 }}>{t('replay.title')}</h1>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {userNickname && <span style={{ color: '#88a', fontSize: 13 }}>{userNickname}</span>}
+        <div className="resort-header-actions">
+          {userNickname && <span className="resort-user-pill">{userNickname}</span>}
           <button
             onClick={refresh}
-            style={{
-              background: 'none',
-              border: '1px solid #2a2a5a',
-              borderRadius: 6,
-              color: '#88a',
-              cursor: 'pointer',
-              padding: '7px 14px',
-              fontSize: 13,
-            }}
+            className="resort-btn-ghost"
           >
             {t('rooms.refresh')}
           </button>
         </div>
       </div>
 
-      <div style={{ padding: '24px 32px' }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 20 }}>
+      <div className="resort-page-content">
+        <div className="resort-toolbar" style={{ marginBottom: 20 }}>
           <input
             value={queryInput}
             onChange={(e) => setQueryInput(e.target.value)}
@@ -87,100 +63,58 @@ export default function ReplayListScreen({ token, userNickname, onBack, onOpenRe
             }}
             placeholder={t('replay.search.placeholder')}
             aria-label={t('replay.search.placeholder')}
-            style={{
-              padding: '8px 12px',
-              borderRadius: 6,
-              border: '1px solid #444',
-              background: '#1a1a2e',
-              color: '#eee',
-              fontSize: 14,
-              minWidth: 260,
-            }}
+            className="resort-input"
+            style={{ minWidth: 260 }}
           />
           <button
             onClick={submitSearch}
-            style={{
-              background: '#2a5ab0',
-              border: 'none',
-              borderRadius: 6,
-              color: '#fff',
-              cursor: 'pointer',
-              padding: '8px 16px',
-              fontSize: 13,
-            }}
+            className="resort-btn-primary"
+            style={{ padding: '8px 16px', width: 'auto', fontSize: 13 }}
           >
             {t('replay.search.submit')}
           </button>
           {query && (
             <button
               onClick={handleReset}
-              style={{
-                background: 'none',
-                border: '1px solid #2a2a5a',
-                borderRadius: 6,
-                color: '#aab',
-                cursor: 'pointer',
-                padding: '8px 16px',
-                fontSize: 13,
-              }}
+              className="resort-btn-secondary"
             >
               {t('replay.search.reset')}
             </button>
           )}
         </div>
 
-        {loading && <p style={{ color: '#667' }}>{t('replay.loading')}</p>}
-        {error && <p style={{ color: '#f66' }}>{error}</p>}
+        {loading && <p className="resort-muted">{t('replay.loading')}</p>}
+        {error && <p className="resort-error">{error}</p>}
 
         {!loading && data && data.replays.length === 0 && (
-          <div style={{ textAlign: 'center', marginTop: 80, color: '#445' }}>
+          <div className="resort-empty-state">
             <p style={{ fontSize: 16 }}>{t('replay.empty')}</p>
           </div>
         )}
 
         {!loading && data && data.replays.length > 0 && (
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: 14,
-              background: '#0d1117',
-              border: '1px solid #1a1a3a',
-              borderRadius: 8,
-              overflow: 'hidden',
-            }}
-          >
+          <table className="replay-table">
             <thead>
-              <tr style={{ background: '#111827', color: '#aab', textAlign: 'left' }}>
-                <th style={{ padding: '10px 14px' }}>{t('replay.column.label')}</th>
-                <th style={{ padding: '10px 14px' }}>{t('replay.column.players')}</th>
-                <th style={{ padding: '10px 14px' }}>{t('replay.column.date')}</th>
-                <th style={{ padding: '10px 14px' }}></th>
+              <tr>
+                <th>{t('replay.column.label')}</th>
+                <th>{t('replay.column.players')}</th>
+                <th>{t('replay.column.date')}</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {data.replays.map((r) => (
-                <tr
-                  key={r.game_id}
-                  style={{ borderTop: '1px solid #1a1a3a' }}
-                >
-                  <td style={{ padding: '10px 14px', color: '#dde' }}>{r.display_label}</td>
-                  <td style={{ padding: '10px 14px', color: '#ccf' }}>
+                <tr key={r.game_id}>
+                  <td className="replay-table__primary">{r.display_label}</td>
+                  <td className="replay-table__primary">
                     {r.players.map((p) => p.display_name).join(', ')}
                   </td>
-                  <td style={{ padding: '10px 14px', color: '#aab' }}>{r.played_date}</td>
-                  <td style={{ padding: '10px 14px' }}>
+                  <td className="replay-table__muted">{r.played_date}</td>
+                  <td>
                     <button
                       onClick={() => setPending(r)}
-                      style={{
-                        background: '#2a5ab0',
-                        border: 'none',
-                        borderRadius: 6,
-                        color: '#fff',
-                        cursor: 'pointer',
-                        padding: '6px 14px',
-                        fontSize: 13,
-                      }}
+                      className="resort-btn-primary"
+                      style={{ padding: '6px 14px', width: 'auto', fontSize: 13 }}
                     >
                       {t('replay.action.watch')}
                     </button>

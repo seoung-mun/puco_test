@@ -47,18 +47,9 @@ export default function HistoryPanel({ history }: Props) {
   }, [history.length]);
 
   return (
-    <div style={{
-      background: '#0d1117',
-      border: '1px solid #2a2a5a',
-      borderRadius: 8,
-      padding: '8px 12px',
-      maxHeight: 200,
-      overflowY: 'auto',
-      fontFamily: 'monospace',
-      fontSize: 12,
-    }}>
+    <div className="history-panel">
       {history.length === 0 && (
-        <div style={{ color: '#555', fontStyle: 'italic' }}>{t('history.empty')}</div>
+        <div className="history-empty">{t('history.empty')}</div>
       )}
       {collapseHistory(history).map((e, i) => {
         const isRoundEnd = e.action === 'round_end';
@@ -70,15 +61,9 @@ export default function HistoryPanel({ history }: Props) {
         if (params.ship_capacity === 'wharf') params.ship_capacity = t('buildings.wharf', { defaultValue: '개인부두' });
         const text = t(`history.actions.${e.action}`, { ...params, defaultValue: e.action });
         return (
-          <div key={i} style={{
-            padding: '2px 0',
-            borderBottom: isRoundEnd ? '1px solid #2a2a5a' : undefined,
-            color: isRoundEnd ? '#f0c040' : '#c0d0e0',
-            fontWeight: isRoundEnd ? 'bold' : undefined,
-            marginTop: isRoundEnd ? 4 : undefined,
-          }}>
+          <div key={i} className={`history-row${isRoundEnd ? ' history-row--round' : ''}`}>
             {!isRoundEnd && (
-              <span style={{ color: '#556677', marginRight: 8 }}>{formatTs(e.ts)}</span>
+              <span className="history-time">{formatTs(e.ts)}</span>
             )}
             {text}
           </div>

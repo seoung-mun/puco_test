@@ -28,48 +28,14 @@ export default function LoginScreen({
 }: Props) {
   const { t } = useTranslation();
 
-  const cardStyle: React.CSSProperties = {
-    background: '#0d1117',
-    border: '1px solid #2a2a5a',
-    borderRadius: 12,
-    padding: '32px 40px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 16,
-    minWidth: 340,
-  };
-
-  const inputStyle: React.CSSProperties = {
-    padding: '8px 12px',
-    borderRadius: 6,
-    border: '1px solid #444',
-    background: '#1a1a2e',
-    color: '#eee',
-    fontSize: 15,
-    boxSizing: 'border-box',
-    width: '100%',
-  };
-
-  const btnPrimary: React.CSSProperties = {
-    background: '#2a5ab0',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    padding: '12px 32px',
-    fontSize: 16,
-    cursor: 'pointer',
-    width: '100%',
-  };
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 24 }}>
-      <h1 style={{ color: '#f0c040', margin: 0, fontSize: 36 }}>Puerto Rico</h1>
+    <div className="resort-app-shell resort-app-shell--centered">
+      <h1 className="resort-brand-title">Puerto Rico</h1>
 
-      <div style={cardStyle}>
+      <div className="resort-card">
         {!isLoggedIn && (
           <>
-            <p style={{ color: '#aab', margin: 0, fontSize: 14 }}>
+            <p className="resort-helper-text">
               {t('login.signInPrompt', 'Google 계정으로 로그인하세요')}
             </p>
             {googleLoginAvailable ? (
@@ -77,13 +43,13 @@ export default function LoginScreen({
                 onSuccess={onGoogleLogin}
                 onError={onGoogleLoginError}
                 use_fedcm_for_button
-                theme="filled_black"
+                theme="outline"
                 size="large"
                 shape="rectangular"
                 width="280"
               />
             ) : (
-              <div style={{ color: '#f0c040', fontSize: 13, textAlign: 'center' }}>
+              <div className="resort-helper-text" style={{ textAlign: 'center' }}>
                 {t('login.googleSetupRequired', 'Google 로그인 설정이 비어 있어 버튼을 표시할 수 없습니다.')}
               </div>
             )}
@@ -92,25 +58,26 @@ export default function LoginScreen({
 
         {isLoggedIn && needsNickname && (
           <>
-            <p style={{ color: '#aab', margin: 0, fontSize: 14 }}>
+            <p className="resort-helper-text">
               {t('login.setNickname', '닉네임을 설정해주세요')}
             </p>
             <input
               value={nicknameInput}
               onChange={e => onNicknameChange(e.target.value)}
               placeholder={t('login.nicknamePlaceholder', '2-20자, 영문/한글/숫자/_/-')}
-              style={inputStyle}
+              className="resort-input"
               onKeyDown={e => e.key === 'Enter' && nicknameInput.trim() && onSetNickname()}
             />
             <button
-              style={{ ...btnPrimary, opacity: nicknameInput.trim() ? 1 : 0.5 }}
+              className="resort-btn-primary"
+              style={{ opacity: nicknameInput.trim() ? 1 : 0.5 }}
               onClick={onSetNickname}
               disabled={!nicknameInput.trim()}
             >
               {t('login.confirm', '확인')}
             </button>
             {nicknameError && (
-              <div style={{ color: '#f88', background: '#300', border: '1px solid #f44', borderRadius: 6, padding: '8px 14px', fontSize: 13 }}>
+              <div className="resort-error">
                 {nicknameError}
               </div>
             )}
@@ -118,7 +85,7 @@ export default function LoginScreen({
         )}
 
         {error && (
-          <div style={{ color: '#f88', background: '#300', border: '1px solid #f44', borderRadius: 6, padding: '8px 14px', fontSize: 13 }}>
+          <div className="resort-error">
             {error}
           </div>
         )}

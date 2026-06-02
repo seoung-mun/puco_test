@@ -254,23 +254,22 @@ export default function GameScreen({
         </div>
       )}
       {showLiveOnlyUi && state.meta.bot_thinking && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, background: '#1a1218', borderBottom: '2px solid #7a3a7a', padding: '8px 20px', textAlign: 'center', color: '#c080e0', zIndex: 400, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', fontSize: 18 }}>⚙</span>
+        <div className="game-status-banner game-status-banner--bot">
+          <span className="game-status-spinner">⚙</span>
           {t('game.geminiThinking')}
         </div>
       )}
       {showLiveOnlyUi && !isMyTurn && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#1a1030', borderTop: '2px solid #2a2a5a', padding: '10px 20px', textAlign: 'center', color: '#aab', zIndex: 200, fontSize: 14 }}>
+        <div className="game-status-banner game-status-banner--waiting">
           {t('game.waitingTurn', { name: state.players[state.decision.player]?.display_name ?? state.decision.player })}
         </div>
       )}
       {showLiveOnlyUi && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}>Puerto Rico</h1>
+        <div className="game-top-actions">
+          <h1 className="game-top-title">Puerto Rico</h1>
           <button className="btn-new-game" onClick={onGoToRoomsPreservingAuth}>🎮 {t('newGame.title')}</button>
           <button
-            className="btn-new-game"
-            style={{ background: '#444', fontSize: '0.8em', padding: '4px 10px' }}
+            className="btn-new-game btn-new-game--compact"
             onClick={() => {
               const cycle: Record<string, string> = { ko: 'en', en: 'it', it: 'ko' };
               const next = cycle[i18n.language] || 'ko';
@@ -281,17 +280,17 @@ export default function GameScreen({
             {t('langToggle')}
           </button>
           {isSpectator && (
-            <span style={{ background: '#1a3a2a', border: '1px solid #2a5a3a', borderRadius: 4, color: '#4f8', padding: '2px 8px', fontSize: 12 }}>
+            <span className="game-pill game-pill--spectator">
               👁 {t('rooms.spectating', '관전 중')}
             </span>
           )}
           {isSpectator && (
-            <button onClick={onExitSpectator} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12 }}>
+            <button onClick={onExitSpectator} className="game-mini-btn">
               {t('home.logout', '로그아웃')}
             </button>
           )}
           {isMultiplayer && !isSpectator && (
-            <button onClick={onLogoutToLogin} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12 }}>
+            <button onClick={onLogoutToLogin} className="game-mini-btn">
               {t('home.logout', '로그아웃')}
             </button>
           )}
@@ -302,48 +301,48 @@ export default function GameScreen({
 
       {buildConfirm && (() => {
         const cfg: Record<string, { icon: string; color: string }> = {
-          small_indigo_plant: { icon: '🫐', color: '#3a4fa0' }, indigo_plant: { icon: '🫐', color: '#2a3f90' },
-          small_sugar_mill: { icon: '🎋', color: '#a0a060' }, sugar_mill: { icon: '🎋', color: '#808040' },
-          small_market: { icon: '🏪', color: '#a06020' }, large_market: { icon: '🏪', color: '#804010' },
-          hacienda: { icon: '🏡', color: '#6a8a3a' }, construction_hut: { icon: '🔨', color: '#7a5a2a' },
-          small_warehouse: { icon: '📦', color: '#5a4a2a' }, large_warehouse: { icon: '📦', color: '#3a2a1a' },
-          tobacco_storage: { icon: '🍂', color: '#8b5e3c' }, coffee_roaster: { icon: '☕', color: '#3d1f00' },
-          hospice: { icon: '⚕️', color: '#2a6a6a' }, office: { icon: '📜', color: '#4a4a8a' },
-          factory: { icon: '⚙️', color: '#5a5a5a' }, university: { icon: '🎓', color: '#4a2a8a' },
-          harbor: { icon: '⚓', color: '#1a3a6a' }, wharf: { icon: '🚢', color: '#1a2a5a' },
-          guild_hall: { icon: '🏛️', color: '#6a4a00' }, residence: { icon: '🏠', color: '#5a3a1a' },
-          fortress: { icon: '🏰', color: '#3a3a3a' }, customs_house: { icon: '🏦', color: '#2a4a2a' },
-          city_hall: { icon: '🏛️', color: '#8a6a00' },
+          small_indigo_plant: { icon: '🫐', color: '#00a9b7' }, indigo_plant: { icon: '🫐', color: '#087b82' },
+          small_sugar_mill: { icon: '🎋', color: '#7bbf91' }, sugar_mill: { icon: '🎋', color: '#43a85f' },
+          small_market: { icon: '🏪', color: '#f4b63f' }, large_market: { icon: '🏪', color: '#d49b34' },
+          hacienda: { icon: '🏡', color: '#4f9f4a' }, construction_hut: { icon: '🔨', color: '#8c641d' },
+          small_warehouse: { icon: '📦', color: '#00a9b7' }, large_warehouse: { icon: '📦', color: '#087b82' },
+          tobacco_storage: { icon: '🍂', color: '#ff745f' }, coffee_roaster: { icon: '☕', color: '#8c641d' },
+          hospice: { icon: '⚕️', color: '#00a9b7' }, office: { icon: '📜', color: '#087b82' },
+          factory: { icon: '⚙️', color: '#93a696' }, university: { icon: '🎓', color: '#43a85f' },
+          harbor: { icon: '⚓', color: '#00a9b7' }, wharf: { icon: '🚢', color: '#087b82' },
+          guild_hall: { icon: '🏛️', color: '#d49b34' }, residence: { icon: '🏠', color: '#4f9f4a' },
+          fortress: { icon: '🏰', color: '#5e766f' }, customs_house: { icon: '🏦', color: '#43a85f' },
+          city_hall: { icon: '🏛️', color: '#f4b63f' },
         };
         const { name, cost, vp } = buildConfirm;
-        const tileCfg = cfg[name] ?? { icon: '🏗️', color: '#555' };
+        const tileCfg = cfg[name] ?? { icon: '🏗️', color: '#93a696' };
         const label = t(`buildings.${name}`, { defaultValue: name.replace(/_/g, ' ') });
         const tip = t(`buildingAdvantages.${name}.tip`, { defaultValue: '' });
         return (
           <div className="new-game-overlay" onClick={(e) => { if (e.target === e.currentTarget) onCancelBuildConfirm(); }}>
-            <div className="new-game-modal" style={{ maxWidth: 360 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-                <div style={{ background: tileCfg.color, borderRadius: 8, width: 52, height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>
+            <div className="new-game-modal build-confirm-modal">
+              <div className="build-confirm-preview">
+                <div className="build-confirm-icon" style={{ background: tileCfg.color }}>
                   {tileCfg.icon}
                 </div>
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 'bold', color: '#f0e0b0' }}>{label}</div>
-                  <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                    <span style={{ color: '#f0c040', fontWeight: 'bold' }}>💰 {cost}</span>
-                    <span style={{ color: '#ffe066', fontWeight: 'bold' }}>⭐ {vp} VP</span>
+                  <div className="build-confirm-title">{label}</div>
+                  <div className="build-confirm-stats">
+                    <span className="build-confirm-cost">💰 {cost}</span>
+                    <span className="build-confirm-vp">⭐ {vp} VP</span>
                   </div>
                 </div>
               </div>
-              {tip && <p style={{ color: '#aab', fontSize: 13, margin: '0 0 20px', lineHeight: 1.5 }}>{tip}</p>}
-              <div style={{ display: 'flex', gap: 10 }}>
+              {tip && <p className="build-confirm-tip">{tip}</p>}
+              <div className="build-confirm-actions">
                 <button
-                  style={{ flex: 1, padding: '10px 0', background: '#2a5ab0', border: 'none', borderRadius: 8, color: '#fff', fontSize: 15, fontWeight: 'bold', cursor: 'pointer' }}
+                  className="resort-btn-primary build-confirm-action"
                   onClick={() => onConfirmBuild(name)}
                 >
                   {t('newGame.confirm', { defaultValue: '✓ Conferma' })}
                 </button>
                 <button
-                  style={{ flex: 1, padding: '10px 0', background: '#1a1a3a', border: '1px solid #3a3a6a', borderRadius: 8, color: '#aab', fontSize: 15, cursor: 'pointer' }}
+                  className="resort-btn-secondary build-confirm-action"
                   onClick={onCancelBuildConfirm}
                 >
                   {t('newGame.cancel')}
@@ -415,27 +414,27 @@ export default function GameScreen({
       <div className="sticky-bar">
         <div className="sticky-bar__main">
           {isSpectator && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 8, flexShrink: 0 }}>
-              <span style={{ background: '#1a3a2a', border: '1px solid #2a5a3a', borderRadius: 4, color: '#4f8', padding: '2px 8px', fontSize: 12, whiteSpace: 'nowrap' }}>
+            <span className="game-identity-strip">
+              <span className="game-pill game-pill--spectator">
                 👁 {t('rooms.spectating', '관전 중')}
               </span>
-              <button onClick={onExitSpectator} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12, whiteSpace: 'nowrap' }}>
+              <button onClick={onExitSpectator} className="game-mini-btn">
                 {t('home.logout', '로그아웃')}
               </button>
             </span>
           )}
           {isMultiplayer && !isSpectator && myName && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 8, flexShrink: 0 }}>
-              <span style={{ color: '#f0c040', fontWeight: 'bold', fontSize: 13, whiteSpace: 'nowrap' }}>
+            <span className="game-identity-strip">
+              <span className="game-player-name">
                 👤 {myName}
               </span>
-              <button onClick={onLogoutToLogin} style={{ background: 'none', border: '1px solid #334', borderRadius: 4, color: '#667', cursor: 'pointer', padding: '2px 8px', fontSize: 12, whiteSpace: 'nowrap' }}>
+              <button onClick={onLogoutToLogin} className="game-mini-btn">
                 {t('home.logout', '로그아웃')}
               </button>
             </span>
           )}
           {isSpectator && isBotGame && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 8, flexShrink: 0 }}>
+            <span className="game-playback-group">
               <button
                 data-testid="playback-speed-btn"
                 onClick={() => {
@@ -443,7 +442,7 @@ export default function GameScreen({
                   onSpeedChange?.(cycle[playbackSpeed] ?? 1);
                 }}
                 title={t('playback.speed')}
-                style={{ background: '#1a2a3a', border: '1px solid #2a4a6a', borderRadius: 4, color: '#4af', cursor: 'pointer', padding: '2px 8px', fontSize: 12, fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                className="game-mini-btn game-mini-btn--playback"
               >
                 x{playbackSpeed}
               </button>
@@ -451,7 +450,7 @@ export default function GameScreen({
                 data-testid="playback-pause-btn"
                 onClick={() => onPauseToggle?.()}
                 title={playbackPaused ? t('playback.resume') : t('playback.pause')}
-                style={{ background: '#1a2a3a', border: '1px solid #2a4a6a', borderRadius: 4, color: playbackPaused ? '#4f8' : '#fa0', cursor: 'pointer', padding: '2px 8px', fontSize: 14, whiteSpace: 'nowrap' }}
+                className={`game-mini-btn game-mini-btn--playback game-mini-btn--pause${playbackPaused ? ' game-mini-btn--paused' : ''}`}
               >
                 {playbackPaused ? '▶' : '⏸'}
               </button>
@@ -577,8 +576,8 @@ export default function GameScreen({
                         <td>{t(`goods.${g}`)}{inHouse && !hasOffice ? ' ⚠' : ''}</td>
                         <td>{qty}</td>
                         <td>{base}</td>
-                        <td style={{ color: bonus > 0 ? '#fa0' : '#666' }}>+{bonus}</td>
-                        <td style={{ color: canSell ? '#6f6' : '#888', fontWeight: 'bold' }}>{total} 💰</td>
+                        <td className={bonus > 0 ? 'trader-bonus' : 'trader-bonus--muted'}>+{bonus}</td>
+                        <td className={canSell ? 'trader-total' : 'trader-total--disabled'}>{total} 💰</td>
                         <td>
                           <button
                             className={canSell ? 'hospice-yes trader-sell-btn' : 'hospice-no trader-sell-btn'}
@@ -642,7 +641,7 @@ export default function GameScreen({
                         </button>
                       );
                     })}
-                    {validShips.length === 0 && !hasWharf && <span style={{ color: '#888' }}>{t('captain.noValidShip')}</span>}
+                    {validShips.length === 0 && !hasWharf && <span className="captain-muted">{t('captain.noValidShip')}</span>}
                     {hasWharf && !wharfUsed && (
                       <button className="hospice-yes captain-ship-btn captain-wharf-btn" onClick={() => onLoadShip(g, null, true)}>
                         {t('captain.wharfBtn', { qty })}
@@ -695,7 +694,7 @@ export default function GameScreen({
                 </thead>
                 <tbody>
                   {kept.map(({ g, discard }) => (
-                    <tr key={g} style={{ color: discard > 0 ? '#f88' : '#6f6' }}>
+                    <tr key={g} className={`discard-row ${discard > 0 ? 'discard-row--lose' : 'discard-row--keep'}`}>
                       <td>{t(`goods.${g}`)}</td>
                       <td>{activePlayer?.goods[g as keyof typeof activePlayer.goods] ?? 0}</td>
                       {maxProtected > 0 && (
@@ -787,7 +786,7 @@ export default function GameScreen({
 
       <section id="san-juan" className={`panel layout-sanjuan${state.meta.phase === 'builder_action' ? ' board-active' : ''}`}>
         <h2>{t('sanJuan.title')}</h2>
-        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+        <div className="san-juan-board-area">
           <SanJuan
             buildings={state.common_board.available_buildings}
             builderInfo={builderInfo}
