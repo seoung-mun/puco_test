@@ -1,0 +1,125 @@
+<mxfile host="app.diagrams.net" modified="2026-06-02T00:00:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="castone-architecture" name="Presentation Architecture">
+    <mxGraphModel dx="1260" dy="760" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1260" pageHeight="760" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bg" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="0" y="0" width="1260" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Puerto Rico AI Battle Platform - System Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=26;fontStyle=1;fontColor=#0f172a;" vertex="1" parent="1">
+          <mxGeometry x="250" y="20" width="760" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="React frontend + FastAPI backend + PuCo_RL game engine + Redis realtime state + PostgreSQL persistence" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="240" y="58" width="780" height="28" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dev" value="Developer" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#e0f2fe;gradientColor=#f8fafc;strokeColor=#0284c7;fontColor=#0f172a;fontSize=14;fontStyle=1;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="575" y="100" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="github" value="GitHub&lt;br&gt;Source Repo" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#f8fafc;strokeColor=#334155;fontColor=#0f172a;fontSize=15;fontStyle=1;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="190" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy" value="Build / Deploy&lt;br&gt;&lt;font style=&quot;font-size: 12px&quot;&gt;Docker image + compose runbook&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#fff7ed;strokeColor=#fb923c;fontColor=#431407;fontSize=14;fontStyle=1;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="450" y="290" width="230" height="72" as="geometry" />
+        </mxCell>
+
+        <mxCell id="browser1" value="Chrome" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dbeafe;strokeColor=#2563eb;fontColor=#1e3a8a;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="486" width="58" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="browser2" value="Edge" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dcfce7;strokeColor=#16a34a;fontColor=#14532d;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="548" width="58" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="browser3" value="Mobile" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef3c7;strokeColor=#f59e0b;fontColor=#713f12;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="610" width="58" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="users" value="Players / Spectators" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#0f172a;" vertex="1" parent="1">
+          <mxGeometry x="12" y="455" width="115" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="frontend" value="Frontend Hosting&lt;br&gt;&lt;font style=&quot;font-size: 22px&quot;&gt;React + Vite&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size: 12px&quot;&gt;Vercel or Nginx static SPA&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=14;fillColor=#ecfdf5;gradientColor=#f8fafc;strokeColor=#22c55e;fontColor=#064e3b;fontSize=15;fontStyle=1;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="150" y="500" width="250" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="oauth" value="Google OAuth&lt;br&gt;&lt;font style=&quot;font-size: 12px&quot;&gt;Sign-in credential&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#eff6ff;strokeColor=#60a5fa;fontColor=#1e3a8a;fontSize=14;fontStyle=1;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="165" y="390" width="220" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="caddy" value="Caddy HTTPS&lt;br&gt;&lt;font style=&quot;font-size: 12px&quot;&gt;Reverse proxy&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#e0f2fe;strokeColor=#0284c7;fontColor=#0c4a6e;fontSize=14;fontStyle=1;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="455" y="535" width="145" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ec2" value="AWS EC2 - Docker Compose Runtime" style="swimlane;whiteSpace=wrap;html=1;rounded=1;arcSize=10;startSize=34;fillColor=#ffedd5;gradientColor=#fff7ed;strokeColor=#fb923c;fontColor=#7c2d12;fontSize=15;fontStyle=1;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="630" y="365" width="430" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="backend" value="FastAPI Backend&lt;br&gt;&lt;font style=&quot;font-size: 12px&quot;&gt;Auth / Room / Game / WS APIs&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#dcfce7;strokeColor=#16a34a;fontColor=#14532d;fontSize=15;fontStyle=1;shadow=1;" vertex="1" parent="ec2">
+          <mxGeometry x="35" y="65" width="190" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="engine" value="PuCo_RL&lt;br&gt;Game Engine" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#f3e8ff;strokeColor=#a855f7;fontColor=#581c87;fontSize=14;fontStyle=1;shadow=1;" vertex="1" parent="ec2">
+          <mxGeometry x="255" y="55" width="135" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="bots" value="AI Bots&lt;br&gt;&lt;font style=&quot;font-size: 12px&quot;&gt;PPO / rule-based&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#fae8ff;strokeColor=#d946ef;fontColor=#701a75;fontSize=14;fontStyle=1;shadow=1;" vertex="1" parent="ec2">
+          <mxGeometry x="255" y="160" width="135" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="redis" value="Redis&lt;br&gt;&lt;font style=&quot;font-size: 12px&quot;&gt;State cache / PubSub&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#fee2e2;strokeColor=#ef4444;fontColor=#7f1d1d;fontSize=14;fontStyle=1;shadow=1;" vertex="1" parent="ec2">
+          <mxGeometry x="42" y="205" width="135" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="logs" value="Replay / ML Logs&lt;br&gt;&lt;font style=&quot;font-size: 12px&quot;&gt;DB or log volume&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#fef9c3;strokeColor=#eab308;fontColor=#713f12;fontSize=13;fontStyle=1;shadow=1;" vertex="1" parent="ec2">
+          <mxGeometry x="190" y="205" width="135" height="58" as="geometry" />
+        </mxCell>
+
+        <mxCell id="postgres" value="PostgreSQL 16&lt;br&gt;&lt;font style=&quot;font-size: 12px&quot;&gt;users / games / game_logs / replays&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#dbeafe;gradientColor=#eff6ff;strokeColor=#3b82f6;fontColor=#1e3a8a;fontSize=15;fontStyle=1;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="475" width="165" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="dbnote" value="Current code: Docker volume-backed PostgreSQL, not MariaDB/RDS" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#64748b;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="600" width="230" height="34" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edge-dev-github" value="git push" style="endArrow=block;html=1;rounded=0;strokeColor=#334155;fontColor=#475569;fontSize=11;" edge="1" parent="1" source="dev" target="github">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-github-deploy" value="source / release" style="endArrow=block;html=1;rounded=0;strokeColor=#334155;fontColor=#475569;fontSize=11;" edge="1" parent="1" source="github" target="deploy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-deploy-ec2" value="deploy" style="endArrow=block;html=1;rounded=0;strokeColor=#fb923c;fontColor=#7c2d12;fontSize=11;" edge="1" parent="1" source="deploy" target="ec2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="720" y="330" />
+              <mxPoint x="720" y="365" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge-browsers-frontend" value="web access" style="endArrow=block;html=1;rounded=0;strokeColor=#64748b;fontColor=#475569;fontSize=11;" edge="1" parent="1" source="browser1" target="frontend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-frontend-oauth" value="login" style="endArrow=block;html=1;rounded=0;strokeColor=#60a5fa;fontColor=#1e3a8a;fontSize=11;" edge="1" parent="1" source="frontend" target="oauth">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-frontend-caddy" value="HTTPS REST + WebSocket" style="endArrow=block;html=1;rounded=0;strokeColor=#0284c7;fontColor=#0c4a6e;fontSize=11;fontStyle=1;" edge="1" parent="1" source="frontend" target="caddy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-caddy-backend" value="/api + /ws" style="endArrow=block;html=1;rounded=0;strokeColor=#0284c7;fontColor=#0c4a6e;fontSize=11;fontStyle=1;" edge="1" parent="1" source="caddy" target="backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-backend-engine" value="action step" style="endArrow=block;html=1;rounded=0;strokeColor=#a855f7;fontColor=#581c87;fontSize=11;" edge="1" parent="ec2" source="backend" target="engine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-bots-engine" value="inference" style="endArrow=block;startArrow=block;html=1;rounded=0;strokeColor=#d946ef;fontColor=#701a75;fontSize=11;" edge="1" parent="ec2" source="bots" target="engine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-backend-redis" value="state cache / pubsub" style="endArrow=block;startArrow=block;html=1;rounded=0;strokeColor=#ef4444;fontColor=#7f1d1d;fontSize=11;" edge="1" parent="ec2" source="backend" target="redis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-backend-logs" value="replay entries" style="endArrow=block;html=1;rounded=0;strokeColor=#eab308;fontColor=#713f12;fontSize=11;" edge="1" parent="ec2" source="backend" target="logs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-backend-postgres" value="SQL / JSONB" style="endArrow=block;startArrow=block;html=1;rounded=0;strokeColor=#3b82f6;fontColor=#1e3a8a;fontSize=11;fontStyle=1;" edge="1" parent="1" source="backend" target="postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend" value="Runtime flow: User -&gt; React SPA -&gt; Caddy -&gt; FastAPI -&gt; GameService / PuCo_RL -&gt; PostgreSQL + Redis -&gt; WebSocket state update" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#f8fafc;strokeColor=#cbd5e1;fontColor=#334155;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="255" y="700" width="750" height="34" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

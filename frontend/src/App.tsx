@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameWebSocket } from './hooks/useGameWebSocket';
 import { useGameSSE } from './hooks/useGameSSE';
-import { useAuthBootstrap } from './hooks/useAuthBootstrap';
+import { useAuthBootstrap, type AuthUser } from './hooks/useAuthBootstrap';
 import { useTranslation } from 'react-i18next';
 import type { FinalScoreSummary, GameState } from './types/gameState';
 import AppScreenGate from './components/AppScreenGate';
@@ -27,6 +27,11 @@ type Screen =
   | 'game'
   | 'replay_list'
   | 'replay_view';
+
+type GoogleLoginResponse = {
+  access_token: string;
+  user: AuthUser;
+};
 
 // Maps history action → role key (for popup coloring)
 const ACTION_TO_ROLE: Record<string, string> = {
@@ -341,11 +346,21 @@ export default function App() {
         body: JSON.stringify({ credential: credentialResponse.credential }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        setError(err.detail || 'Login failed');
+        const message = await parseApiError(res);
+        setError(message || 'Login failed');
         return;
       }
-      const data = await res.json();
+      let data: GoogleLoginResponse | null = null;
+      try {
+        data = await res.json() as GoogleLoginResponse;
+      } catch {
+        setError('Login failed');
+        return;
+      }
+      if (!data?.access_token || !data.user) {
+        setError('Login failed');
+        return;
+      }
       localStorage.setItem('access_token', data.access_token);
       setAuthToken(data.access_token);
       setAuthUser(data.user);
@@ -380,11 +395,21 @@ export default function App() {
         body: JSON.stringify({ nickname: nicknameInput.trim() }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        setNicknameError(err.detail || 'Failed to set nickname');
+        const message = await parseApiError(res);
+        setNicknameError(message || 'Failed to set nickname');
         return;
       }
-      const user = await res.json();
+      let user: AuthUser | null = null;
+      try {
+        user = await res.json() as AuthUser;
+      } catch {
+        setNicknameError('Failed to set nickname');
+        return;
+      }
+      if (!user?.id) {
+        setNicknameError('Failed to set nickname');
+        return;
+      }
       setAuthUser({ id: user.id, nickname: user.nickname, needs_nickname: false });
     } catch (e) {
       setNicknameError(e instanceof Error ? e.message : 'Failed');
@@ -1089,10 +1114,11 @@ export default function App() {
 
   if (!state) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 16 }}>
-        <p style={{ color: '#aab' }}>{t('game.noGame')}</p>
+      <div className="resort-page-shell resort-page-content">
+        <p className="resort-muted">{t('game.noGame')}</p>
         <button
-          style={{ background: '#2a5ab0', color: '#fff', border: 'none', borderRadius: 8, padding: '12px 24px', fontSize: 16, cursor: 'pointer' }}
+          className="resort-btn-primary"
+          style={{ width: 'auto' }}
           onClick={goToRoomsPreservingAuth}
         >
           {t('game.startNew')}

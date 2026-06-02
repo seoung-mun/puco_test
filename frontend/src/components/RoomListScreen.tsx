@@ -216,45 +216,24 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
     }
   }
 
-  // --- styles ---
-  const overlay: React.CSSProperties = {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
-  };
-  const modal: React.CSSProperties = {
-    background: '#0d1117', border: '1px solid #2a2a5a', borderRadius: 12,
-    padding: '28px 32px', width: 340, display: 'flex', flexDirection: 'column', gap: 14,
-  };
-  const inputStyle: React.CSSProperties = {
-    padding: '8px 12px', borderRadius: 6, border: '1px solid #444',
-    background: '#1a1a2e', color: '#eee', fontSize: 14, width: '100%', boxSizing: 'border-box',
-  };
-  const btnPrimary: React.CSSProperties = {
-    background: '#2a5ab0', color: '#fff', border: 'none', borderRadius: 8,
-    padding: '10px 0', fontSize: 15, cursor: 'pointer', width: '100%',
-  };
-  const btnSecondary: React.CSSProperties = {
-    background: 'none', border: '1px solid #2a2a5a', color: '#aab', borderRadius: 8,
-    padding: '10px 0', fontSize: 14, cursor: 'pointer', width: '100%',
-  };
-
   return (
-    <div style={{ minHeight: '100vh', background: '#070d18', color: '#dde', fontFamily: 'sans-serif' }}>
+    <div className="resort-page-shell">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 32px', borderBottom: '1px solid #1a1a3a' }}>
-        <h1 style={{ color: '#f0c040', margin: 0, fontSize: 24 }}>Puerto Rico</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {userNickname && <span style={{ color: '#88a', fontSize: 13 }}>{userNickname}</span>}
+      <div className="resort-app-header">
+        <h1 className="resort-page-title">Puerto Rico</h1>
+        <div className="resort-header-actions">
+          {userNickname && <span className="resort-user-pill">{userNickname}</span>}
           <button
             onClick={() => { setShowCreate(true); setCreateError(null); }}
-            style={{ ...btnPrimary, width: 'auto', padding: '8px 20px', fontSize: 14 }}
+            className="resort-btn-primary"
+            style={{ width: 'auto', padding: '8px 20px', fontSize: 14 }}
           >
             + {t('rooms.createRoom', '방 만들기')}
           </button>
           {onCreateBotGame && (
             <button
               onClick={openBotGameModal}
-              style={{ background: '#1a3a2a', border: '1px solid #2a5a3a', borderRadius: 6, color: '#4f8', cursor: 'pointer', padding: '8px 16px', fontSize: 14 }}
+              className="resort-btn-tropical"
             >
               🤖 {t('rooms.createBotGame', '봇전')}
             </button>
@@ -262,66 +241,62 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
           {onOpenReplayList && (
             <button
               onClick={onOpenReplayList}
-              style={{ background: 'none', border: '1px solid #2a5a8a', borderRadius: 6, color: '#8cf', cursor: 'pointer', padding: '7px 14px', fontSize: 13 }}
+              className="resort-btn-ghost"
             >
               🎬 {t('replay.title')}
             </button>
           )}
-          <button onClick={fetchRooms} style={{ background: 'none', border: '1px solid #2a2a5a', borderRadius: 6, color: '#88a', cursor: 'pointer', padding: '7px 14px', fontSize: 13 }}>
+          <button onClick={fetchRooms} className="resort-btn-ghost">
             {t('rooms.refresh', '새로고침')}
           </button>
-          <button onClick={onLogout} style={{ background: 'none', border: 'none', color: '#556', cursor: 'pointer', fontSize: 13 }}>
+          <button onClick={onLogout} className="resort-btn-link">
             {t('home.logout', '로그아웃')}
           </button>
         </div>
       </div>
 
       {/* Room list */}
-      <div style={{ padding: '28px 32px' }}>
+      <div className="resort-page-content">
         {(externalError || error) && (
-          <p style={{ color: '#f66', marginBottom: 16 }}>{externalError || error}</p>
+          <p className="resort-error" style={{ marginBottom: 16 }}>{externalError || error}</p>
         )}
-        {loading && <p style={{ color: '#667' }}>불러오는 중...</p>}
+        {loading && <p className="resort-muted">불러오는 중...</p>}
 
         {!loading && rooms.length === 0 && (
-          <div style={{ textAlign: 'center', marginTop: 80, color: '#445' }}>
+          <div className="resort-empty-state">
             <p style={{ fontSize: 16 }}>{t('rooms.noRooms', '방이 없습니다. 새 방을 만들어보세요!')}</p>
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+        <div className="resort-grid">
           {rooms.map(room => {
             const full = room.current_players >= room.max_players;
             return (
               <div
                 key={room.id}
-                style={{
-                  background: '#0d1117', border: '1px solid #2a2a5a', borderRadius: 10,
-                  padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10,
-                  opacity: full ? 0.6 : 1,
-                }}
+                className={`room-card${full ? ' room-card--full' : ''}`}
               >
                 {/* Top row: title + lock/count */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontWeight: 'bold', color: '#eef', fontSize: 15, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div className="room-card__top">
+                  <span className="room-card__title">
                     {room.title}
                   </span>
-                  <span style={{ fontSize: 13, color: '#88a', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                  <span className="room-card__meta">
                     {room.is_private && <span title="비밀방">🔒</span>}
                     {room.current_players}/{room.max_players}
                   </span>
                 </div>
 
                 {/* Player list */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 60 }}>
+                <div className="room-card__players">
                   {room.player_names.map((p, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: p.is_bot ? '#6af' : '#ccf' }}>
+                    <div key={i} className={`room-card__player${p.is_bot ? ' room-card__player--bot' : ''}`}>
                       <span>{p.is_bot ? '🤖' : '👤'}</span>
                       <span>{p.display_name}</span>
                     </div>
                   ))}
                   {Array.from({ length: room.max_players - room.current_players }).map((_, i) => (
-                    <div key={`empty-${i}`} style={{ fontSize: 13, color: '#333', fontStyle: 'italic' }}>— 빈 자리</div>
+                    <div key={`empty-${i}`} className="room-card__empty">— 빈 자리</div>
                   ))}
                 </div>
 
@@ -329,8 +304,8 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
                 <button
                   onClick={() => handleRoomClick(room)}
                   disabled={full}
+                  className="resort-btn-primary"
                   style={{
-                    ...btnPrimary,
                     opacity: full ? 0.4 : 1,
                     cursor: full ? 'not-allowed' : 'pointer',
                     marginTop: 4,
@@ -348,25 +323,25 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
 
       {/* Create Room Modal */}
       {showCreate && (
-        <div style={overlay} onClick={() => setShowCreate(false)}>
-          <div style={modal} onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#f0c040', margin: 0 }}>{t('rooms.createRoom', '방 만들기')}</h3>
+        <div className="resort-modal-backdrop" onClick={() => setShowCreate(false)}>
+          <div className="resort-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="resort-modal-title">{t('rooms.createRoom', '방 만들기')}</h3>
 
             <div>
-              <label style={{ color: '#aab', fontSize: 12, display: 'block', marginBottom: 4 }}>방 이름</label>
+              <label className="resort-field-label">방 이름</label>
               <input
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
                 placeholder="방 이름 (최대 30자)"
                 maxLength={30}
                 autoFocus
-                style={inputStyle}
+                className="resort-input"
                 onKeyDown={e => e.key === 'Enter' && handleCreate()}
               />
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#aab', fontSize: 14 }}>
+              <label className="resort-check-row">
                 <input
                   type="checkbox"
                   checked={newIsPrivate}
@@ -379,76 +354,78 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
 
             {newIsPrivate && (
               <div>
-                <label style={{ color: '#aab', fontSize: 12, display: 'block', marginBottom: 4 }}>비밀번호 (4자리 숫자)</label>
+                <label className="resort-field-label">비밀번호 (4자리 숫자)</label>
                 <input
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder="0000"
                   maxLength={4}
-                  style={{ ...inputStyle, letterSpacing: 8, textAlign: 'center', fontSize: 20 }}
+                  className="resort-input resort-input--pin"
                 />
               </div>
             )}
 
-            {createError && <p style={{ color: '#f88', margin: 0, fontSize: 13 }}>{createError}</p>}
+            {createError && <p className="resort-error" style={{ margin: 0 }}>{createError}</p>}
 
             <button
               onClick={handleCreate}
               disabled={!newTitle.trim() || creating || (newIsPrivate && newPassword.length !== 4)}
-              style={{ ...btnPrimary, opacity: (!newTitle.trim() || creating || (newIsPrivate && newPassword.length !== 4)) ? 0.5 : 1 }}
+              className="resort-btn-primary"
+              style={{ opacity: (!newTitle.trim() || creating || (newIsPrivate && newPassword.length !== 4)) ? 0.5 : 1 }}
             >
               {creating ? '생성 중...' : t('rooms.create', '만들기')}
             </button>
-            <button onClick={() => setShowCreate(false)} style={btnSecondary}>취소</button>
+            <button onClick={() => setShowCreate(false)} className="resort-btn-secondary">취소</button>
           </div>
         </div>
       )}
 
       {/* Private Room Password Modal */}
       {pendingJoinId && (
-        <div style={overlay} onClick={() => { setPendingJoinId(null); setJoinError(null); }}>
-          <div style={modal} onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#f0c040', margin: 0 }}>🔒 비밀방</h3>
-            <p style={{ color: '#aab', margin: 0, fontSize: 14 }}>비밀번호를 입력하세요</p>
+        <div className="resort-modal-backdrop" onClick={() => { setPendingJoinId(null); setJoinError(null); }}>
+          <div className="resort-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="resort-modal-title">🔒 비밀방</h3>
+            <p className="resort-modal-copy">비밀번호를 입력하세요</p>
             <input
               value={joinPassword}
               onChange={e => setJoinPassword(e.target.value.replace(/\D/g, '').slice(0, 4))}
               placeholder="0000"
               maxLength={4}
               autoFocus
-              style={{ ...inputStyle, letterSpacing: 8, textAlign: 'center', fontSize: 20 }}
+              className="resort-input resort-input--pin"
               onKeyDown={e => e.key === 'Enter' && joinPassword.length === 4 && doJoin(pendingJoinId, joinPassword)}
             />
-            {joinError && <p style={{ color: '#f88', margin: 0, fontSize: 13 }}>{joinError}</p>}
+            {joinError && <p className="resort-error" style={{ margin: 0 }}>{joinError}</p>}
             <button
               onClick={() => doJoin(pendingJoinId, joinPassword)}
               disabled={joinPassword.length !== 4 || joining}
-              style={{ ...btnPrimary, opacity: joinPassword.length !== 4 || joining ? 0.5 : 1 }}
+              className="resort-btn-primary"
+              style={{ opacity: joinPassword.length !== 4 || joining ? 0.5 : 1 }}
             >
               {joining ? '입장 중...' : '입장하기'}
             </button>
-            <button onClick={() => { setPendingJoinId(null); setJoinError(null); }} style={btnSecondary}>취소</button>
+            <button onClick={() => { setPendingJoinId(null); setJoinError(null); }} className="resort-btn-secondary">취소</button>
           </div>
         </div>
       )}
 
       {showBotGame && onCreateBotGame && (
-        <div style={overlay} onClick={closeBotGameModal}>
-          <div style={modal} onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#4f8', margin: 0 }}>{t('rooms.botGameSetup', '봇전 구성')}</h3>
-            <p style={{ color: '#88a', fontSize: 13, margin: 0 }}>
+        <div className="resort-modal-backdrop" onClick={closeBotGameModal}>
+          <div className="resort-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="resort-modal-title">{t('rooms.botGameSetup', '봇전 구성')}</h3>
+            <p className="resort-modal-copy" style={{ fontSize: 13 }}>
               {t('rooms.botGameHint', '각 슬롯의 봇 유형을 고르면 바로 관전용 봇전을 시작합니다.')}
             </p>
 
             {selectedBotTypes.map((botType, index) => (
               <div key={`bot-slot-${index}`}>
-                <label style={{ color: '#aab', fontSize: 12, display: 'block', marginBottom: 4 }}>
+                <label className="resort-field-label">
                   {t('rooms.botSlot', { n: index + 1, defaultValue: `플레이어 ${index + 1} 봇` })}
                 </label>
                 <select
                   value={botType}
                   onChange={e => handleBotTypeChange(index, e.target.value)}
-                  style={inputStyle}
+                  className="resort-select"
                   disabled={loadingBotTypes || creatingBotGame || botAgents.length === 0}
                 >
                   {botAgents.map(agent => (
@@ -461,25 +438,25 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
             ))}
 
             {loadingBotTypes && (
-              <p style={{ color: '#88a', margin: 0, fontSize: 13 }}>
+              <p className="resort-modal-copy" style={{ fontSize: 13 }}>
                 {t('rooms.loadingBotTypes', '봇 목록을 불러오는 중...')}
               </p>
             )}
 
             {!loadingBotTypes && botAgents.length === 0 && (
-              <p style={{ color: '#f66', margin: 0, fontSize: 13 }}>
+              <p className="resort-error" style={{ margin: 0 }}>
                 {t('rooms.noBotTypes', '사용 가능한 봇이 없습니다.')}
               </p>
             )}
 
-            {botGameError && <p style={{ color: '#f66', margin: 0, fontSize: 13 }}>{botGameError}</p>}
+            {botGameError && <p className="resort-error" style={{ margin: 0 }}>{botGameError}</p>}
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <div className="resort-actions" style={{ marginTop: 4 }}>
               <button
                 onClick={handleCreateBotGameConfirm}
                 disabled={creatingBotGame || loadingBotTypes || botAgents.length === 0}
+                className="resort-btn-primary"
                 style={{
-                  ...btnPrimary,
                   flex: 1,
                   opacity: creatingBotGame || loadingBotTypes || botAgents.length === 0 ? 0.6 : 1,
                   cursor: creatingBotGame || loadingBotTypes || botAgents.length === 0 ? 'not-allowed' : 'pointer',
@@ -489,7 +466,7 @@ export default function RoomListScreen({ token, userNickname, onJoinRoom, onCrea
                   ? t('rooms.creatingBotGame', '봇전 생성 중...')
                   : t('rooms.startBotGame', '봇전 시작')}
               </button>
-              <button onClick={closeBotGameModal} disabled={creatingBotGame} style={{ ...btnSecondary, flex: 1 }}>
+              <button onClick={closeBotGameModal} disabled={creatingBotGame} className="resort-btn-secondary" style={{ flex: 1 }}>
                 {t('newGame.cancel', '취소')}
               </button>
             </div>

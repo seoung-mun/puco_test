@@ -129,86 +129,52 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
     : null;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#070d18', color: '#dde', fontFamily: 'sans-serif' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '20px 32px',
-          borderBottom: '1px solid #1a1a3a',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <div className="resort-page-shell">
+      <div className="resort-app-header">
+        <div className="resort-header-left">
           <button
             onClick={onBack}
-            style={{
-              background: 'none',
-              border: '1px solid #2a2a5a',
-              borderRadius: 6,
-              color: '#88a',
-              cursor: 'pointer',
-              padding: '7px 14px',
-              fontSize: 13,
-            }}
+            className="resort-btn-ghost"
           >
             ← {t('replay.back')}
           </button>
-          <h1 style={{ color: '#f0c040', margin: 0, fontSize: 20 }}>
+          <h1 className="resort-page-title" style={{ fontSize: 20 }}>
             {detail?.display_label ?? t('replay.title')}
           </h1>
         </div>
       </div>
 
-      <div style={{ padding: '24px 32px' }}>
-        {loading && <p style={{ color: '#667' }}>{t('replay.loading')}</p>}
+      <div className="resort-page-content">
+        {loading && <p className="resort-muted">{t('replay.loading')}</p>}
 
         {notFound && (
           <div
             data-testid="replay-not-found"
-            style={{ textAlign: 'center', marginTop: 80, color: '#445' }}
+            className="resort-empty-state"
           >
             <p style={{ fontSize: 16 }}>{t('replay.notFound')}</p>
             <button
               onClick={onBack}
-              style={{
-                marginTop: 16,
-                background: '#2a5ab0',
-                border: 'none',
-                borderRadius: 6,
-                color: '#fff',
-                cursor: 'pointer',
-                padding: '8px 18px',
-                fontSize: 13,
-              }}
+              className="resort-btn-primary"
+              style={{ marginTop: 16, padding: '8px 18px', width: 'auto', fontSize: 13 }}
             >
               ← {t('replay.back')}
             </button>
           </div>
         )}
 
-        {error && !notFound && <p style={{ color: '#f66' }}>{error}</p>}
+        {error && !notFound && <p className="resort-error">{error}</p>}
 
         {detail && totalFrames === 0 && !notFound && (
-          <div style={{ textAlign: 'center', marginTop: 60, color: '#556' }}>
+          <div className="resort-empty-state" style={{ marginTop: 60 }}>
             <p style={{ fontSize: 15 }}>{t('replay.noFrames')}</p>
           </div>
         )}
 
         {detail && totalFrames > 0 && (
           <>
-            <div
-              style={{
-                display: 'grid',
-                gap: 12,
-                padding: '12px 16px',
-                background: '#0d1117',
-                border: '1px solid #1a1a3a',
-                borderRadius: 8,
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div className="replay-control-panel">
+              <div className="resort-toolbar" style={{ gap: 10 }}>
                 <button
                   aria-label={t('replay.player.jumpBack')}
                   onClick={() => seek(currentFrame - 10)}
@@ -249,22 +215,16 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
                 >
                   +10
                 </button>
-                <span style={{ color: '#aab', fontSize: 13, minWidth: 90 }}>
+                <span className="resort-muted" style={{ fontSize: 13, minWidth: 90 }}>
                   {t('replay.player.frame', { current: currentFrame + 1, total: totalFrames })}
                 </span>
-                <label style={{ color: '#aab', fontSize: 13 }}>
+                <label className="resort-muted" style={{ fontSize: 13 }}>
                   {t('replay.player.speed')}:
                   <select
                     value={speed}
                     onChange={(e) => setSpeed(parseInt(e.target.value, 10))}
-                    style={{
-                      marginLeft: 6,
-                      background: '#1a1a2e',
-                      color: '#eee',
-                      border: '1px solid #444',
-                      borderRadius: 4,
-                      padding: '2px 6px',
-                    }}
+                    className="resort-select"
+                    style={{ marginLeft: 6, padding: '2px 6px', width: 'auto' }}
                   >
                     {[1, 2, 4, 8].map((s) => (
                       <option key={s} value={s}>
@@ -287,37 +247,25 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
 
             <div
               data-testid="replay-frame-info"
-              style={{
-                background: '#0d1117',
-                border: '1px solid #1a1a3a',
-                borderRadius: 8,
-                padding: 16,
-                marginBottom: 16,
-              }}
+              className="replay-frame-panel"
             >
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8, color: '#aab', fontSize: 13 }}>
+              <div className="resort-toolbar" style={{ gap: 16, marginBottom: 8, fontSize: 13 }}>
                 <span>
-                  <strong style={{ color: '#dde' }}>{t('replay.player.step')}:</strong> {frame?.step ?? '-'}
+                  <strong>{t('replay.player.step')}:</strong> {frame?.step ?? '-'}
                 </span>
                 <span>
-                  <strong style={{ color: '#dde' }}>{t('replay.player.currentAction')}:</strong> {frame?.action ?? '-'}
+                  <strong>{t('replay.player.currentAction')}:</strong> {frame?.action ?? '-'}
                 </span>
               </div>
               {frame?.commentary && (
-                <p style={{ color: '#9bf', fontSize: 13, margin: '6px 0' }}>
-                  <strong style={{ color: '#dde' }}>{t('replay.player.commentary')}:</strong> {frame.commentary}
+                <p style={{ color: 'var(--resort-ocean-deep)', fontSize: 13, margin: '6px 0' }}>
+                  <strong>{t('replay.player.commentary')}:</strong> {frame.commentary}
                 </p>
               )}
             </div>
 
             {replayGameScreenProps && (
-              <div
-                style={{
-                  border: '1px solid #1a1a3a',
-                  borderRadius: 10,
-                  overflow: 'hidden',
-                }}
-              >
+              <div className="replay-game-frame">
                 <GameScreen {...replayGameScreenProps} />
               </div>
             )}
@@ -330,10 +278,10 @@ export default function ReplayViewScreen({ token, gameId, onBack }: Props) {
 
 function controlBtn(disabled: boolean): React.CSSProperties {
   return {
-    background: disabled ? '#1a1a2e' : '#2a5ab0',
-    border: 'none',
+    background: disabled ? 'rgba(255,255,255,0.48)' : 'linear-gradient(135deg, var(--resort-ocean) 0%, var(--resort-emerald) 100%)',
+    border: disabled ? '1px solid var(--resort-border)' : '1px solid rgba(0, 126, 118, 0.28)',
     borderRadius: 6,
-    color: disabled ? '#556' : '#fff',
+    color: disabled ? 'rgba(94, 118, 111, 0.5)' : '#fff',
     cursor: disabled ? 'not-allowed' : 'pointer',
     padding: '6px 12px',
     fontSize: 14,

@@ -25,18 +25,17 @@ export default function PlayerPanel({ playerId, player, isActive, highlightLastP
 
   const sectionStyle: React.CSSProperties = {
     ...(isOffline ? { opacity: 0.45, filter: 'grayscale(0.7)' } : {}),
-    ...(isMe ? { background: '#0d1a30' } : {}),
   };
 
   return (
     <section
       id={`player-${playerId}`}
-      className={`panel player-panel ${isActive ? 'active-player' : ''}`}
+      className={`panel player-panel ${isActive ? 'active-player' : ''}${isMe ? ' player-panel--me' : ''}`}
       style={Object.keys(sectionStyle).length ? sectionStyle : undefined}
     >
       <h2>
         {isOffline && <span title="offline" style={{ marginRight: 6 }}>📵</span>}
-        <span style={isMe ? { textDecoration: 'underline', textDecorationColor: '#f0c040' } : undefined}>
+        <span style={isMe ? { textDecoration: 'underline', textDecorationColor: 'var(--resort-gold)' } : undefined}>
           {player.display_name}
         </span>
         {botType === 'gemini'  && <span style={{ marginLeft: 4, fontSize: '0.85em' }}>🤖</span>}
