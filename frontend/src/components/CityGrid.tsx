@@ -9,29 +9,29 @@ interface Props {
 }
 
 const BUILDING_CONFIG: Record<string, { icon: string; color: string }> = {
-  small_indigo_plant: { icon: '🫐', color: '#36a8c7' },
-  indigo_plant:       { icon: '🫐', color: '#208db0' },
-  small_sugar_mill:   { icon: '🎋', color: '#b7d978' },
-  sugar_mill:         { icon: '🎋', color: '#8fbd62' },
-  small_market:       { icon: '🏪', color: '#f4c85f' },
-  large_market:       { icon: '🏪', color: '#f4b63f' },
-  hacienda:           { icon: '🏡', color: '#7bbf91' },
-  construction_hut:   { icon: '🔨', color: '#d9c392' },
-  small_warehouse:    { icon: '📦', color: '#c8b98d' },
-  large_warehouse:    { icon: '📦', color: '#a9b795' },
-  tobacco_storage:    { icon: '🍂', color: '#d7925b' },
-  coffee_roaster:     { icon: '☕', color: '#8b6b4d' },
-  hospice:            { icon: '⚕️', color: '#62bdb8' },
-  office:             { icon: '📜', color: '#83c7d4' },
-  factory:            { icon: '⚙️', color: '#93a696' },
-  university:         { icon: '🎓', color: '#00a9b7' },
-  harbor:             { icon: '⚓', color: '#087b82' },
-  wharf:              { icon: '🚢', color: '#0f949e' },
-  guild_hall:         { icon: '🏛️', color: '#d49b34' },
-  residence:          { icon: '🏠', color: '#d7925b' },
-  fortress:           { icon: '🏰', color: '#7f9489' },
-  customs_house:      { icon: '🏦', color: '#4f9f4a' },
-  city_hall:          { icon: '🏛️', color: '#f4b63f' },
+  small_indigo_plant: { icon: '🫐', color: '#4a6984' },
+  indigo_plant:       { icon: '🫐', color: '#2b435a' },
+  small_sugar_mill:   { icon: '🎋', color: '#868e65' },
+  sugar_mill:         { icon: '🎋', color: '#535e38' },
+  small_market:       { icon: '🏪', color: '#e9c46a' },
+  large_market:       { icon: '🏪', color: '#e76f51' },
+  hacienda:           { icon: '🏡', color: '#708238' },
+  construction_hut:   { icon: '🔨', color: '#cb997e' },
+  small_warehouse:    { icon: '📦', color: '#b7b7a4' },
+  large_warehouse:    { icon: '📦', color: '#a3b19b' },
+  tobacco_storage:    { icon: '🍂', color: '#ad6b38' },
+  coffee_roaster:     { icon: '☕', color: '#563c2b' },
+  hospice:            { icon: '⚕️', color: '#6f8695' },
+  office:             { icon: '📜', color: '#8ea8bd' },
+  factory:            { icon: '⚙️', color: '#9a8c98' },
+  university:         { icon: '🎓', color: '#8ea8bd' },
+  harbor:             { icon: '⚓', color: '#4f5d75' },
+  wharf:              { icon: '🚢', color: '#606c38' },
+  guild_hall:         { icon: '🏛️', color: '#dda15e' },
+  residence:          { icon: '🏠', color: '#bc6c25' },
+  fortress:           { icon: '🏰', color: '#6b705c' },
+  customs_house:      { icon: '🏦', color: '#606c38' },
+  city_hall:          { icon: '🏛️', color: '#dda15e' },
 };
 
 function wrapLabel(label: string): [string, string] {
@@ -178,7 +178,7 @@ function BuildingTile({ building, x, y, tileH, onHover, onLeave, mayorLegal, onM
 function EmptySlot({ x, y, tileH }: { x: number; y: number; tileH: number }) {
   return (
     <rect x={x} y={y} width={TILE_W} height={tileH} rx={6}
-      fill="rgba(255,255,255,0.44)" stroke="rgba(0,137,139,0.26)" strokeWidth={1} strokeDasharray="4 3"
+      fill="rgba(255,255,255,0.44)" stroke="rgba(110,85,66,0.3)" strokeWidth={1} strokeDasharray="4 3"
     />
   );
 }
@@ -200,7 +200,7 @@ export default function CityGrid({ city, mayorLegalSlots, onMayorSlotClick }: Pr
     <div style={{ position: 'relative' }}>
       <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
         <rect x={4} y={4} width={svgW - 8} height={svgH - 8} rx={10}
-          fill="#dff7ee" stroke="rgba(0,137,139,0.24)" strokeWidth={2}
+          fill="#f3ede2" stroke="rgba(110,85,66,0.24)" strokeWidth={2}
         />
         {layout.map((entry, i) => {
           const x = PAD + entry.col * (TILE_W + GAP);

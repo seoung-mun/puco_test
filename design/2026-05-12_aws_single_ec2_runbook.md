@@ -25,7 +25,64 @@
 
 ---
 
-## 1. EC2 초기 부트스트랩
+## 0. AWS 콘솔에서 EC2 생성
+
+AWS 콘솔에서 아래 순서대로 생성합니다.
+
+1. AWS Console → **EC2** → **Instances** → **Launch instances**
+2. Name: `puco-prod-backend`
+3. Region: `ap-northeast-2` Seoul
+4. AMI: **Ubuntu Server 22.04 LTS**, architecture **64-bit (x86)**
+5. Instance type: **t3.small** (2 vCPU, 2GB RAM)
+6. Key pair: 기존 `.pem` 선택 또는 새 key pair 생성 후 로컬에 저장
+7. Network: 기본 VPC 또는 운영 VPC 선택, public subnet 선택, **Auto-assign public IP: Enable**
+8. Security group inbound rules:
+   - SSH `22/tcp`: 내 현재 IP만 허용
+   - HTTP `80/tcp`: `0.0.0.0/0`, `::/0` 허용
+   - HTTPS `443/tcp`: `0.0.0.0/0`, `::/0` 허용
+   - `8000`, `5432`, `6379`는 외부 공개 금지
+9. Storage: gp3 **30GB** 권장 (Docker image + Postgres volume 여유분)
+10. Advanced details: IAM role 없음, user data 비움, termination protection은 필요 시 활성화
+11. Launch instance
+12. EC2 → **Elastic IPs** → Allocate Elastic IP → 생성한 인스턴스에 Associate
+
+SSH 접속은 로컬 터미널에서 실행합니다.
+
+```bash
+chmod 400 /path/to/puco_capstone.pem
+ssh -i /path/to/puco_capstone.pem ubuntu@<EC2_ELASTIC_IP>
+```
+ssh -i /Users/seoungmun/Documents/agent_dev/castest/castone/puco_capstone.pem ubuntu@54.116.144.226
+---
+
+## 1. 로컬에서 백엔드 이미지 준비
+
+EC2가 2GB이므로 백엔드 이미지는 로컬 머신이나 CI에서 빌드합니다. t3.small은 x86_64이므로 `linux/amd64`로 빌드합니다.
+
+```bash
+cd /Users/seoungmun/Documents/agent_dev/castest/castone
+git switch prod
+
+# EC2에서 사용할 backend image 생성
+docker buildx build \
+  --platform linux/amd64 \
+  -t castone-backend:prod \
+  -f backend/Dockerfile.prod \
+  --load .
+
+# tar 파일로 저장
+docker save castone-backend:prod \
+  -o /tmp/castone-backend-prod-amd64.tar
+
+# EC2로 전송
+scp -i /path/to/puco_capstone.pem \
+  /tmp/castone-backend-prod-amd64.tar \
+  ubuntu@<EC2_ELASTIC_IP>:/tmp/
+```
+
+---
+
+## 2. EC2 초기 부트스트랩
 
 EC2 인스턴스에 최초 SSH 접속 직후 한 번만 실행합니다.
 
