@@ -33,12 +33,12 @@ function canBuild(name: string, b: CommonBoard['available_buildings'][string], i
 }
 
 const BUILDING_CONFIG: Record<string, { icon: string; color?: string }> = {
-  small_indigo_plant: { icon: '🫐', color: '#36a8c7' },
-  indigo_plant:       { icon: '🫐', color: '#208db0' },
-  small_sugar_mill:   { icon: '🎋', color: '#b7d978' },
-  sugar_mill:         { icon: '🎋', color: '#8fbd62' },
-  tobacco_storage:    { icon: '🍂', color: '#d7925b' },
-  coffee_roaster:     { icon: '☕', color: '#8b6b4d' },
+  small_indigo_plant: { icon: '🫐', color: '#4a6984' },
+  indigo_plant:       { icon: '🫐', color: '#2b435a' },
+  small_sugar_mill:   { icon: '🎋', color: '#868e65' },
+  sugar_mill:         { icon: '🎋', color: '#535e38' },
+  tobacco_storage:    { icon: '🍂', color: '#ad6b38' },
+  coffee_roaster:     { icon: '☕', color: '#563c2b' },
   small_market:       { icon: '🏪' },
   large_market:       { icon: '🏪' },
   hacienda:           { icon: '🏡' },
@@ -75,9 +75,9 @@ function buildingColor(name: string, cost: number): string {
   const cfg = BUILDING_CONFIG[name];
   if (cfg?.color) return cfg.color;
   const t = Math.min(1, Math.max(0, (cost - 1) / 9));
-  const r = Math.round(98 - t * 18);
-  const g = Math.round(189 - t * 50);
-  const b = Math.round(184 - t * 54);
+  const r = Math.round(247 - t * 20);
+  const g = Math.round(243 - t * 27);
+  const b = Math.round(235 - t * 35);
   return `rgb(${r},${g},${b})`;
 }
 
@@ -141,8 +141,8 @@ function BuildingTile({ name, x, y, tileH, b, builderOverlay, onBuild, onHover, 
       onMouseLeave={onLeave}>
       <rect x={x} y={y} width={TILE_W} height={tileH} rx={6}
         fill={color}
-        stroke={clickable ? '#f4b63f' : 'rgba(255,255,255,0.58)'}
-        strokeWidth={clickable ? 2 : 1} />
+        stroke={clickable ? '#0f4c5c' : 'rgba(255,255,255,0.58)'}
+        strokeWidth={clickable ? 2.5 : 1} />
       {soldOut && (
         <rect x={x} y={y} width={TILE_W} height={tileH} rx={6} fill="rgba(255,255,255,0.58)" />
       )}
@@ -235,7 +235,7 @@ export default function SanJuan({ buildings, builderInfo, onBuild }: Props) {
 
       <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`}>
         <rect x={4} y={4} width={svgW - 8} height={svgH - 8} rx={10}
-          fill="#dff7ee" stroke="rgba(0,137,139,0.24)" strokeWidth={2} />
+          fill="#f3ede2" stroke="rgba(110,85,66,0.24)" strokeWidth={2} />
 
         {/* Normal buildings: cols 0-2 */}
         {NORMAL_GRID.map((row, rowIdx) =>

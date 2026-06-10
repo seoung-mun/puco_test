@@ -9,12 +9,12 @@ interface Props {
 }
 
 const TILE_CONFIG: Record<string, { bg: string; icon: string }> = {
-  corn:    { bg: '#f4c85f', icon: '🌽' },
-  indigo:  { bg: '#36a8c7', icon: '🫐' },
-  sugar:   { bg: '#b7d978', icon: '🎋' },
-  tobacco: { bg: '#d7925b', icon: '🍂' },
-  coffee:  { bg: '#8b6b4d', icon: '☕' },
-  quarry:  { bg: '#93a696', icon: '⛏️' },
+  corn:    { bg: '#e9c46a', icon: '🌽' },
+  indigo:  { bg: '#4a6984', icon: '🫐' },
+  sugar:   { bg: '#868e65', icon: '🎋' },
+  tobacco: { bg: '#ad6b38', icon: '🍂' },
+  coffee:  { bg: '#563c2b', icon: '☕' },
+  quarry:  { bg: '#6b705c', icon: '⛏️' },
 };
 
 const COLS = 3;
@@ -42,7 +42,7 @@ export default function IslandGrid({ island, highlightLastTile, mayorLegalSlots,
         <ellipse
           cx={svgW / 2} cy={svgH / 2 + 8}
           rx={svgW / 2 - 4} ry={svgH / 2 - 2}
-          fill="#dff7ee"
+          fill="#f3ede2"
         />
         {/* Sand border */}
         <ellipse
@@ -65,7 +65,7 @@ export default function IslandGrid({ island, highlightLastTile, mayorLegalSlots,
             return (
               <g key={i}>
                 <rect x={x} y={y} width={TILE_W} height={TILE_H} rx={6}
-                  fill="rgba(255,255,255,0.44)" stroke="rgba(0,137,139,0.26)" strokeWidth={1} strokeDasharray="4 3" />
+                  fill="rgba(255,255,255,0.44)" stroke="rgba(110,85,66,0.3)" strokeWidth={1} strokeDasharray="4 3" />
               </g>
             );
           }
@@ -111,7 +111,7 @@ export default function IslandGrid({ island, highlightLastTile, mayorLegalSlots,
                   cy={y + 12}
                   r={8}
                   fill={colonized ? '#fff2cc' : 'rgba(255,255,255,0.42)'}
-                  stroke={colonized ? '#d49b34' : 'rgba(0,137,139,0.24)'}
+                  stroke={colonized ? '#b58900' : 'rgba(110,85,66,0.24)'}
                   strokeWidth={1.5}
                 />
                 {colonized && (
