@@ -45,6 +45,7 @@ from app.services.analytics import (
     win_rate_by_bot_type,
     win_rate_by_game_count,
     recent_games,
+    ppo_vs_humans_summary,
 )
 
 
@@ -295,6 +296,25 @@ def handle_ppo_lineup_games(args: argparse.Namespace, db=None) -> None:
             db.close()
 
 
+def handle_ppo_vs_humans(args: argparse.Namespace, db=None) -> None:
+    """ppo-vs-humans 서브커맨드 핸들러."""
+    close_after = db is None
+    if db is None:
+        db = _build_session()
+    try:
+        nicknames_str = getattr(args, "nicknames", "") or ""
+        nicknames = [n.strip() for n in nicknames_str.split(",") if n.strip()]
+        rows = ppo_vs_humans_summary(db, nicknames)
+        cols = ["human_nickname", "total_games", "ppo_wins", "ppo_losses", "ppo_win_rate"]
+        if getattr(args, "json", False):
+            print(json.dumps(rows, ensure_ascii=False, indent=2, default=str))
+        else:
+            _print_table(rows, cols)
+    finally:
+        if close_after:
+            db.close()
+
+
 def handle_ppo_human_winrate(args: argparse.Namespace, db=None) -> None:
     """ppo-human-winrate 서브커맨드 핸들러 — 매치업별 SVG 차트를 파일로 저장."""
     from scripts.visualize_ppo_human_winrate import (
@@ -419,6 +439,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="공통 차트 제목 (지정 시 매치업 라벨 대신 사용)",
     )
     p_phw.set_defaults(handler=handle_ppo_human_winrate)
+
+    # -- ppo-vs-humans --
+    p_pvh = sub.add_parser("ppo-vs-humans", help="지정된 인간 플레이어 대비 PPO 승률")
+    p_pvh.add_argument("--nicknames", required=True, metavar="N1,N2,...", help="콤마로 구분된 인간 플레이어 닉네임 목록")
+    p_pvh.add_argument("--json", action="store_true", help="JSON 형식으로 출력")
+    p_pvh.set_defaults(handler=handle_ppo_vs_humans)
 
     return parser
 

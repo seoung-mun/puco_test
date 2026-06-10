@@ -27,6 +27,7 @@ from scripts.analytics_cli import (
     handle_win_rate_by_count,
     handle_recent_games,
     build_parser,
+    handle_ppo_vs_humans,
 )
 from app.db.models import GameSession, User
 
@@ -337,7 +338,7 @@ class TestHandleRecentGames:
 # ---------------------------------------------------------------------------
 
 class TestBuildParser:
-    def test_four_subcommands_present(self):
+    def test_subcommands_present(self):
         parser = build_parser()
         # argparse 내부에서 subparser choices 를 확인
         subparser_action = next(
@@ -345,7 +346,18 @@ class TestBuildParser:
             if hasattr(a, "_name_parser_map")
         )
         choices = set(subparser_action._name_parser_map.keys())
-        assert choices == {"list-users", "win-rate-by-bot", "win-rate-by-count", "recent-games"}
+        expected = {
+            "list-users",
+            "win-rate-by-bot",
+            "win-rate-by-count",
+            "recent-games",
+            "lineup-summary",
+            "lineup-games",
+            "ppo-lineup-games",
+            "ppo-human-winrate",
+            "ppo-vs-humans",
+        }
+        assert expected.issubset(choices)
 
     def test_list_users_defaults(self):
         args = build_parser().parse_args(["list-users"])
@@ -373,3 +385,63 @@ class TestBuildParser:
     def test_json_flag_win_rate_by_bot(self):
         args = build_parser().parse_args(["win-rate-by-bot", "--user-id", "u1", "--json"])
         assert args.json is True
+
+    def test_ppo_vs_humans_args(self):
+        args = build_parser().parse_args(["ppo-vs-humans", "--nicknames", "Alice,Bob", "--json"])
+        assert args.command == "ppo-vs-humans"
+        assert args.nicknames == "Alice,Bob"
+        assert args.json is True
+
+
+# ---------------------------------------------------------------------------
+# handle_ppo_vs_humans
+# ---------------------------------------------------------------------------
+
+class TestHandlePpoVsHumans:
+    def test_table_output(self, db, capsys):
+        u = make_user(db, "Alice")
+        u.nickname = "Alice"
+        uid = str(u.id)
+        # finished game with Alice and PPO
+        make_game(db, [uid, "BOT_ppo", "BOT_random"], status="FINISHED", winner_id="BOT_ppo")
+        db.flush()
+
+        handle_ppo_vs_humans(_ns(nicknames="Alice"), db=db)
+        out = capsys.readouterr().out
+        assert "human_nickname" in out
+        assert "Alice" in out
+        assert "total_games" in out
+        assert "ppo_win_rate" in out
+
+    def test_json_output(self, db, capsys):
+        u = make_user(db, "Bob")
+        u.nickname = "Bob"
+        uid = str(u.id)
+        make_game(db, [uid, "BOT_ppo", "BOT_random"], status="FINISHED", winner_id=uid)
+        db.flush()
+
+        handle_ppo_vs_humans(_ns(nicknames="Bob", json=True), db=db)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert isinstance(data, list)
+        assert data[0]["human_nickname"] == "Bob"
+        assert data[0]["total_games"] == 1
+        assert data[0]["ppo_wins"] == 0
+        assert data[0]["ppo_win_rate"] == 0.0
+
+    def test_mock_ppo_vs_humans_summary_called(self, db, capsys):
+        with patch("scripts.analytics_cli.ppo_vs_humans_summary") as mock_fn:
+            mock_fn.return_value = [
+                {
+                    "human_nickname": "Charlie",
+                    "total_games": 5,
+                    "ppo_wins": 3,
+                    "ppo_losses": 2,
+                    "ppo_win_rate": 0.6000,
+                }
+            ]
+            handle_ppo_vs_humans(_ns(nicknames="Charlie"), db=db)
+            mock_fn.assert_called_once_with(db, ["Charlie"])
+
+        out = capsys.readouterr().out
+        assert "Charlie" in out

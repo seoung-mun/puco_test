@@ -16,6 +16,7 @@ from app.services.analytics import (
     win_rate_by_game_count,
     list_users,
     recent_games,
+    ppo_vs_humans_summary,
 )
 
 
@@ -479,3 +480,64 @@ class TestRecentGames:
 
         result = recent_games(db, uid)
         assert result == []
+
+
+# ===========================================================================
+# ppo_vs_humans_summary
+# ===========================================================================
+
+class TestPpoVsHumansSummary:
+    def test_empty_nicknames_returns_empty(self, db):
+        assert ppo_vs_humans_summary(db, []) == []
+
+    def test_nickname_not_found_returns_zero_stats(self, db):
+        result = ppo_vs_humans_summary(db, ["nonexistent_user"])
+        assert len(result) == 1
+        assert result[0] == {
+            "human_nickname": "nonexistent_user",
+            "total_games": 0,
+            "ppo_wins": 0,
+            "ppo_losses": 0,
+            "ppo_win_rate": 0.0,
+        }
+
+    def test_ppo_vs_humans_winrate_calculation(self, db):
+        u1 = make_user(db, "Alice")
+        u2 = make_user(db, "Bob")
+        # Ensure exact nicknames for matching
+        u1.nickname = "Alice"
+        u2.nickname = "Bob"
+        uid1 = str(u1.id)
+        uid2 = str(u2.id)
+
+        # 3-player finished games containing PPO
+        # Game 1: PPO, Alice, Bot_random. PPO wins.
+        make_game(db, [uid1, "BOT_ppo", "BOT_random"], status="FINISHED", winner_id="BOT_ppo")
+        # Game 2: PPO, Alice, Bob. Bob wins (PPO loses).
+        make_game(db, [uid1, uid2, "BOT_ppo"], status="FINISHED", winner_id=uid2)
+        # Game 3: PPO, Bob, Bot_random. PPO wins.
+        make_game(db, [uid2, "BOT_ppo", "BOT_random"], status="FINISHED", winner_id="BOT_ppo")
+        # Game 4: PPO, Bob, Bot_random. PPO wins.
+        make_game(db, [uid2, "BOT_ppo", "BOT_random"], status="FINISHED", winner_id="BOT_ppo")
+        # Game 5: Not finished game. Should be excluded.
+        make_game(db, [uid1, "BOT_ppo", "BOT_random"], status="PROGRESS", winner_id=None)
+        
+        db.flush()
+
+        # Alice: 2 games played (Game 1, Game 2), PPO won Game 1 (1 win, 1 loss) -> PPO Win Rate 0.5
+        # Bob: 3 games played (Game 2, Game 3, Game 4), PPO won Game 3, Game 4 (2 wins, 1 loss) -> PPO Win Rate 0.6667
+        # Note: Sorted by total_games DESC (Bob has 3 games, Alice has 2 games)
+        result = ppo_vs_humans_summary(db, ["Alice", "Bob"])
+        assert len(result) == 2
+
+        assert result[0]["human_nickname"] == "Bob"
+        assert result[0]["total_games"] == 3
+        assert result[0]["ppo_wins"] == 2
+        assert result[0]["ppo_losses"] == 1
+        assert result[0]["ppo_win_rate"] == 0.6667
+
+        assert result[1]["human_nickname"] == "Alice"
+        assert result[1]["total_games"] == 2
+        assert result[1]["ppo_wins"] == 1
+        assert result[1]["ppo_losses"] == 1
+        assert result[1]["ppo_win_rate"] == 0.5

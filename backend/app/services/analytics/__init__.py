@@ -8,6 +8,7 @@ from .queries import (
     ppo_lineup_games,
     recent_games,
     resolve_user_id_or_nickname,
+    ppo_vs_humans_summary,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "ppo_lineup_games",
     "recent_games",
     "resolve_user_id_or_nickname",
+    "ppo_vs_humans_summary",
 ]

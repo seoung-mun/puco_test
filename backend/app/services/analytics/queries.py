@@ -823,3 +823,79 @@ def recent_games(db: Session, user_id: str, limit: int = 20) -> list[dict]:
         rows.append(base_row)
 
     return rows
+
+
+def ppo_vs_humans_summary(db: Session, nicknames: list[str]) -> list[dict[str, Any]]:
+    """Return PPO agent win-rate stats against a list of human nicknames.
+
+    Each entry: {
+        "human_nickname": str,
+        "total_games": int,
+        "ppo_wins": int,
+        "ppo_losses": int,
+        "ppo_win_rate": float
+    }
+    """
+    if not nicknames:
+        return []
+
+    # 1. 닉네임 기반으로 User UUID 맵핑
+    users = db.query(User).filter(User.nickname.in_(nicknames)).all()
+    nickname_to_id = {user.nickname: str(user.id) for user in users if user.nickname}
+
+    # 2. 완료된 3인 게임 전체 목록 조회
+    games = (
+        db.query(GameSession)
+        .filter(
+            GameSession.status == "FINISHED",
+            GameSession.num_players == 3,
+        )
+        .all()
+    )
+
+    # 3. 각 닉네임별 PPO 대전 통계 집계
+    result = []
+    for nick in nicknames:
+        user_id = nickname_to_id.get(nick)
+        if not user_id:
+            result.append({
+                "human_nickname": nick,
+                "total_games": 0,
+                "ppo_wins": 0,
+                "ppo_losses": 0,
+                "ppo_win_rate": 0.0,
+            })
+            continue
+
+        # PPO와 해당 유저가 모두 참여한 게임 필터링
+        target_games = []
+        for g in games:
+            players = [str(p) for p in (g.players or [])]
+            if len(players) == 3 and user_id in players and any(_is_ppo_actor(p) for p in players):
+                target_games.append(g)
+
+        total_games = len(target_games)
+        ppo_wins = 0
+        ppo_losses = 0
+
+        for g in target_games:
+            winner_id = str(g.winner_id) if g.winner_id is not None else None
+            if winner_id and _is_ppo_actor(winner_id):
+                ppo_wins += 1
+            else:
+                ppo_losses += 1
+
+        ppo_win_rate = round(ppo_wins / total_games, 4) if total_games > 0 else 0.0
+
+        result.append({
+            "human_nickname": nick,
+            "total_games": total_games,
+            "ppo_wins": ppo_wins,
+            "ppo_losses": ppo_losses,
+            "ppo_win_rate": ppo_win_rate,
+        })
+
+    # 총 대국 수 내림차순 정렬
+    result.sort(key=lambda x: x["total_games"], reverse=True)
+    return result
+
