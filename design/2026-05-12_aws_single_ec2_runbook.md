@@ -56,7 +56,7 @@ SSH 접속은 로컬 터미널에서 실행합니다.
 chmod 400 /path/to/puco_capstone.pem
 ssh -i /path/to/puco_capstone.pem ubuntu@<EC2_ELASTIC_IP>
 ```
-
+ssh -i /Users/seoungmun/Documents/agent_dev/castest/castone/puco_capstone.pem ubuntu@54.116.144.226
 ---
 
 ## 1. 로컬에서 백엔드 이미지 준비

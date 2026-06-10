@@ -7,23 +7,23 @@
   color: #163835;
   background-color: #f4ead8;
 
-  --resort-sand-50: #fffaf0;
-  --resort-sand-100: #f8efd9;
-  --resort-sand-200: #ead9b9;
-  --resort-sand-300: #d7bd8f;
-  --resort-surface: rgba(255, 252, 244, 0.9);
-  --resort-surface-strong: #fffdf7;
-  --resort-surface-soft: rgba(255, 255, 255, 0.62);
-  --resort-ink: #173b3a;
-  --resort-ink-muted: #5e766f;
-  --resort-ocean: #00a9b7;
-  --resort-ocean-deep: #087b82;
-  --resort-emerald: #008e6d;
-  --resort-palm: #4f9f4a;
-  --resort-gold: #f4b63f;
-  --resort-coral: #ff745f;
-  --resort-border: rgba(0, 137, 139, 0.22);
-  --resort-border-strong: rgba(0, 137, 139, 0.42);
+  --resort-sand-50: #fcfaf2;
+  --resort-sand-100: #f3ede2;
+  --resort-sand-200: #e7dbcb;
+  --resort-sand-300: #cbbaa5;
+  --resort-surface: rgba(251, 248, 240, 0.94);
+  --resort-surface-strong: #fdfbf7;
+  --resort-surface-soft: rgba(255, 255, 255, 0.7);
+  --resort-ink: #2e2116;
+  --resort-ink-muted: #68594f;
+  --resort-ocean: #aa6b39;
+  --resort-ocean-deep: #5c3a21;
+  --resort-emerald: #4e533c;
+  --resort-palm: #556f44;
+  --resort-gold: #b58900;
+  --resort-coral: #b23b1e;
+  --resort-border: rgba(110, 85, 66, 0.18);
+  --resort-border-strong: rgba(110, 85, 66, 0.35);
   --resort-shadow: 0 18px 45px rgba(20, 87, 82, 0.14);
   --resort-shadow-soft: 0 10px 28px rgba(20, 87, 82, 0.1);
   --resort-radius: 8px;
@@ -49,7 +49,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    linear-gradient(135deg, rgba(255, 250, 240, 0.94) 0%, rgba(244, 234, 216, 0.96) 46%, rgba(222, 246, 238, 0.86) 100%);
+    linear-gradient(135deg, rgba(252, 250, 242, 0.94) 0%, rgba(243, 237, 226, 0.96) 46%, rgba(231, 219, 203, 0.86) 100%);
 }
 
 h1 {

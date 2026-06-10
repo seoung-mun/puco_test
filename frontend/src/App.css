@@ -29,7 +29,7 @@
   min-height: 100vh;
   background:
     radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.92), transparent 34%),
-    linear-gradient(135deg, var(--resort-sand-50) 0%, var(--resort-sand-100) 50%, #dff7ee 100%);
+    linear-gradient(135deg, var(--resort-sand-50) 0%, var(--resort-sand-100) 50%, #f3ede2 100%);
   color: var(--resort-ink);
 }
 
@@ -1759,7 +1759,7 @@ th { color: #80a0cc; font-weight: normal; font-size: 0.8rem; }
 body {
   background:
     radial-gradient(circle at 15% 5%, rgba(255, 255, 255, 0.92), transparent 30%),
-    linear-gradient(135deg, var(--resort-sand-50) 0%, var(--resort-sand-100) 46%, #dff7ee 100%);
+    linear-gradient(135deg, var(--resort-sand-50) 0%, var(--resort-sand-100) 46%, #f3ede2 100%);
   color: var(--resort-ink);
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
@@ -1888,11 +1888,11 @@ h1 {
 }
 
 .sticky-bar__row2 {
-  border-top-color: rgba(0, 137, 139, 0.14);
+  border-top-color: rgba(110, 85, 66, 0.14);
 }
 
 .common-vsep {
-  background: rgba(0, 137, 139, 0.18);
+  background: rgba(110, 85, 66, 0.18);
 }
 
 .panel h2,
@@ -1940,7 +1940,7 @@ th,
 }
 
 .player-panel--me {
-  background: rgba(223, 247, 238, 0.76);
+  background: rgba(243, 237, 226, 0.76);
 }
 
 .player-panel__badge--governor {
@@ -1973,17 +1973,17 @@ th,
 td,
 .captain-discard-table th,
 .captain-discard-table td {
-  border-color: rgba(0, 137, 139, 0.16);
+  border-color: rgba(110, 85, 66, 0.16);
 }
 
 .captain-discard-table th,
 .end-game-table th {
-  background: rgba(0, 169, 183, 0.08);
+  background: rgba(110, 85, 66, 0.08);
   color: var(--resort-ocean-deep);
 }
 
 .end-game-table td {
-  border-color: rgba(0, 137, 139, 0.14);
+  border-color: rgba(110, 85, 66, 0.14);
   color: var(--resort-ink);
 }
 
@@ -2006,7 +2006,7 @@ td,
 }
 
 .selectable:hover {
-  background: rgba(0, 169, 183, 0.08);
+  background: rgba(110, 85, 66, 0.08);
 }
 
 .taken td {
@@ -2144,11 +2144,11 @@ td,
 }
 
 .mayor-strategy-option--building {
-  border-color: rgba(0, 169, 183, 0.34);
+  border-color: rgba(110, 85, 66, 0.35);
 }
 
 .captain-good-row {
-  border-bottom-color: rgba(0, 137, 139, 0.14);
+  border-bottom-color: rgba(110, 85, 66, 0.14);
 }
 
 .captain-wharf-btn {
