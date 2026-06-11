@@ -74,8 +74,8 @@ services:
       - PYTHONPATH=/app:/PuCo_RL
       - APP_LOG_DIR=/tmp/castone-data/logs
       - DEBUG=false
-    ports:
-      - "0.0.0.0:80:8000"
+    expose:
+      - "8000"
     volumes:
       - backend_logs:/data/logs
     networks:
@@ -102,6 +102,36 @@ services:
           cpus: "0.5"
           memory: 512M
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: puco_caddy
+    cpus: 0.2
+    mem_limit: 128m
+    mem_reservation: 32m
+    environment:
+      - PUBLIC_BACKEND_HOST=${PUBLIC_BACKEND_HOST:-localhost}
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.2"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 32M
+
 networks:
   internal:
     driver: bridge
@@ -113,3 +143,5 @@ volumes:
   pgdata:
   redisdata:
   backend_logs:
+  caddy_data:
+  caddy_config:
