@@ -92,6 +92,10 @@ ehthumbs.db
 GEMINI.md
 .worktrees/
 
+# --- Generated Analysis Outputs ---
+ppo_human_winrate.json
+ppo_human_*.svg
+
 # --- Ad-hoc Reports To Keep Out Of Merge ---
 error_report/
 TODO.md
